@@ -152,7 +152,7 @@ export default function QuotationsPage() {
         </Link>
       </div>
 
-      {/* 3 Quick Financial Summary Cards */}
+      {/* 3 Quick Summary Metric Cards (Clean Counts) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5">
         {/* Total Quotes Generated */}
         <div className="clay-card p-5 bg-gradient-to-br from-slate-50/80 via-white to-blue-50/20">
@@ -169,36 +169,16 @@ export default function QuotationsPage() {
               {totalQuotes}
             </h3>
             <p className="text-[11px] text-slate-400 font-medium mt-1">
-              Active pipeline estimates
+              All created pipeline proposals
             </p>
           </div>
         </div>
 
-        {/* Pending Client Approval */}
-        <div className="clay-card p-5 bg-gradient-to-br from-blue-50/30 via-white to-indigo-50/20">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              Awaiting Approval
-            </span>
-            <div className="clay-icon-squircle p-2.5 bg-blue-50 text-blue-700 border border-blue-200/80">
-              <Clock className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <h3 className="text-2xl sm:text-[28px] font-bold text-blue-900">
-              {formatCurrency(pendingValue, "INR")}
-            </h3>
-            <p className="text-[11px] text-blue-700 font-medium mt-1">
-              {pendingQuotes.length} proposals under client review
-            </p>
-          </div>
-        </div>
-
-        {/* Won & Converted Value */}
+        {/* Accepted Quotations (Green) */}
         <div className="clay-card p-5 bg-gradient-to-br from-emerald-50/30 via-white to-teal-50/20">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              Won / Converted Value
+              Accepted Quotations
             </span>
             <div className="clay-icon-squircle p-2.5 bg-emerald-50 text-emerald-700 border border-emerald-200/80">
               <CheckCircle2 className="h-4 w-4" />
@@ -206,14 +186,36 @@ export default function QuotationsPage() {
           </div>
           <div className="mt-3">
             <h3 className="text-2xl sm:text-[28px] font-bold text-emerald-800">
-              {formatCurrency(convertedValue, "INR")}
+              {acceptedOrConverted.length}
             </h3>
             <p className="text-[11px] text-emerald-700 font-medium mt-1">
-              {acceptedOrConverted.length} quotes accepted / invoiced
+              Approved & ready for billing
+            </p>
+          </div>
+        </div>
+
+        {/* Pending Quotations (Amber) */}
+        <div className="clay-card p-5 bg-gradient-to-br from-amber-50/30 via-white to-orange-50/20">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              Pending Quotations
+            </span>
+            <div className="clay-icon-squircle p-2.5 bg-amber-50 text-amber-700 border border-amber-200/80">
+              <Clock className="h-4 w-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <h3 className="text-2xl sm:text-[28px] font-bold text-amber-800">
+              {pendingQuotes.length}
+            </h3>
+            <p className="text-[11px] text-amber-700 font-medium mt-1">
+              Awaiting client response
             </p>
           </div>
         </div>
       </div>
+
+
 
       {/* Search Bar, Filter Tabs & View Toggle */}
       <div className="clay-card p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
