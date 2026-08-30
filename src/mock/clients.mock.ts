@@ -1,0 +1,51 @@
+import { Client } from "@/types";
+
+export const MOCK_CLIENTS: Client[] = [
+  {
+    id: "client-1",
+    tenantId: "tenant-royal-events",
+    name: "Sunil Kapoor",
+    companyName: "Kapoor Tech Innovations Pvt Ltd",
+    email: "sunil@kapoortech.example.com",
+    phone: "+91 98111 22233",
+    gstin: "07AAACK1234F1Z1",
+    billingAddress: {
+      street: "Tower B, DLF Cyber City",
+      city: "Gurugram",
+      state: "Haryana",
+      postalCode: "122002",
+      country: "India",
+    },
+    tags: ["Corporate Event", "Printing", "VIP"],
+    createdAt: "2026-03-10T10:00:00.000Z",
+    updatedAt: "2026-08-15T14:30:00.000Z",
+  },
+  {
+    id: "client-2",
+    tenantId: "tenant-royal-events",
+    name: "Pooja Malhotra",
+    companyName: "Malhotra & Associates",
+    email: "pooja@malhotradesign.example.com",
+    phone: "+91 99222 33344",
+    billingAddress: {
+      street: "14 Green Park Main",
+      city: "New Delhi",
+      state: "Delhi",
+      postalCode: "110016",
+      country: "India",
+    },
+    tags: ["Wedding Planner", "Event"],
+    createdAt: "2026-04-12T11:20:00.000Z",
+    updatedAt: "2026-08-20T09:15:00.000Z",
+  },
+  {
+    id: "client-3",
+    tenantId: "tenant-royal-events",
+    name: "Vikram Singhania",
+    email: "vikram.s@singhania.example.com",
+    phone: "+91 97333 44455",
+    tags: ["Brochure Print", "Flex Banners"],
+    createdAt: "2026-05-01T08:45:00.000Z",
+    updatedAt: "2026-08-22T16:00:00.000Z",
+  },
+];
