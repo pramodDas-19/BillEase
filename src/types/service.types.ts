@@ -1,4 +1,4 @@
-export type ServiceCategory = "event" | "printing" | "design" | "custom";
+export type ServiceCategory = "event" | "printing" | "design" | "custom" | string;
 
 export interface ProductOrService {
   id: string;
@@ -6,6 +6,10 @@ export interface ProductOrService {
   name: string; // e.g. "Stage Lighting Setup", "350 GSM Visiting Cards"
   category: ServiceCategory;
   description?: string;
+  rate?: number;
+  unit?: string;
+  gstRate?: number;
+  hsnSac?: string;
   defaultRate?: number;
   defaultUnit?: string; // "pcs", "sq ft", "event", "hours", "sets"
   defaultTaxRate?: number; // Optional GST %
@@ -14,3 +18,5 @@ export interface ProductOrService {
   createdAt: string;
   updatedAt: string;
 }
+
+export type ServiceItem = ProductOrService;

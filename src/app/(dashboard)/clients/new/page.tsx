@@ -3,7 +3,9 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ClientService } from "@/services/client.service";
 import { cn } from "@/lib/utils";
+
 import {
   ArrowLeft,
   UserPlus,
@@ -57,11 +59,34 @@ export default function NewClientPage() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In production, persists via ClientService / API
-    router.push("/clients");
+    setIsSubmitting(true);
+
+    try {
+      await ClientService.createClient({
+        name,
+        companyName: companyName || undefined,
+        phone,
+        email: email || undefined,
+        gstin: gstin || undefined,
+        address: address || undefined,
+        segmentTags: selectedTags,
+        totalBilled: 0,
+        totalPaid: 0,
+        balanceDue: 0,
+      });
+
+      router.push("/clients");
+    } catch (err) {
+      console.error("Failed to create client:", err);
+      setIsSubmitting(false);
+    }
   };
+
 
   return (
     <div className="space-y-6 max-w-3xl animate-in fade-in-50 duration-200">

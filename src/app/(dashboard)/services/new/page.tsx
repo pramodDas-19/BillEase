@@ -3,7 +3,9 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { CatalogService } from "@/services/service.service";
 import { cn } from "@/lib/utils";
+
 import {
   ArrowLeft,
   Package,
@@ -98,11 +100,31 @@ export default function NewServicePage() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In production, persists to Service catalog / API
-    router.push("/services");
+    setIsSubmitting(true);
+
+    try {
+      await CatalogService.createService({
+        name: serviceName,
+        category: selectedCategory,
+        rate: parseFloat(defaultRate) || 0,
+        unit: selectedUnit,
+        hsnSac: hsnCode || undefined,
+        gstRate: parseFloat(taxRate) || 18,
+        description: description || undefined,
+        isActive: true,
+      });
+
+      router.push("/services");
+    } catch (err) {
+      console.error("Failed to create service:", err);
+      setIsSubmitting(false);
+    }
   };
+
 
   return (
     <div className="space-y-6 max-w-3xl animate-in fade-in-50 duration-200">

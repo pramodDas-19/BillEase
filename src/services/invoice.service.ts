@@ -1,114 +1,211 @@
-import { Invoice, InvoiceStatus, Quotation } from "@/types";
+import { supabase } from "@/lib/supabase/client";
+import { Invoice } from "@/types";
 import { MOCK_INVOICES } from "@/mock/invoices.mock";
-import { QuotationService } from "./quotation.service";
 
-export class InvoiceService {
-  private static invoices: Invoice[] = [...MOCK_INVOICES];
+const TENANT_ID = "tenant-royal-events";
 
-  static async getInvoices(tenantId: string, status?: InvoiceStatus): Promise<Invoice[]> {
-    let list = this.invoices.filter((i) => i.tenantId === tenantId);
-    if (status) {
-      list = list.filter((i) => i.status === status);
+export const InvoiceService = {
+  // Fetch all invoices with line items from Supabase
+  async getInvoices(): Promise<Invoice[]> {
+    try {
+      const { data, error } = await supabase
+        .from("invoices")
+        .select(`
+          *,
+          invoice_items (*)
+        `)
+        .eq("tenant_id", TENANT_ID)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.warn("Supabase fetch invoices error, using mock:", error.message);
+        return MOCK_INVOICES;
+      }
+
+      if (!data || data.length === 0) {
+        await this.seedInitialInvoices();
+        return MOCK_INVOICES;
+      }
+
+      return data.map((inv) => ({
+        id: inv.id,
+        tenantId: inv.tenant_id,
+        invoiceNumber: inv.invoice_number,
+        quotationId: inv.quotation_id,
+        quotationNumber: inv.quotation_number,
+        clientId: inv.client_id,
+        clientName: inv.client_name,
+        clientEmail: inv.client_email,
+        clientPhone: inv.client_phone,
+        clientAddress: inv.client_address,
+        clientGstin: inv.client_gstin,
+        issueDate: inv.issue_date,
+        dueDate: inv.due_date,
+        status: inv.status,
+        currency: inv.currency || "INR",
+        items: (inv.invoice_items || []).map((item: any) => ({
+          id: item.id,
+          description: item.description,
+          detailedNotes: item.detailed_notes,
+          quantity: item.quantity ? parseFloat(item.quantity) : undefined,
+          unit: item.unit,
+          rate: item.rate ? parseFloat(item.rate) : undefined,
+          amount: parseFloat(item.amount || "0"),
+        })),
+        subtotal: parseFloat(inv.subtotal || "0"),
+        discountType: inv.discount_type,
+        discountValue: parseFloat(inv.discount_value || "0"),
+        discountAmount: parseFloat(inv.discount_amount || "0"),
+        isTaxEnabled: inv.is_tax_enabled ?? true,
+        totalTax: parseFloat(inv.total_tax || "0"),
+        totalAmount: parseFloat(inv.total_amount || "0"),
+        paidAmount: parseFloat(inv.paid_amount || "0"),
+        balanceDue: parseFloat(inv.balance_due || "0"),
+        termsAndConditions: inv.terms_and_conditions,
+        notes: inv.notes,
+        createdAt: inv.created_at,
+        updatedAt: inv.updated_at,
+      }));
+    } catch (err) {
+      console.error("InvoiceService.getInvoices error:", err);
+      return MOCK_INVOICES;
     }
-    return list;
-  }
+  },
 
-  static async getInvoiceById(tenantId: string, id: string): Promise<Invoice | null> {
-    return this.invoices.find((i) => i.tenantId === tenantId && i.id === id) || null;
-  }
+  // Create a new invoice + items in Supabase
+  async createInvoice(inv: Partial<Invoice>): Promise<Invoice | null> {
+    try {
+      const invId = `inv-${Date.now()}`;
+      const payload = {
+        id: invId,
+        tenant_id: TENANT_ID,
+        invoice_number: inv.invoiceNumber,
+        quotation_id: inv.quotationId || null,
+        quotation_number: inv.quotationNumber || null,
+        client_id: inv.clientId || null,
+        client_name: inv.clientName,
+        client_email: inv.clientEmail || null,
+        client_phone: inv.clientPhone || null,
+        client_address: inv.clientAddress || null,
+        client_gstin: inv.clientGstin || null,
+        issue_date: inv.issueDate,
+        due_date: inv.dueDate,
+        status: inv.status || "due",
+        currency: inv.currency || "INR",
+        subtotal: inv.subtotal || 0,
+        discount_type: inv.discountType || "percentage",
+        discount_value: inv.discountValue || 0,
+        discount_amount: inv.discountAmount || 0,
+        is_tax_enabled: inv.isTaxEnabled ?? true,
+        total_tax: inv.totalTax || 0,
+        total_amount: inv.totalAmount || 0,
+        paid_amount: inv.paidAmount || 0,
+        balance_due: inv.balanceDue ?? inv.totalAmount ?? 0,
+        terms_and_conditions: inv.termsAndConditions || null,
+        notes: inv.notes || null,
+      };
 
-  static async createInvoice(
-    tenantId: string,
-    data: Omit<Invoice, "id" | "tenantId" | "createdAt" | "updatedAt">
-  ): Promise<Invoice> {
-    const newInvoice: Invoice = {
-      ...data,
-      id: `inv-${Date.now()}`,
-      tenantId,
-      paidAmount: data.paidAmount || 0,
-      balanceDue: data.balanceDue ?? (data.totalAmount - (data.paidAmount || 0)),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    this.invoices.unshift(newInvoice);
-    return newInvoice;
-  }
+      const { data, error } = await supabase
+        .from("invoices")
+        .insert(payload)
+        .select()
+        .single();
 
-  /**
-   * Convert an accepted quotation directly into a draft/sent invoice
-   */
-  static async convertFromQuotation(
-    tenantId: string,
-    quotation: Quotation,
-    invoiceNumber: string,
-    dueDate: string
-  ): Promise<Invoice> {
-    const newInvoice = await this.createInvoice(tenantId, {
-      invoiceNumber,
-      quotationId: quotation.id,
-      quotationNumber: quotation.quotationNumber,
-      clientId: quotation.clientId,
-      clientName: quotation.clientName,
-      clientEmail: quotation.clientEmail,
-      clientPhone: quotation.clientPhone,
-      clientAddress: quotation.clientAddress,
-      clientGstin: quotation.clientGstin,
-      issueDate: new Date().toISOString().split("T")[0],
-      dueDate,
-      status: "due",
-      currency: quotation.currency,
-      items: quotation.items.map((item) => ({ ...item })),
-      subtotal: quotation.subtotal,
-      discountType: quotation.discountType,
-      discountValue: quotation.discountValue,
-      discountAmount: quotation.discountAmount,
-      isTaxEnabled: quotation.isTaxEnabled,
-      taxBreakdown: quotation.taxBreakdown,
-      totalTax: quotation.totalTax,
-      totalAmount: quotation.totalAmount,
-      paidAmount: 0,
-      balanceDue: quotation.totalAmount,
-      termsAndConditions: quotation.termsAndConditions,
-      notes: quotation.notes,
-    });
+      if (error) {
+        console.error("Supabase insert invoice error:", error);
+        return null;
+      }
 
-    // Mark the quotation as converted
-    await QuotationService.updateQuotation(tenantId, quotation.id, {
-      status: "converted",
-      convertedToInvoiceId: newInvoice.id,
-      convertedAt: new Date().toISOString(),
-    });
+      // Insert line items
+      if (inv.items && inv.items.length > 0) {
+        const itemRows = inv.items.map((item, idx) => ({
+          id: `inv-item-${Date.now()}-${idx}`,
+          invoice_id: invId,
+          description: item.description,
+          detailed_notes: item.detailedNotes || null,
+          quantity: item.quantity || 1,
+          unit: item.unit || "pcs",
+          rate: item.rate || 0,
+          amount: item.amount || 0,
+        }));
 
-    return newInvoice;
-  }
+        await supabase.from("invoice_items").insert(itemRows);
+      }
 
-  static async recordPaymentAgainstInvoice(
-    tenantId: string,
-    invoiceId: string,
-    paymentAmount: number
-  ): Promise<Invoice | null> {
-    const index = this.invoices.findIndex((i) => i.tenantId === tenantId && i.id === invoiceId);
-    if (index === -1) return null;
-
-    const current = this.invoices[index];
-    const newPaidAmount = Math.round((current.paidAmount + paymentAmount) * 100) / 100;
-    const newBalanceDue = Math.max(0, Math.round((current.totalAmount - newPaidAmount) * 100) / 100);
-
-    let newStatus: InvoiceStatus = current.status;
-    if (newBalanceDue === 0) {
-      newStatus = "paid";
-    } else if (newPaidAmount > 0) {
-      newStatus = "partially_paid";
+      return {
+        ...inv,
+        id: invId,
+        tenantId: TENANT_ID,
+      } as Invoice;
+    } catch (err) {
+      console.error("InvoiceService.createInvoice error:", err);
+      return null;
     }
+  },
 
-    this.invoices[index] = {
-      ...current,
-      paidAmount: newPaidAmount,
-      balanceDue: newBalanceDue,
-      status: newStatus,
-      updatedAt: new Date().toISOString(),
-    };
+  // Delete an invoice
+  async deleteInvoice(id: string): Promise<boolean> {
+    try {
+      const { error } = await supabase.from("invoices").delete().eq("id", id);
+      if (error) {
+        console.error("Supabase delete invoice error:", error);
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.error("InvoiceService.deleteInvoice error:", err);
+      return false;
+    }
+  },
 
-    return this.invoices[index];
-  }
-}
+  // Seed helper
+  async seedInitialInvoices() {
+    try {
+      for (const inv of MOCK_INVOICES) {
+        await supabase.from("invoices").upsert({
+          id: inv.id,
+          tenant_id: TENANT_ID,
+          invoice_number: inv.invoiceNumber,
+          quotation_id: inv.quotationId || null,
+          quotation_number: inv.quotationNumber || null,
+          client_id: inv.clientId || null,
+          client_name: inv.clientName,
+          client_email: inv.clientEmail || null,
+          client_phone: inv.clientPhone || null,
+          client_address: inv.clientAddress || null,
+          client_gstin: inv.clientGstin || null,
+          issue_date: inv.issueDate,
+          due_date: inv.dueDate,
+          status: inv.status,
+          currency: inv.currency,
+          subtotal: inv.subtotal,
+          discount_type: inv.discountType || "fixed",
+          discount_value: inv.discountValue || 0,
+          discount_amount: inv.discountAmount || 0,
+          is_tax_enabled: inv.isTaxEnabled,
+          total_tax: inv.totalTax,
+          total_amount: inv.totalAmount,
+          paid_amount: inv.paidAmount,
+          balance_due: inv.balanceDue,
+          notes: inv.notes || null,
+        });
+
+        if (inv.items && inv.items.length > 0) {
+          const itemRows = inv.items.map((item) => ({
+            id: item.id,
+            invoice_id: inv.id,
+            description: item.description,
+            detailed_notes: item.detailedNotes || null,
+            quantity: item.quantity || 1,
+            unit: item.unit || "pcs",
+            rate: item.rate || 0,
+            amount: item.amount,
+          }));
+          await supabase.from("invoice_items").upsert(itemRows);
+        }
+      }
+    } catch (e) {
+      console.warn("Could not auto-seed invoices:", e);
+    }
+  },
+};

@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { MOCK_INVOICES } from "@/mock/invoices.mock";
+import { InvoiceService } from "@/services/invoice.service";
 import { Invoice, InvoiceStatus } from "@/types";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import {
@@ -27,10 +27,29 @@ import {
 
 export default function InvoicesPage() {
   const router = useRouter();
-  const [invoicesList, setInvoicesList] = useState<Invoice[]>(MOCK_INVOICES);
+  const [invoicesList, setInvoicesList] = useState<Invoice[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilter, setSelectedFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+
+  useEffect(() => {
+    async function loadData() {
+      setIsLoading(true);
+      const data = await InvoiceService.getInvoices();
+      setInvoicesList(data);
+      setIsLoading(false);
+    }
+    loadData();
+  }, []);
+
+  const handleDeleteInvoice = async (id: string, invoiceNum: string) => {
+    if (window.confirm(`Are you sure you want to delete invoice "${invoiceNum}"?`)) {
+      setInvoicesList((prev) => prev.filter((inv) => inv.id !== id));
+      await InvoiceService.deleteInvoice(id);
+    }
+  };
+
 
   // Metrics computation (Clean Counts)
   const totalInvoices = invoicesList.length;
@@ -96,14 +115,8 @@ export default function InvoicesPage() {
     { id: "paid", label: "Paid / Settled" },
   ];
 
-
-  const handleDeleteInvoice = (id: string, invoiceNum: string) => {
-    if (window.confirm(`Are you sure you want to delete invoice "${invoiceNum}"?`)) {
-      setInvoicesList((prev) => prev.filter((inv) => inv.id !== id));
-    }
-  };
-
   // Search & filter logic
+
   const filteredInvoices = useMemo(() => {
     return invoicesList.filter((inv) => {
       const query = searchQuery.toLowerCase().trim();

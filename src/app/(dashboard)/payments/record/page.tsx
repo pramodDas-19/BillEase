@@ -2,8 +2,11 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
+
 import { useRouter, useSearchParams } from "next/navigation";
-import { MOCK_INVOICES } from "@/mock/invoices.mock";
+import { InvoiceService } from "@/services/invoice.service";
+import { PaymentService } from "@/services/payment.service";
+import { Invoice } from "@/types";
 import { formatCurrency, cn } from "@/lib/utils";
 import {
   ArrowLeft,
@@ -19,18 +22,30 @@ import {
 function RecordPaymentForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialInvoiceId = searchParams.get("invoiceId") || MOCK_INVOICES[0]?.id || "";
+  const initialInvoiceId = searchParams.get("invoiceId") || "";
 
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(initialInvoiceId);
-  const selectedInvoice = MOCK_INVOICES.find((inv) => inv.id === selectedInvoiceId) || MOCK_INVOICES[0];
+  const selectedInvoice = invoices.find((inv) => inv.id === selectedInvoiceId) || invoices[0];
 
-  const [amount, setAmount] = useState(
-    selectedInvoice ? selectedInvoice.balanceDue.toString() : "0"
-  );
+  const [amount, setAmount] = useState("0");
   const [paymentMethod, setPaymentMethod] = useState<"upi" | "bank_transfer" | "cash" | "cheque">("upi");
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0]);
   const [transactionRef, setTransactionRef] = useState("");
   const [notes, setNotes] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    async function loadInvoices() {
+      const data = await InvoiceService.getInvoices();
+      setInvoices(data);
+      if (!selectedInvoiceId && data.length > 0) {
+        setSelectedInvoiceId(data[0].id);
+        setAmount(data[0].balanceDue.toString());
+      }
+    }
+    loadInvoices();
+  }, []);
 
   // Update amount when selected invoice changes
   useEffect(() => {
@@ -50,11 +65,34 @@ function RecordPaymentForm() {
     setAmount(selectedInvoice.balanceDue.toString());
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In production, persists via PaymentService / API
-    router.push("/payments");
+    if (!selectedInvoice) return;
+
+    setIsSubmitting(true);
+    try {
+      const payNum = `PAY-${Date.now().toString().slice(-4)}`;
+      await PaymentService.createPayment({
+        paymentNumber: payNum,
+        invoiceId: selectedInvoice.id,
+        invoiceNumber: selectedInvoice.invoiceNumber,
+        clientId: selectedInvoice.clientId,
+        clientName: selectedInvoice.clientName,
+        amount: parseFloat(amount) || 0,
+        currency: selectedInvoice.currency || "INR",
+        paymentDate,
+        paymentMethod,
+        transactionReference: transactionRef || undefined,
+        notes: notes || undefined,
+      });
+
+      router.push("/payments");
+    } catch (err) {
+      console.error("Failed to record payment:", err);
+      setIsSubmitting(false);
+    }
   };
+
 
   return (
     <div className="space-y-6 max-w-3xl animate-in fade-in-50 duration-200">
@@ -90,12 +128,13 @@ function RecordPaymentForm() {
             onChange={(e) => setSelectedInvoiceId(e.target.value)}
             className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-2.5 text-sm font-semibold text-slate-900 focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
           >
-            {MOCK_INVOICES.map((inv) => (
+            {invoices.map((inv) => (
               <option key={inv.id} value={inv.id}>
                 {inv.invoiceNumber} — {inv.clientName} (Total: {formatCurrency(inv.totalAmount, "INR")} | Due: {formatCurrency(inv.balanceDue, "INR")})
               </option>
             ))}
           </select>
+
         </div>
 
         {/* Selected Invoice Financial Banner */}

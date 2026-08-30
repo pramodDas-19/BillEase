@@ -10,10 +10,12 @@ export interface Client {
   altPhone?: string;
   gstin?: string; // Optional client GSTIN
   pan?: string;
+  address?: string;
   billingAddress?: Address;
   shippingAddress?: Address;
   notes?: string;
   tags?: string[]; // e.g. ["Event", "Printing", "Corporate", "Wedding"]
+  segmentTags?: string[];
   city?: string;
   state?: string;
   totalBilled?: number;
@@ -26,7 +28,6 @@ export interface Client {
   createdAt: string;
   updatedAt?: string;
 }
-
 
 export interface ClientStats {
   totalQuotations: number;

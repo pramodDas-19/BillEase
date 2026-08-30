@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { MOCK_CLIENTS_DATA, MockClientDetail } from "@/mock/clients.mock";
+
+import { ClientService } from "@/services/client.service";
+import { Client } from "@/types";
 import { cn, formatCurrency } from "@/lib/utils";
 import {
-
   Users,
   UserPlus,
   Search,
@@ -26,29 +27,39 @@ import {
   BellRing,
 } from "lucide-react";
 
-
 export default function ClientsPage() {
-  const [clientsList, setClientsList] = useState<MockClientDetail[]>(MOCK_CLIENTS_DATA);
+  const [clientsList, setClientsList] = useState<Client[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-
   const [selectedFilter, setSelectedFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+
+  useEffect(() => {
+    async function loadData() {
+      setIsLoading(true);
+      const data = await ClientService.getClients();
+      setClientsList(data);
+      setIsLoading(false);
+    }
+    loadData();
+  }, []);
 
   // Metrics computation
   const totalClients = clientsList.length;
   const totalBilled = clientsList.reduce((acc, c) => acc + (c.totalBilled || 0), 0);
   const totalOutstanding = clientsList.reduce((acc, c) => acc + (c.balanceDue || 0), 0);
 
-  const handleDeleteClient = (id: string, name: string) => {
+  const handleDeleteClient = async (id: string, name: string) => {
     if (window.confirm(`Are you sure you want to delete client "${name}"?`)) {
       setClientsList((prev) => prev.filter((c) => c.id !== id));
+      await ClientService.deleteClient(id);
     }
   };
+
 
   // Filter and search logic
   const filteredClients = useMemo(() => {
     return clientsList.filter((client) => {
-
       // Search match
       const query = searchQuery.toLowerCase().trim();
       const matchesSearch =
@@ -58,19 +69,21 @@ export default function ClientsPage() {
         client.phone.includes(query) ||
         (client.email && client.email.toLowerCase().includes(query)) ||
         (client.gstin && client.gstin.toLowerCase().includes(query)) ||
-        client.city.toLowerCase().includes(query);
+        (client.address && client.address.toLowerCase().includes(query)) ||
+        (client.city && client.city.toLowerCase().includes(query));
 
-      // Filter status match
+      // Financial status filter
       let matchesFilter = true;
-      if (selectedFilter === "has_balance") {
-        matchesFilter = client.balanceDue > 0;
+      if (selectedFilter === "due") {
+        matchesFilter = (client.balanceDue || 0) > 0;
       } else if (selectedFilter === "settled") {
-        matchesFilter = client.balanceDue === 0;
+        matchesFilter = (client.balanceDue || 0) === 0;
       }
 
       return matchesSearch && matchesFilter;
     });
-  }, [searchQuery, selectedFilter]);
+  }, [clientsList, searchQuery, selectedFilter]);
+
 
   const filterOptions = [
     { id: "all", label: "All Clients" },
@@ -363,7 +376,7 @@ export default function ClientsPage() {
                       </span>
                     )}
 
-                    {client.tags.slice(0, 2).map((tag) => (
+                    {(client.segmentTags || client.tags || []).slice(0, 2).map((tag) => (
                       <span
                         key={tag}
                         className="clay-tag inline-flex items-center px-2 py-0.5 text-[10px] font-bold bg-slate-50 text-slate-600 border border-slate-200/60"
@@ -383,7 +396,7 @@ export default function ClientsPage() {
                         Total Billed
                       </span>
                       <span className="text-sm font-extrabold text-slate-900">
-                        {client.formattedTotalBilled}
+                        {formatCurrency(client.totalBilled || 0, "INR")}
                       </span>
                     </div>
 
@@ -394,22 +407,22 @@ export default function ClientsPage() {
                       <span
                         className={cn(
                           "text-sm font-extrabold",
-                          client.balanceDue > 0 ? "text-amber-700" : "text-emerald-700"
+                          (client.balanceDue || 0) > 0 ? "text-amber-700" : "text-emerald-700"
                         )}
                       >
-                        {client.balanceDue > 0 ? client.formattedBalanceDue : "Settled"}
+                        {(client.balanceDue || 0) > 0 ? formatCurrency(client.balanceDue || 0, "INR") : "Settled"}
                       </span>
                     </div>
                   </div>
 
                   {/* Quick Action Links */}
                   <div className="grid grid-cols-2 gap-2">
-                    {client.balanceDue > 0 ? (
+                    {(client.balanceDue || 0) > 0 ? (
                       /* Overdue Client: Show Send Reminder + Invoice */
                       <>
                         <a
                           href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(
-                            `Hello ${client.name}, this is a friendly reminder regarding your outstanding balance of ${client.formattedBalanceDue}. Kindly arrange for settlement at your convenience. Thank you!`
+                            `Hello ${client.name}, this is a friendly reminder regarding your outstanding balance of ${formatCurrency(client.balanceDue || 0, "INR")}. Kindly arrange for settlement at your convenience. Thank you!`
                           )}`}
                           target="_blank"
                           rel="noopener noreferrer"
@@ -418,6 +431,7 @@ export default function ClientsPage() {
                           <BellRing className="h-3.5 w-3.5 text-amber-600 animate-pulse" />
                           <span>Remind</span>
                         </a>
+
 
                         <Link
                           href={`/invoices/new?clientId=${client.id}`}
@@ -519,17 +533,17 @@ export default function ClientsPage() {
 
                       {/* Total Invoiced */}
                       <td className="py-3.5 px-4 text-right font-extrabold text-slate-900 text-sm">
-                        {client.formattedTotalBilled}
+                        {formatCurrency(client.totalBilled || 0, "INR")}
                       </td>
 
                       {/* Balance Due */}
                       <td className="py-3.5 px-4 text-right font-extrabold text-sm">
                         <span
                           className={
-                            client.balanceDue > 0 ? "text-amber-700" : "text-emerald-700"
+                            (client.balanceDue || 0) > 0 ? "text-amber-700" : "text-emerald-700"
                           }
                         >
-                          {client.balanceDue > 0 ? client.formattedBalanceDue : "Settled"}
+                          {(client.balanceDue || 0) > 0 ? formatCurrency(client.balanceDue || 0, "INR") : "Settled"}
                         </span>
                       </td>
 
@@ -553,19 +567,20 @@ export default function ClientsPage() {
                             <MessageSquare className="h-3 w-3" />
                           </a>
                           {/* WhatsApp Reminder for Overdue Clients */}
-                          {client.balanceDue > 0 && (
+                          {(client.balanceDue || 0) > 0 && (
                             <a
                               href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(
-                                `Hello ${client.name}, this is a friendly reminder regarding your outstanding balance of ${client.formattedBalanceDue}. Kindly arrange for settlement at your convenience. Thank you!`
+                                `Hello ${client.name}, this is a friendly reminder regarding your outstanding balance of ${formatCurrency(client.balanceDue || 0, "INR")}. Kindly arrange for settlement at your convenience. Thank you!`
                               )}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              title={`Send WhatsApp Reminder for ${client.formattedBalanceDue}`}
+                              title={`Send WhatsApp Reminder`}
                               className="clay-icon-squircle p-1.5 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-600 hover:text-white transition-colors"
                             >
                               <BellRing className="h-3 w-3" />
                             </a>
                           )}
+
                           <Link
                             href={`/invoices/new?clientId=${client.id}`}
                             title="Create Invoice"

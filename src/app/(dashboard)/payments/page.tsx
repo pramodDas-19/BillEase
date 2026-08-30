@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { MOCK_PAYMENTS } from "@/mock/payments.mock";
+import { PaymentService } from "@/services/payment.service";
 import { Payment, PaymentMethod } from "@/types";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import {
@@ -22,10 +22,29 @@ import {
 } from "lucide-react";
 
 export default function PaymentsPage() {
-  const [paymentsList, setPaymentsList] = useState<Payment[]>(MOCK_PAYMENTS);
+  const [paymentsList, setPaymentsList] = useState<Payment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilter, setSelectedFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+
+  useEffect(() => {
+    async function loadData() {
+      setIsLoading(true);
+      const data = await PaymentService.getPayments();
+      setPaymentsList(data);
+      setIsLoading(false);
+    }
+    loadData();
+  }, []);
+
+  const handleDeletePayment = async (id: string, payNum: string) => {
+    if (window.confirm(`Are you sure you want to delete payment receipt "${payNum}"?`)) {
+      setPaymentsList((prev) => prev.filter((p) => p.id !== id));
+      await PaymentService.deletePayment(id);
+    }
+  };
+
 
   // Metrics computation (Clean Counts)
   const totalTransactions = paymentsList.length;
@@ -97,13 +116,8 @@ export default function PaymentsPage() {
     { id: "cash", label: "Cash" },
   ];
 
-  const handleDeletePayment = (id: string, payNum: string) => {
-    if (window.confirm(`Are you sure you want to delete payment receipt "${payNum}"?`)) {
-      setPaymentsList((prev) => prev.filter((p) => p.id !== id));
-    }
-  };
-
   // Search & filter logic
+
   const filteredPayments = useMemo(() => {
     return paymentsList.filter((p) => {
       const query = searchQuery.toLowerCase().trim();

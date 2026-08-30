@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
+
 import { useRouter } from "next/navigation";
-import { MOCK_QUOTATIONS } from "@/mock/quotations.mock";
+import { QuotationService } from "@/services/quotation.service";
 import { Quotation, QuotationStatus } from "@/types";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import {
@@ -28,10 +29,29 @@ import {
 
 export default function QuotationsPage() {
   const router = useRouter();
-  const [quotationsList, setQuotationsList] = useState<Quotation[]>(MOCK_QUOTATIONS);
+  const [quotationsList, setQuotationsList] = useState<Quotation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilter, setSelectedFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+
+  useEffect(() => {
+    async function loadData() {
+      setIsLoading(true);
+      const data = await QuotationService.getQuotations();
+      setQuotationsList(data);
+      setIsLoading(false);
+    }
+    loadData();
+  }, []);
+
+  const handleDeleteQuote = async (id: string, quoteNum: string) => {
+    if (window.confirm(`Are you sure you want to delete quotation "${quoteNum}"?`)) {
+      setQuotationsList((prev) => prev.filter((q) => q.id !== id));
+      await QuotationService.deleteQuotation(id);
+    }
+  };
+
 
   // Metrics computation
   const totalQuotes = quotationsList.length;
@@ -100,18 +120,13 @@ export default function QuotationsPage() {
     { id: "expired", label: "Expired" },
   ];
 
-  const handleDeleteQuote = (id: string, quoteNum: string) => {
-    if (window.confirm(`Are you sure you want to delete quotation "${quoteNum}"?`)) {
-      setQuotationsList((prev) => prev.filter((q) => q.id !== id));
-    }
-  };
-
   // Convert quotation to invoice handler
   const handleConvertToInvoice = (quote: Quotation) => {
     router.push(`/invoices/new?fromQuoteId=${quote.id}&clientId=${quote.clientId}`);
   };
 
   // Search & filter logic
+
   const filteredQuotations = useMemo(() => {
     return quotationsList.filter((q) => {
       const query = searchQuery.toLowerCase().trim();

@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { MOCK_SERVICES_DATA, MockServiceDetail } from "@/mock/services.mock";
+import { CatalogService } from "@/services/service.service";
+import { ServiceItem } from "@/types";
 import { formatCurrency, cn } from "@/lib/utils";
 import {
   Package,
@@ -19,10 +20,29 @@ import {
 } from "lucide-react";
 
 export default function ServicesPage() {
-  const [servicesList, setServicesList] = useState<MockServiceDetail[]>(MOCK_SERVICES_DATA);
+  const [servicesList, setServicesList] = useState<ServiceItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+
+  useEffect(() => {
+    async function loadData() {
+      setIsLoading(true);
+      const data = await CatalogService.getServices();
+      setServicesList(data);
+      setIsLoading(false);
+    }
+    loadData();
+  }, []);
+
+  const handleDeleteService = async (id: string, name: string) => {
+    if (window.confirm(`Are you sure you want to delete service "${name}"?`)) {
+      setServicesList((prev) => prev.filter((s) => s.id !== id));
+      await CatalogService.deleteService(id);
+    }
+  };
+
 
   // Metrics computation
   const totalServices = servicesList.length;
@@ -73,22 +93,19 @@ export default function ServicesPage() {
     { id: "design", label: "Design & Creative" },
   ];
 
-  const handleDeleteService = (id: string, name: string) => {
-    if (window.confirm(`Are you sure you want to delete "${name}" from your catalog?`)) {
-      setServicesList((prev) => prev.filter((s) => s.id !== id));
-    }
-  };
-
   // Search & filter logic
   const filteredServices = useMemo(() => {
     return servicesList.filter((item) => {
       const query = searchQuery.toLowerCase().trim();
+      const hsn = item.hsnSac || item.hsnSacCode || "";
+      const unit = item.unit || item.defaultUnit || "";
+
       const matchesSearch =
         !query ||
         item.name.toLowerCase().includes(query) ||
         (item.description && item.description.toLowerCase().includes(query)) ||
-        (item.defaultUnit && item.defaultUnit.toLowerCase().includes(query)) ||
-        (item.hsnCode && item.hsnCode.includes(query));
+        unit.toLowerCase().includes(query) ||
+        hsn.includes(query);
 
       const matchesCategory =
         selectedCategory === "all" || item.category === selectedCategory;
@@ -96,6 +113,7 @@ export default function ServicesPage() {
       return matchesSearch && matchesCategory;
     });
   }, [servicesList, searchQuery, selectedCategory]);
+
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-200">
@@ -310,9 +328,9 @@ export default function ServicesPage() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      {item.hsnCode && (
+                      {(item.hsnSac || item.hsnSacCode) && (
                         <span className="clay-tag px-2 py-0.5 text-[10px] font-bold bg-slate-50 text-slate-600 border border-slate-200/60">
-                          HSN: {item.hsnCode}
+                          HSN: {item.hsnSac || item.hsnSacCode}
                         </span>
                       )}
 
@@ -325,6 +343,7 @@ export default function ServicesPage() {
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
+
                   </div>
 
 
@@ -428,17 +447,22 @@ export default function ServicesPage() {
                       </span>
                     </td>
                     <td className="py-3.5 px-4 font-semibold text-slate-700">
-                      {item.defaultUnit || "Fixed"}
+                      {item.unit || item.defaultUnit || "Fixed"}
                     </td>
                     <td className="py-3.5 px-4 font-medium text-slate-500">
-                      {item.hsnCode || "-"}
+                      {item.hsnSac || item.hsnSacCode || "-"}
                     </td>
                     <td className="py-3.5 px-4 text-right font-extrabold text-slate-900 text-sm">
-                      {item.defaultRate ? formatCurrency(item.defaultRate, "INR") : "Custom"}
+                      {item.rate !== undefined || item.defaultRate !== undefined
+                        ? formatCurrency(item.rate ?? item.defaultRate ?? 0, "INR")
+                        : "Custom"}
                     </td>
                     <td className="py-3.5 px-4 text-right font-semibold text-slate-600">
-                      {item.defaultTaxRate ? `${item.defaultTaxRate}%` : "0%"}
+                      {item.gstRate !== undefined || item.defaultTaxRate !== undefined
+                        ? `${item.gstRate ?? item.defaultTaxRate}%`
+                        : "18%"}
                     </td>
+
                     <td className="py-3.5 px-4 text-center">
                       <div className="flex items-center justify-center gap-1.5">
                         <Link
