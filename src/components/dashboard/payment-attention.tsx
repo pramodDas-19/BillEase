@@ -18,11 +18,25 @@ export function PaymentAttention() {
   const router = useRouter();
   const [remindedIds, setRemindedIds] = useState<Record<string, boolean>>({});
 
-  const handleSendReminder = (id: string, e: React.MouseEvent) => {
+  const handleSendReminder = (
+    item: { id: string; clientName: string; clientPhone?: string; formattedAmount: string; statusText: string },
+    e: React.MouseEvent
+  ) => {
+
     e.stopPropagation();
     e.preventDefault();
-    setRemindedIds((prev) => ({ ...prev, [id]: true }));
+
+    if (item.clientPhone) {
+      const cleanPhone = item.clientPhone.replace(/[^0-9]/g, "");
+      const msg = encodeURIComponent(
+        `Hello ${item.clientName}, this is a friendly reminder from Royal Events regarding your outstanding invoice of ${item.formattedAmount} (${item.statusText}). Kindly arrange for settlement at your convenience. Thank you!`
+      );
+      window.open(`https://wa.me/${cleanPhone}?text=${msg}`, "_blank");
+    }
+
+    setRemindedIds((prev) => ({ ...prev, [item.id]: true }));
   };
+
 
   const handleCallClient = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -131,8 +145,9 @@ export function PaymentAttention() {
                     <div className="w-28 sm:w-32 flex justify-end">
                       {item.canSendReminder ? (
                         <button
-                          onClick={(e) => handleSendReminder(item.id, e)}
+                          onClick={(e) => handleSendReminder(item, e)}
                           disabled={isReminded}
+
                           className={cn(
                             "inline-flex items-center justify-center gap-1.5 h-8 px-2.5 sm:px-3 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer whitespace-nowrap w-full",
                             isReminded

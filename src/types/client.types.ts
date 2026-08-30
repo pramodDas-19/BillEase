@@ -14,9 +14,19 @@ export interface Client {
   shippingAddress?: Address;
   notes?: string;
   tags?: string[]; // e.g. ["Event", "Printing", "Corporate", "Wedding"]
+  city?: string;
+  state?: string;
+  totalBilled?: number;
+  totalPaid?: number;
+  balanceDue?: number;
+  formattedTotalBilled?: string;
+  formattedBalanceDue?: string;
+  invoicesCount?: number;
+  quotationsCount?: number;
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
 }
+
 
 export interface ClientStats {
   totalQuotations: number;
