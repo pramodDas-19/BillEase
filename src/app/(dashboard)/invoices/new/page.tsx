@@ -14,33 +14,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
-import { ArrowLeft, Plus, Save, ReceiptText, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Plus, Save, ReceiptText, CheckCircle2, Loader2 } from "lucide-react";
 
 function NewInvoiceContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { currentTenant } = useTenant();
 
-  const fromQuoteId = searchParams.get("fromQuoteId") || searchParams.get("fromQuote");
+  const fromQuoteId =
+    searchParams.get("quotationId") ||
+    searchParams.get("fromQuoteId") ||
+    searchParams.get("fromQuote");
   const preSelectedClientId = searchParams.get("clientId");
 
   const [clients, setClients] = useState<Client[]>([]);
   const [quotations, setQuotations] = useState<Quotation[]>([]);
+  const [sourceQuote, setSourceQuote] = useState<Quotation | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    async function loadData() {
-      const [clientsData, quotesData] = await Promise.all([
-        ClientService.getClients(),
-        QuotationService.getQuotations(),
-      ]);
-      setClients(clientsData);
-      setQuotations(quotesData);
-    }
-    loadData();
-  }, []);
-
-  const initialQuote = fromQuoteId ? quotations.find((q) => q.id === fromQuoteId) : undefined;
+  const [isInitialLoading, setIsInitialLoading] = useState(!!fromQuoteId);
 
   const {
     state,
@@ -50,29 +41,92 @@ function NewInvoiceContent() {
     removeItem,
     updateItem,
   } = useInvoiceBuilder({
-    invoiceNumber: `${currentTenant.settings.invoiceNumbering.prefix}${currentTenant.settings.invoiceNumbering.nextNumber}`,
-    quotationId: initialQuote?.id,
-    quotationNumber: initialQuote?.quotationNumber,
-    clientId: initialQuote?.clientId || preSelectedClientId || undefined,
-    clientName: initialQuote?.clientName,
-    clientEmail: initialQuote?.clientEmail,
-    clientPhone: initialQuote?.clientPhone,
-    clientAddress: initialQuote?.clientAddress,
-    clientGstin: initialQuote?.clientGstin,
-    currency: initialQuote?.currency || currentTenant.settings.defaultCurrency,
-    items: initialQuote?.items || [
+    invoiceNumber: `${currentTenant?.settings?.invoiceNumbering?.prefix || "INV-"}${
+      currentTenant?.settings?.invoiceNumbering?.nextNumber || 1001
+    }`,
+    quotationId: undefined,
+    quotationNumber: undefined,
+    clientId: preSelectedClientId || undefined,
+    clientName: "",
+    clientEmail: "",
+    clientPhone: "",
+    clientAddress: "",
+    clientGstin: "",
+    currency: currentTenant?.settings?.defaultCurrency || "INR",
+    items: [
       {
         id: `item-${Date.now()}`,
         description: "",
         amount: 0,
       },
     ],
-    discountType: initialQuote?.discountType,
-    discountValue: initialQuote?.discountValue || 0,
-    isTaxEnabled: initialQuote?.isTaxEnabled ?? currentTenant.settings.enableGstByDefault,
-    defaultTaxRate: initialQuote?.taxBreakdown?.[0]?.rate || currentTenant.settings.defaultTaxRate || 18,
-    termsAndConditions: initialQuote?.termsAndConditions || currentTenant.settings.defaultTermsAndConditions,
+    discountType: undefined,
+    discountValue: 0,
+    isTaxEnabled: currentTenant?.settings?.enableGstByDefault ?? false,
+    defaultTaxRate: currentTenant?.settings?.defaultTaxRate || 18,
+    termsAndConditions: currentTenant?.settings?.defaultTermsAndConditions || "",
   });
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [clientsData, quotesData] = await Promise.all([
+          ClientService.getClients(),
+          QuotationService.getQuotations(),
+        ]);
+        setClients(clientsData || []);
+        setQuotations(quotesData || []);
+
+        // If fromQuoteId is present, fetch the full quotation details
+        if (fromQuoteId) {
+          const quote =
+            (quotesData || []).find((q) => q.id === fromQuoteId) ||
+            (await QuotationService.getQuotationById(fromQuoteId));
+
+          if (quote) {
+            setSourceQuote(quote);
+
+            // Populate all state from quotation
+            setState((prev) => ({
+              ...prev,
+              quotationId: quote.id,
+              quotationNumber: quote.quotationNumber,
+              clientId: quote.clientId || prev.clientId,
+              clientName: quote.clientName || "",
+              clientEmail: quote.clientEmail || "",
+              clientPhone: quote.clientPhone || "",
+              clientAddress: quote.clientAddress || "",
+              clientGstin: quote.clientGstin || "",
+              currency: quote.currency || prev.currency,
+              items:
+                quote.items && quote.items.length > 0
+                  ? quote.items.map((item, idx) => ({
+                      id: item.id || `qi-${Date.now()}-${idx}`,
+                      description: item.description || "",
+                      detailedNotes: item.detailedNotes || "",
+                      quantity: item.quantity,
+                      unit: item.unit,
+                      rate: item.rate,
+                      amount: item.amount || 0,
+                    }))
+                  : prev.items,
+              discountType: quote.discountType,
+              discountValue: quote.discountValue || 0,
+              isTaxEnabled: quote.isTaxEnabled ?? prev.isTaxEnabled,
+              termsAndConditions: quote.termsAndConditions || prev.termsAndConditions,
+              notes: quote.notes || prev.notes,
+            }));
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load initial invoice data:", err);
+      } finally {
+        setIsInitialLoading(false);
+      }
+    }
+
+    loadData();
+  }, [fromQuoteId]);
 
   const handleClientSelect = (clientId: string) => {
     const found = clients.find((c) => c.id === clientId);
@@ -83,7 +137,11 @@ function NewInvoiceContent() {
         clientName: found.name,
         clientEmail: found.email || "",
         clientPhone: found.phone,
-        clientAddress: found.address || (found.billingAddress ? `${found.billingAddress.street}, ${found.billingAddress.city}` : ""),
+        clientAddress:
+          found.address ||
+          (found.billingAddress
+            ? `${found.billingAddress.street}, ${found.billingAddress.city}`
+            : ""),
         clientGstin: found.gstin || "",
       }));
     }
@@ -106,7 +164,12 @@ function NewInvoiceContent() {
         clientGstin: state.clientGstin || undefined,
         issueDate: state.issueDate,
         dueDate: state.dueDate,
-        status: (totals.balanceDue <= 0 ? "paid" : (state.paidAmount && state.paidAmount > 0 ? "partially_paid" : "due")),
+        status:
+          totals.balanceDue <= 0
+            ? "paid"
+            : state.paidAmount && state.paidAmount > 0
+            ? "partially_paid"
+            : "due",
         currency: state.currency,
         items: state.items.map((i) => ({
           id: i.id,
@@ -137,6 +200,15 @@ function NewInvoiceContent() {
     }
   };
 
+  if (isInitialLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px] text-slate-400 gap-2">
+        <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
+        <span className="text-sm font-medium">Loading Quotation details...</span>
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-8 pb-12 animate-in fade-in-50 duration-200">
       {/* Top Header */}
@@ -150,7 +222,11 @@ function NewInvoiceContent() {
           </Link>
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 flex items-center gap-2">
-              <span>{initialQuote ? `Generate Invoice from #${initialQuote.quotationNumber}` : "Create New Tax Invoice"}</span>
+              <span>
+                {sourceQuote
+                  ? `Generate Invoice from #${sourceQuote.quotationNumber}`
+                  : "Create New Tax Invoice"}
+              </span>
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5 font-medium">
               Create official tax bill, set payment due date, apply advance deposits, and generate printable GST receipt.
@@ -211,7 +287,7 @@ function NewInvoiceContent() {
                 Client Selection
               </label>
               <select
-                value={state.clientId}
+                value={state.clientId || ""}
                 onChange={(e) => handleClientSelect(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-2.5 text-sm font-semibold text-slate-900 focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
               >
@@ -227,16 +303,31 @@ function NewInvoiceContent() {
                 <Input
                   label="Client Name *"
                   placeholder="e.g. Rahul Sharma"
-                  value={state.clientName}
+                  value={state.clientName || ""}
                   onChange={(e) => setState((p) => ({ ...p, clientName: e.target.value }))}
                   required
                 />
                 <Input
                   label="Phone *"
                   placeholder="+91 98765 43210"
-                  value={state.clientPhone}
+                  value={state.clientPhone || ""}
                   onChange={(e) => setState((p) => ({ ...p, clientPhone: e.target.value }))}
                   required
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                <Input
+                  label="Email"
+                  placeholder="client@example.com"
+                  value={state.clientEmail || ""}
+                  onChange={(e) => setState((p) => ({ ...p, clientEmail: e.target.value }))}
+                />
+                <Input
+                  label="Client GSTIN (Optional)"
+                  placeholder="27AAACS1429B1Z5"
+                  value={state.clientGstin || ""}
+                  onChange={(e) => setState((p) => ({ ...p, clientGstin: e.target.value }))}
                 />
               </div>
             </div>
@@ -251,93 +342,115 @@ function NewInvoiceContent() {
                   Item description required. Quantity, Unit, and Rate are optional.
                 </p>
               </div>
-              <Button type="button" size="sm" variant="outline" onClick={addItem} className="text-xs font-bold rounded-xl">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={addItem}
+                className="text-xs font-bold rounded-xl"
+              >
                 <Plus className="h-3.5 w-3.5 mr-1" />
                 Add Item
               </Button>
             </div>
 
             <div className="space-y-3">
-              {state.items.map((item, idx) => (
+              {state.items.map((item, index) => (
                 <QuotationItemRow
                   key={item.id}
                   item={item}
-                  index={idx}
-                  onUpdate={updateItem}
-                  onRemove={removeItem}
+                  index={index}
                   isRemovable={state.items.length > 1}
+                  onUpdate={(id, updates) => updateItem(id, updates)}
+                  onRemove={(id) => removeItem(id)}
                 />
               ))}
             </div>
 
-            <button
+
+            <Button
               type="button"
+              variant="outline"
               onClick={addItem}
-              className="clay-tag w-full py-2.5 flex items-center justify-center gap-1.5 text-xs font-bold bg-slate-50 hover:bg-slate-100 text-slate-700 border border-dashed border-slate-300 transition-colors cursor-pointer"
+              className="w-full text-xs font-bold border-dashed border-slate-300 py-3 rounded-2xl"
             >
-              <Plus className="h-3.5 w-3.5 text-emerald-600" />
-              <span>Add Another Line Item</span>
-            </button>
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Add Another Line Item
+            </Button>
           </div>
         </div>
 
-        {/* Right Summary */}
-        <div>
-          <div className="sticky top-20 clay-card p-6 space-y-4">
-            <h4 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2">
+        {/* Right 1 Col: Financial Summary Card */}
+        <div className="space-y-6">
+          <Card className="clay-card p-6 space-y-4 sticky top-20">
+            <h3 className="font-bold text-slate-900 text-sm border-b border-slate-100 pb-3">
               Invoice Calculations
-            </h4>
+            </h3>
 
-            <div className="flex justify-between text-xs font-bold text-slate-700">
-              <span>Subtotal</span>
-              <span className="font-extrabold text-slate-900">{formatCurrency(totals.subtotal, state.currency)}</span>
-            </div>
+            <div className="space-y-3 text-xs">
+              <div className="flex justify-between items-center text-slate-600">
+                <span className="font-semibold">Subtotal</span>
+                <span className="font-extrabold text-slate-900">
+                  {formatCurrency(totals.subtotal, state.currency)}
+                </span>
+              </div>
 
-            <div className="border-t border-slate-100 pt-3 space-y-2">
-              <label className="flex items-center gap-2 cursor-pointer">
+              {/* GST Toggle */}
+              <div className="pt-2 border-t border-slate-100">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={state.isTaxEnabled}
+                    onChange={(e) => setState((p) => ({ ...p, isTaxEnabled: e.target.checked }))}
+                    className="h-4 w-4 rounded text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <span className="font-bold text-slate-800">
+                    Apply GST ({state.defaultTaxRate || 18}%)
+                  </span>
+                </label>
+                {state.isTaxEnabled && (
+                  <div className="flex justify-between items-center text-slate-600 mt-2 pl-6">
+                    <span>GST Amount</span>
+                    <span className="font-bold text-slate-900">
+                      {formatCurrency(totals.totalTax, state.currency)}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Grand Total */}
+              <div className="pt-3 border-t border-slate-100 flex justify-between items-center text-sm">
+                <span className="font-extrabold text-slate-900">Total Invoiced:</span>
+                <span className="font-black text-slate-900 text-base">
+                  {formatCurrency(totals.totalAmount, state.currency)}
+                </span>
+              </div>
+
+              {/* Advance Paid Deposit */}
+              <div className="pt-3 border-t border-slate-100 space-y-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                  Advance Paid Amount (₹)
+                </label>
                 <input
-                  type="checkbox"
-                  checked={state.isTaxEnabled}
-                  onChange={(e) => setState((p) => ({ ...p, isTaxEnabled: e.target.checked }))}
-                  className="rounded text-emerald-600 focus:ring-emerald-500 h-4 w-4"
+                  type="number"
+                  placeholder="0.00"
+                  value={state.paidAmount || ""}
+                  onChange={(e) =>
+                    setState((p) => ({ ...p, paidAmount: parseFloat(e.target.value) || 0 }))
+                  }
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 focus:bg-white focus:border-emerald-500 focus:outline-none"
                 />
-                <span className="text-xs font-bold text-slate-700">Apply GST (18%)</span>
-              </label>
-              {state.isTaxEnabled && (
-                <div className="flex justify-between text-xs font-semibold text-slate-500">
-                  <span>Tax Amount:</span>
-                  <span className="font-bold text-slate-700">+{formatCurrency(totals.totalTax, state.currency)}</span>
-                </div>
-              )}
-            </div>
+              </div>
 
-            <div className="border-t border-slate-100 pt-3 flex justify-between font-extrabold text-slate-900 text-sm">
-              <span>Total Invoiced:</span>
-              <span className="text-base">{formatCurrency(totals.totalAmount, state.currency)}</span>
+              {/* Balance Due */}
+              <div className="pt-3 border-t border-slate-100 flex justify-between items-center">
+                <span className="font-extrabold text-slate-900">Balance Due</span>
+                <span className="font-black text-lg text-emerald-800">
+                  {formatCurrency(totals.balanceDue, state.currency)}
+                </span>
+              </div>
             </div>
-
-            <div className="space-y-1.5 pt-2 border-t border-slate-100">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                Advance Paid Amount (₹)
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="any"
-                placeholder="0.00"
-                value={state.paidAmount || ""}
-                onChange={(e) => setState((p) => ({ ...p, paidAmount: Number(e.target.value) || 0 }))}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-2 text-sm font-extrabold text-slate-900 focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-              />
-            </div>
-
-            <div className="border-t-2 border-slate-200 pt-3 flex justify-between items-center">
-              <span className="text-sm font-bold text-slate-900">Balance Due</span>
-              <span className="text-xl font-extrabold text-amber-700">
-                {formatCurrency(totals.balanceDue, state.currency)}
-              </span>
-            </div>
-          </div>
+          </Card>
         </div>
       </div>
     </form>
@@ -346,7 +459,14 @@ function NewInvoiceContent() {
 
 export default function NewInvoicePage() {
   return (
-    <Suspense fallback={<div className="clay-card p-12 text-center text-sm font-bold">Loading invoice builder...</div>}>
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-[400px] text-slate-400 gap-2">
+          <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
+          <span className="text-sm font-medium">Loading Invoice Generator...</span>
+        </div>
+      }
+    >
       <NewInvoiceContent />
     </Suspense>
   );
