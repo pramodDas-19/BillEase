@@ -15,9 +15,11 @@ import {
   Share2,
   CreditCard,
   Eye,
+  Edit2,
   CheckCircle,
   Loader2,
 } from "lucide-react";
+
 
 export default function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -101,7 +103,15 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <Link href={`/invoices/${invoice.id}/edit`}>
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs font-bold text-slate-700 bg-white">
+              <Edit2 className="h-3.5 w-3.5 text-slate-500" />
+              <span>Edit</span>
+            </Button>
+          </Link>
+
           <Link href={`/invoices/${invoice.id}/preview`}>
+
             <Button variant="outline" size="sm" className="gap-1.5 text-xs font-bold">
               <Eye className="h-3.5 w-3.5" />
               <span>Preview / PDF</span>

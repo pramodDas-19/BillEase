@@ -1,13 +1,38 @@
 // ============================================================================
-// BillEase SaaS — Web Push Service Worker
+// BillEase SaaS — Web Push & PWA Service Worker
 // ============================================================================
 
+const CACHE_NAME = "billease-cache-v1";
+const STATIC_ASSETS = ["/dashboard", "/invoices", "/quotations", "/clients", "/icon.png", "/manifest.json"];
+
 self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(STATIC_ASSETS).catch(() => {});
+    })
+  );
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) => {
+      return Promise.all(
+        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+      );
+    })
+  );
   event.waitUntil(self.clients.claim());
+});
+
+self.addEventListener("fetch", (event) => {
+  if (event.request.method !== "GET") return;
+
+  event.respondWith(
+    fetch(event.request).catch(() => {
+      return caches.match(event.request);
+    })
+  );
 });
 
 self.addEventListener("push", (event) => {
@@ -15,13 +40,14 @@ self.addEventListener("push", (event) => {
 
   try {
     const data = event.data.json();
-    const title = data.title || "BillEase Notification";
+    const title = data.title || "BillEase Alert";
     const options = {
-      body: data.body || "New business update available",
-      icon: "/assets/logo/favicon.png",
-      badge: "/assets/logo/favicon.png",
+      body: data.body || "New update in your billing account",
+      icon: "/icon.png",
+      badge: "/icon.png",
+      vibrate: [100, 50, 100],
       data: {
-        url: data.url || "/invoices",
+        url: data.url || "/dashboard",
       },
     };
 

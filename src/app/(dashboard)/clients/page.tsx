@@ -5,7 +5,9 @@ import Link from "next/link";
 
 import { ClientService } from "@/services/client.service";
 import { InvoiceService } from "@/services/invoice.service";
+import { ClientEditDialog } from "@/components/clients/client-edit-dialog";
 import { Client, Invoice } from "@/types";
+
 import { cn, formatCurrency } from "@/lib/utils";
 import {
   Users,
@@ -80,6 +82,13 @@ export default function ClientsPage() {
       await ClientService.deleteClient(id);
     }
   };
+
+  const handleClientUpdated = (updated: Client) => {
+    setClientsList((prev) =>
+      prev.map((c) => (c.id === updated.id ? { ...c, ...updated } : c))
+    );
+  };
+
 
 
   // Filter and search logic
@@ -356,6 +365,9 @@ export default function ClientsPage() {
                         <MessageSquare className="h-3.5 w-3.5" />
                       </a>
 
+                      {/* Edit Client Button */}
+                      <ClientEditDialog client={client} onSuccess={handleClientUpdated} />
+
                       {/* Delete Client Button (Red Claymorphism) */}
                       <button
                         onClick={() => handleDeleteClient(client.id, client.name)}
@@ -364,6 +376,7 @@ export default function ClientsPage() {
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
+
                     </div>
 
 

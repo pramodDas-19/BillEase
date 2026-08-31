@@ -3,6 +3,7 @@
 import React, { useState, createContext, useContext } from "react";
 import { Sidebar } from "./sidebar";
 import { Header } from "./header";
+import { MobileBottomBar } from "./mobile-bottom-bar";
 import { cn } from "@/lib/utils";
 
 interface LayoutContextType {
@@ -51,12 +52,14 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           <div className="print:hidden">
             <Header />
           </div>
-          <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto print:p-0 print:m-0 print:max-w-none">
+          <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-24 sm:pb-24 lg:pb-8 max-w-7xl w-full mx-auto print:p-0 print:m-0 print:max-w-none">
             {children}
           </main>
         </div>
-      </div>
 
+        {/* Mobile Bottom Navigation Bar */}
+        <MobileBottomBar />
+      </div>
     </LayoutContext.Provider>
   );
 }

@@ -8,13 +8,17 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { QuotationStatusBadge } from "@/components/quotations";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { getWhatsAppQuotationShareUrl } from "@/lib/whatsapp";
+
 import {
   ArrowLeft,
   Share2,
   Receipt,
   Eye,
+  Edit2,
   Loader2,
 } from "lucide-react";
+
 
 export default function QuotationDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -54,13 +58,18 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
   }
 
   const cleanPhone = quote.clientPhone ? quote.clientPhone.replace(/[^0-9]/g, "") : "";
-  const baseUrl = typeof window !== "undefined" ? window.location.origin : "https://billease.app";
-  const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(
-    `Hello *${quote.clientName}*,\n\nYour quotation *#${quote.quotationNumber}* for *${formatCurrency(
-      quote.totalAmount,
-      quote.currency
-    )}* is ready.\n\n📄 View / Download Estimate PDF:\n${baseUrl}/quotations/${quote.id}/preview\n\nThank you!`
-  )}`;
+  const whatsappUrl = cleanPhone
+    ? getWhatsAppQuotationShareUrl({
+        clientPhone: quote.clientPhone || "",
+        clientName: quote.clientName,
+        quotationNumber: quote.quotationNumber,
+        quotationId: quote.id,
+        totalAmount: quote.totalAmount,
+        validUntil: formatDate(quote.validUntil),
+        currency: quote.currency,
+      })
+    : "";
+
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
@@ -84,7 +93,15 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Link href={`/quotations/${quote.id}/edit`}>
+            <Button size="sm" variant="outline" className="gap-1.5 text-xs font-bold text-slate-700 bg-white">
+              <Edit2 className="h-3.5 w-3.5 text-slate-500" />
+              <span>Edit</span>
+            </Button>
+          </Link>
+
           <Link href={`/quotations/${quote.id}/preview`}>
+
             <Button size="sm" variant="outline" className="gap-1.5 text-xs font-bold">
               <Eye className="h-3.5 w-3.5" />
               <span>Preview / PDF</span>

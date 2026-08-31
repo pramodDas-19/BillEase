@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 import { QuotationService } from "@/services/quotation.service";
 import { Quotation, QuotationStatus } from "@/types";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import { getWhatsAppQuotationShareUrl } from "@/lib/whatsapp";
+
 import {
   FileText,
   Plus,
@@ -396,20 +398,24 @@ export default function QuotationsPage() {
 
                       {q.clientPhone && (
                         <a
-                          href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(
-                            `Hello ${q.clientName}, here is your quotation #${q.quotationNumber} for ${formatCurrency(
-                              q.totalAmount,
-                              q.currency
-                            )}. Please review and let us know if you would like to proceed. Thank you!`
-                          )}`}
+                          href={getWhatsAppQuotationShareUrl({
+                            clientPhone: q.clientPhone,
+                            clientName: q.clientName,
+                            quotationNumber: q.quotationNumber,
+                            quotationId: q.id,
+                            totalAmount: q.totalAmount,
+                            validUntil: formatDate(q.validUntil),
+                            currency: q.currency,
+                          })}
                           target="_blank"
                           rel="noopener noreferrer"
-                          title="Share Quote on WhatsApp"
+                          title="Share Quote & 1-Click Pay on WhatsApp"
                           className="clay-icon-squircle flex h-7 w-7 items-center justify-center rounded-lg bg-teal-50 border border-teal-200 text-teal-700 hover:bg-teal-600 hover:text-white hover:border-teal-600 transition-colors"
                         >
                           <MessageSquare className="h-3 w-3" />
                         </a>
                       )}
+
 
                       <button
                         onClick={() => handleDeleteQuote(q.id, q.quotationNumber)}
