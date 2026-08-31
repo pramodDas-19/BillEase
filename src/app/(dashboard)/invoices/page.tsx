@@ -6,6 +6,9 @@ import { useRouter } from "next/navigation";
 import { InvoiceService } from "@/services/invoice.service";
 import { Invoice, InvoiceStatus } from "@/types";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import { getWhatsAppInvoiceShareUrl } from "@/lib/whatsapp";
+import { UpiQrModal } from "@/components/payments/upi-qr-modal";
+
 import {
   ReceiptText,
   Plus,
@@ -23,6 +26,7 @@ import {
   Calendar,
   CreditCard,
   BellRing,
+  QrCode,
 } from "lucide-react";
 
 export default function InvoicesPage() {
@@ -32,6 +36,8 @@ export default function InvoicesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilter, setSelectedFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+  const [activeQrInvoice, setActiveQrInvoice] = useState<Invoice | null>(null);
+
 
   useEffect(() => {
     async function loadData() {
@@ -378,19 +384,36 @@ export default function InvoicesPage() {
 
                       {inv.clientPhone && (
                         <a
-                          href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(
-                            `Hello ${inv.clientName}, this is regarding invoice #${inv.invoiceNumber} for ${formatCurrency(
-                              inv.totalAmount,
-                              inv.currency
-                            )}. Balance Due: ${formatCurrency(inv.balanceDue, inv.currency)}. Please find your bill attached. Thank you!`
-                          )}`}
+                          href={getWhatsAppInvoiceShareUrl({
+                            clientPhone: inv.clientPhone,
+                            clientName: inv.clientName,
+                            invoiceNumber: inv.invoiceNumber,
+                            invoiceId: inv.id,
+                            totalAmount: inv.totalAmount,
+                            balanceDue: inv.balanceDue,
+                            currency: inv.currency,
+                          })}
                           target="_blank"
                           rel="noopener noreferrer"
-                          title="Share Invoice on WhatsApp"
+                          title="Share Invoice & 1-Click Pay Link on WhatsApp"
                           className="clay-icon-squircle flex h-7 w-7 items-center justify-center rounded-lg bg-teal-50 border border-teal-200 text-teal-700 hover:bg-teal-600 hover:text-white hover:border-teal-600 transition-colors"
                         >
                           <MessageSquare className="h-3 w-3" />
                         </a>
+                      )}
+
+
+
+                      {/* Dynamic UPI QR Trigger Button */}
+                      {inv.balanceDue > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setActiveQrInvoice(inv)}
+                          title="Generate Dynamic UPI QR Code"
+                          className="clay-icon-squircle flex h-7 w-7 items-center justify-center rounded-lg bg-teal-50 border border-teal-200 text-teal-700 hover:bg-teal-600 hover:text-white hover:border-teal-600 transition-colors cursor-pointer"
+                        >
+                          <QrCode className="h-3.5 w-3.5" />
+                        </button>
                       )}
 
                       <button
@@ -400,6 +423,7 @@ export default function InvoicesPage() {
                       >
                         <Trash2 className="h-3 w-3" />
                       </button>
+
                     </div>
                   </div>
 
@@ -615,22 +639,27 @@ export default function InvoicesPage() {
                           )}
 
                           {/* WhatsApp Share */}
+
                           {inv.clientPhone && (
                             <a
-                              href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(
-                                `Hello ${inv.clientName}, invoice #${inv.invoiceNumber} for ${formatCurrency(
-                                  inv.totalAmount,
-                                  inv.currency
-                                )} is attached. Balance: ${formatCurrency(inv.balanceDue, inv.currency)}. Thank you!`
-                              )}`}
+                              href={getWhatsAppInvoiceShareUrl({
+                                clientPhone: inv.clientPhone,
+                                clientName: inv.clientName,
+                                invoiceNumber: inv.invoiceNumber,
+                                invoiceId: inv.id,
+                                totalAmount: inv.totalAmount,
+                                balanceDue: inv.balanceDue,
+                                currency: inv.currency,
+                              })}
                               target="_blank"
                               rel="noopener noreferrer"
-                              title="Share Invoice on WhatsApp"
+                              title="Share Invoice & 1-Click Pay Link on WhatsApp"
                               className="clay-icon-squircle p-1.5 rounded-lg bg-teal-50 text-teal-700 hover:bg-teal-600 hover:text-white transition-colors"
                             >
                               <MessageSquare className="h-3 w-3" />
                             </a>
                           )}
+
 
                           {/* Preview PDF */}
                           <Link
@@ -659,6 +688,19 @@ export default function InvoicesPage() {
           </div>
         </div>
       )}
+
+      {/* Dynamic UPI QR Modal */}
+      {activeQrInvoice && (
+        <UpiQrModal
+          isOpen={!!activeQrInvoice}
+          onClose={() => setActiveQrInvoice(null)}
+          invoiceNumber={activeQrInvoice.invoiceNumber}
+          clientName={activeQrInvoice.clientName}
+          balanceDue={activeQrInvoice.balanceDue}
+        />
+      )}
     </div>
   );
 }
+
+

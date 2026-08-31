@@ -39,14 +39,15 @@ export function Sidebar() {
     useLayoutState();
   const { currentUser, currentTenant } = useTenant();
 
-  const businessName = currentTenant?.businessName || "ABC Events & Prints";
-  const userName = currentUser?.name || "Rajesh Sharma";
+  const businessName = currentTenant?.businessName || "Royal Events & Studio";
+  const userName = currentUser?.name || "Pramod Das";
   const userInitials = userName
     .split(" ")
     .map((n) => n[0])
     .join("")
     .substring(0, 2)
     .toUpperCase();
+
 
   const renderNavItems = (isMobile: boolean = false) => (
     <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6">

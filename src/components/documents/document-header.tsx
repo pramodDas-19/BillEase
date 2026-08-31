@@ -3,9 +3,10 @@ import { Tenant } from "@/types";
 
 interface DocumentHeaderProps {
   tenant: Tenant;
-  documentTitle: "QUOTATION" | "TAX INVOICE" | "ESTIMATE" | "RECEIPT";
+  documentTitle: "QUOTATION" | "TAX INVOICE" | "TAX INVOICE & RECEIPT" | "ESTIMATE" | "RECEIPT" | string;
   documentNumber: string;
   date: string;
+
   dueDateOrValidUntil?: {
     label: string;
     value: string;
@@ -20,7 +21,8 @@ export function DocumentHeader({
   dueDateOrValidUntil,
 }: DocumentHeaderProps) {
   return (
-    <div className="flex justify-between items-start border-b-2 border-slate-900 pb-6 mb-6">
+    <div className="flex justify-between items-start border-b-2 border-slate-900 pb-4 mb-4 print:pb-3 print:mb-3">
+
       {/* Business Info */}
       <div className="flex items-start gap-3.5 max-w-md">
         {tenant.logoUrl && (
