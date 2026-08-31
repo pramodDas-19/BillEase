@@ -156,8 +156,12 @@ export function Sidebar() {
                 className="flex items-center gap-2.5 overflow-hidden"
                 title={businessName}
               >
-                <div className="clay-icon-squircle flex h-9 w-9 shrink-0 items-center justify-center bg-slate-900 text-white font-bold text-sm shadow-xs border border-slate-800">
-                  <Sparkles className="h-4 w-4 text-emerald-400" />
+                <div className="h-9 w-9 shrink-0 rounded-xl bg-slate-50 p-1 flex items-center justify-center border border-slate-200 shadow-2xs">
+                  <img
+                    src="/assets/logo/LOGO.png"
+                    alt="BillEase Logo"
+                    className="h-full w-full object-contain"
+                  />
                 </div>
                 <div className="overflow-hidden">
                   <span className="block truncate text-xs font-bold tracking-tight text-slate-900">
@@ -168,6 +172,7 @@ export function Sidebar() {
                   </span>
                 </div>
               </Link>
+
 
               <div className="relative group">
                 <button
@@ -236,14 +241,19 @@ export function Sidebar() {
             {/* Drawer Header */}
             <div className="flex h-16 items-center justify-between px-4 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
-                <div className="clay-icon-squircle flex h-9 w-9 shrink-0 items-center justify-center bg-slate-900 text-white font-bold text-sm shadow-xs">
-                  <Sparkles className="h-4 w-4 text-emerald-400" />
+                <div className="h-9 w-9 shrink-0 rounded-xl bg-slate-50 p-1 flex items-center justify-center border border-slate-200 shadow-2xs">
+                  <img
+                    src="/assets/logo/LOGO.png"
+                    alt="BillEase Logo"
+                    className="h-full w-full object-contain"
+                  />
                 </div>
                 <div>
                   <span className="block text-xs font-bold text-slate-900">{businessName}</span>
                   <span className="block text-[11px] text-slate-400 font-medium">Billing Platform</span>
                 </div>
               </div>
+
               <button
                 onClick={() => setIsMobileNavOpen(false)}
                 className="clay-icon-squircle rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 cursor-pointer"

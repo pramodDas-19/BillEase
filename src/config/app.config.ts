@@ -1,6 +1,7 @@
 export const APP_CONFIG = {
   name: "BillEase",
   tagline: "Modern Billing, Quotations & Client Management",
+  logoUrl: "/assets/logo/LOGO.png",
   version: "1.0.0",
   copyrightYear: 2026,
   supportEmail: "support@billease.local",
@@ -8,3 +9,4 @@ export const APP_CONFIG = {
   defaultLocale: "en-IN",
   defaultCurrency: "INR",
 };
+

@@ -6,7 +6,17 @@ export const metadata: Metadata = {
   title: "BillEase - Modern Multi-Tenant Billing & Invoicing SaaS",
   description:
     "Production-ready Quotation, Invoicing, Payment Tracking and Client Management platform for event planners, printing businesses, and creative studios.",
+  icons: {
+    icon: [
+      { url: "/favicon.png", type: "image/png" },
+      { url: "/icon.png", type: "image/png" },
+      { url: "/favicon.ico" },
+    ],
+    shortcut: ["/favicon.png"],
+    apple: [{ url: "/favicon.png" }],
+  },
 };
+
 
 export default function RootLayout({
   children,

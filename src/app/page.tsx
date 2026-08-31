@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
 export default function HomePage() {
-  // Redirect to dashboard by default in app structure
-  redirect("/dashboard");
+  // Redirect root visitors directly to the secure login page
+  redirect("/login");
 }

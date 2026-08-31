@@ -22,24 +22,37 @@ export function DocumentHeader({
   return (
     <div className="flex justify-between items-start border-b-2 border-slate-900 pb-6 mb-6">
       {/* Business Info */}
-      <div className="space-y-1 max-w-sm">
-        <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-          {tenant.businessName}
-        </h1>
-        {tenant.address && (
-          <p className="text-xs text-slate-600 leading-relaxed">
-            {[tenant.address.street, tenant.address.city, tenant.address.state, tenant.address.postalCode]
-              .filter(Boolean)
-              .join(", ")}
+      <div className="flex items-start gap-3.5 max-w-md">
+        {tenant.logoUrl && (
+          <div className="h-12 w-12 shrink-0 rounded-xl bg-slate-50 p-1 flex items-center justify-center border border-slate-200">
+            <img
+              src={tenant.logoUrl}
+              alt={tenant.businessName}
+              className="h-full w-full object-contain"
+            />
+          </div>
+        )}
+        <div className="space-y-1">
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+            {tenant.businessName}
+          </h1>
+
+          {tenant.address && (
+            <p className="text-xs text-slate-600 leading-relaxed">
+              {[tenant.address.street, tenant.address.city, tenant.address.state, tenant.address.postalCode]
+                .filter(Boolean)
+                .join(", ")}
+            </p>
+          )}
+          <p className="text-xs text-slate-600">
+            Phone: {tenant.phone} {tenant.email && `| Email: ${tenant.email}`}
           </p>
-        )}
-        <p className="text-xs text-slate-600">
-          Phone: {tenant.phone} {tenant.email && `| Email: ${tenant.email}`}
-        </p>
-        {tenant.gstin && (
-          <p className="text-xs font-semibold text-slate-800">GSTIN: {tenant.gstin}</p>
-        )}
+          {tenant.gstin && (
+            <p className="text-xs font-semibold text-slate-800">GSTIN: {tenant.gstin}</p>
+          )}
+        </div>
       </div>
+
 
       {/* Document Details */}
       <div className="text-right space-y-1">
