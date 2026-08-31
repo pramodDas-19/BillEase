@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase/client";
-import { Quotation } from "@/types";
+import { Quotation, QuotationStatus } from "@/types";
 
 const TENANT_ID = "tenant-royal-events";
 
@@ -36,6 +36,7 @@ export const QuotationService = {
         date: q.date,
         validUntil: q.valid_until,
         status: q.status,
+        convertedToInvoiceId: q.converted_to_invoice_id || undefined,
         currency: q.currency || "INR",
         items: (q.quotation_items || []).map((item: any) => ({
           id: item.id,
@@ -91,6 +92,7 @@ export const QuotationService = {
         date: data.date,
         validUntil: data.valid_until,
         status: data.status,
+        convertedToInvoiceId: data.converted_to_invoice_id || undefined,
         currency: data.currency || "INR",
         items: (data.quotation_items || []).map((item: any) => ({
           id: item.id,
@@ -115,6 +117,37 @@ export const QuotationService = {
       };
     } catch (err) {
       return null;
+    }
+  },
+
+  // Update Quotation Status (e.g. to "converted" or "accepted")
+  async updateQuotationStatus(
+    id: string,
+    status: QuotationStatus,
+    convertedInvoiceId?: string
+  ): Promise<boolean> {
+    try {
+      const payload: any = {
+        status,
+        updated_at: new Date().toISOString(),
+      };
+      if (convertedInvoiceId) {
+        payload.converted_to_invoice_id = convertedInvoiceId;
+      }
+
+      const { error } = await supabase
+        .from("quotations")
+        .update(payload)
+        .eq("id", id);
+
+      if (error) {
+        console.error("Supabase update quotation status error:", error);
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.error("QuotationService.updateQuotationStatus error:", err);
+      return false;
     }
   },
 

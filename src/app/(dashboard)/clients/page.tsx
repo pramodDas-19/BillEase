@@ -4,7 +4,8 @@ import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 
 import { ClientService } from "@/services/client.service";
-import { Client } from "@/types";
+import { InvoiceService } from "@/services/invoice.service";
+import { Client, Invoice } from "@/types";
 import { cn, formatCurrency } from "@/lib/utils";
 import {
   Users,
@@ -37,12 +38,36 @@ export default function ClientsPage() {
   useEffect(() => {
     async function loadData() {
       setIsLoading(true);
-      const data = await ClientService.getClients();
-      setClientsList(data);
-      setIsLoading(false);
+      try {
+        const [clientsData, invoicesData] = await Promise.all([
+          ClientService.getClients(),
+          InvoiceService.getInvoices(),
+        ]);
+
+        const enrichedClients = (clientsData || []).map((client) => {
+          const clientInvoices = (invoicesData || []).filter(
+            (inv) => inv.clientId === client.id || inv.clientName === client.name
+          );
+          const totalBilled = clientInvoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
+          const balanceDue = clientInvoices.reduce((sum, inv) => sum + (inv.balanceDue || 0), 0);
+
+          return {
+            ...client,
+            totalBilled: totalBilled || client.totalBilled || 0,
+            balanceDue: balanceDue !== undefined ? balanceDue : client.balanceDue || 0,
+          };
+        });
+
+        setClientsList(enrichedClients);
+      } catch (err) {
+        console.error("Failed to load clients and invoices:", err);
+      } finally {
+        setIsLoading(false);
+      }
     }
     loadData();
   }, []);
+
 
   // Metrics computation
   const totalClients = clientsList.length;
@@ -356,12 +381,15 @@ export default function ClientsPage() {
                         <span className="truncate">{client.email}</span>
                       </p>
                     )}
-                    <p className="flex items-center gap-2 font-medium">
-                      <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                      <span>
-                        {client.city}, {client.state}
-                      </span>
-                    </p>
+                    {(client.city || client.state || client.address) && (
+                      <p className="flex items-center gap-2 font-medium">
+                        <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                        <span className="truncate">
+                          {[client.address, client.city, client.state].filter(Boolean).join(", ")}
+                        </span>
+                      </p>
+                    )}
+
                   </div>
 
                   {/* GSTIN Badge & Category Tags */}

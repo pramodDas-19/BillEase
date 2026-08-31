@@ -52,6 +52,14 @@ export default function QuotationsPage() {
     }
   };
 
+  const handleStatusChange = async (id: string, newStatus: QuotationStatus) => {
+    setQuotationsList((prev) =>
+      prev.map((q) => (q.id === id ? { ...q, status: newStatus } : q))
+    );
+    await QuotationService.updateQuotationStatus(id, newStatus);
+  };
+
+
 
   // Metrics computation
   const totalQuotes = quotationsList.length;
@@ -350,16 +358,23 @@ export default function QuotationsPage() {
                         >
                           {q.quotationNumber}
                         </Link>
-                        <span
+                        <select
+                          value={q.status}
+                          onChange={(e) => handleStatusChange(q.id, e.target.value as QuotationStatus)}
                           className={cn(
-                            "clay-tag inline-block px-2 py-0.5 text-[10px] font-bold border",
+                            "clay-tag text-[10px] font-bold border px-1.5 py-0.5 rounded-lg cursor-pointer focus:outline-none",
                             statusConfig.bg,
                             statusConfig.text,
                             statusConfig.border
                           )}
                         >
-                          {statusConfig.label}
-                        </span>
+                          <option value="draft">Draft</option>
+                          <option value="sent">Sent / Pending</option>
+                          <option value="accepted">Accepted</option>
+                          <option value="converted">Converted to Invoice</option>
+                          <option value="rejected">Declined</option>
+                          <option value="expired">Expired</option>
+                        </select>
                       </div>
                       <p className="text-[11px] text-slate-400 font-medium mt-0.5 flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
@@ -447,9 +462,9 @@ export default function QuotationsPage() {
                   {/* Contextual Action Buttons */}
                   <div className="grid grid-cols-2 gap-2">
                     {/* Primary Button: Convert to Invoice (or View Invoice if already converted) */}
-                    {q.status === "converted" && q.convertedToInvoiceId ? (
+                    {q.status === "converted" ? (
                       <Link
-                        href={`/invoices/${q.convertedToInvoiceId}`}
+                        href={q.convertedToInvoiceId ? `/invoices/${q.convertedToInvoiceId}` : `/invoices`}
                         className="clay-tag flex items-center justify-center gap-1.5 py-2 text-xs font-bold bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 transition-colors"
                       >
                         <ReceiptText className="h-3.5 w-3.5 text-purple-600" />
@@ -464,6 +479,7 @@ export default function QuotationsPage() {
                         <span>To Invoice</span>
                       </button>
                     )}
+
 
                     {/* Preview / Details Button */}
                     <Link

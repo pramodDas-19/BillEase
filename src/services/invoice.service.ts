@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase/client";
-import { Invoice } from "@/types";
+import { Invoice, InvoiceStatus } from "@/types";
+import { QuotationService } from "./quotation.service";
 
 const TENANT_ID = "tenant-royal-events";
 
@@ -187,12 +188,22 @@ export const InvoiceService = {
         }
       }
 
+      // 3. If converted from a quotation, update quotation status to 'converted'
+      if (invoice.quotationId) {
+        try {
+          await QuotationService.updateQuotationStatus(invoice.quotationId, "converted", invoiceId);
+        } catch (quoteErr) {
+          console.warn("Failed to mark source quotation as converted:", quoteErr);
+        }
+      }
+
       return {
         ...invoice,
         id: invoiceId,
         invoiceNumber,
         tenantId: TENANT_ID,
       } as Invoice;
+
     } catch (err) {
       console.error("InvoiceService.createInvoice error:", err);
       return null;
