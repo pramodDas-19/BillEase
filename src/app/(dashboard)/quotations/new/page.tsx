@@ -83,14 +83,43 @@ export default function NewQuotationPage() {
     setIsSubmitting(true);
 
     try {
+      let finalClientId = state.clientId;
+      if (!finalClientId && state.clientName) {
+        const existing = clients.find(
+          (c) =>
+            c.name.toLowerCase() === state.clientName.toLowerCase() ||
+            (state.clientPhone &&
+              c.phone.replace(/\D/g, "") === state.clientPhone.replace(/\D/g, ""))
+        );
+        if (existing) {
+          finalClientId = existing.id;
+        } else {
+          try {
+            const newClient = await ClientService.createClient({
+              name: state.clientName,
+              phone: state.clientPhone || "+91 00000 00000",
+              email: state.clientEmail || undefined,
+              address: state.clientAddress || undefined,
+              gstin: state.clientGstin || undefined,
+            });
+            if (newClient) {
+              finalClientId = newClient.id;
+            }
+          } catch (cErr) {
+            console.warn("Could not auto-create client:", cErr);
+          }
+        }
+      }
+
       await QuotationService.createQuotation({
         quotationNumber: state.quotationNumber,
-        clientId: state.clientId || undefined,
+        clientId: finalClientId || undefined,
         clientName: state.clientName,
         clientEmail: state.clientEmail || undefined,
         clientPhone: state.clientPhone || undefined,
         clientAddress: state.clientAddress || undefined,
         clientGstin: state.clientGstin || undefined,
+
         date: state.date,
         validUntil: state.validUntil,
         status: "sent",
