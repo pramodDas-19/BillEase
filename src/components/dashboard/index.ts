@@ -5,4 +5,4 @@ export * from "./payment-attention";
 export * from "./recent-quotations-card";
 export * from "./recent-invoices-card";
 export * from "./metric-card";
-export * from "./recent-activity";
+

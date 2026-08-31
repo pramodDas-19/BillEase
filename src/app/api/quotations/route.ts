@@ -1,6 +1,17 @@
 import { NextResponse } from "next/server";
-import { MOCK_QUOTATIONS } from "@/mock/quotations.mock";
+import { QuotationService } from "@/services/quotation.service";
 
 export async function GET() {
-  return NextResponse.json({ success: true, data: MOCK_QUOTATIONS });
+  const data = await QuotationService.getQuotations();
+  return NextResponse.json({ success: true, data });
+}
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    const created = await QuotationService.createQuotation(body);
+    return NextResponse.json({ success: true, data: created });
+  } catch (err: any) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
 }

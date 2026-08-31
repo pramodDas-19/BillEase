@@ -10,9 +10,7 @@ import {
   Clock,
   MessageSquare,
   Sparkles,
-  X,
-  ExternalLink,
-  ShieldCheck,
+  CheckCheck,
 } from "lucide-react";
 
 export function NotificationDropdown() {
@@ -21,9 +19,11 @@ export function NotificationDropdown() {
   const [pushStatus, setPushStatus] = useState<string>("");
 
   useEffect(() => {
-    setNotifications(NotificationService.getNotifications());
+    NotificationService.getLiveNotifications().then((data) => {
+      setNotifications(data || []);
+    });
     NotificationService.registerServiceWorker();
-  }, []);
+  }, [isOpen]);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
@@ -34,10 +34,10 @@ export function NotificationDropdown() {
   const handleTestPush = async () => {
     const granted = await NotificationService.requestPermissionAndSendTest();
     if (granted) {
-      setPushStatus("Push Notifications Enabled ✅");
+      setPushStatus("Push Active ✅");
       setTimeout(() => setPushStatus(""), 3000);
     } else {
-      setPushStatus("Permission Denied / Blocked");
+      setPushStatus("Denied");
       setTimeout(() => setPushStatus(""), 3000);
     }
   };
@@ -80,7 +80,7 @@ export function NotificationDropdown() {
             <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
               <div className="flex items-center gap-2">
                 <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">
-                  Payment Alerts & Notifications
+                  Payment Alerts & Radar
                 </h4>
                 {unreadCount > 0 && (
                   <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
@@ -99,58 +99,70 @@ export function NotificationDropdown() {
             </div>
 
             {/* Notification Items List */}
-            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-              {notifications.map((notif) => {
-                const cleanPhone = notif.clientPhone ? notif.clientPhone.replace(/[^0-9]/g, "") : "";
+            {notifications.length === 0 ? (
+              <div className="text-center py-8 space-y-2">
+                <div className="h-10 w-10 mx-auto rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 shadow-2xs">
+                  <CheckCheck className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-800">All Caught Up!</p>
+                  <p className="text-[11px] text-slate-400">Zero overdue invoices or pending payment emergencies.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                {notifications.map((notif) => {
+                  const cleanPhone = notif.clientPhone ? notif.clientPhone.replace(/[^0-9]/g, "") : "";
 
-                return (
-                  <div
-                    key={notif.id}
-                    className={`p-3 rounded-xl border text-xs transition-all space-y-2 ${
-                      notif.isRead
-                        ? "bg-slate-50/50 border-slate-100 text-slate-600"
-                        : "bg-emerald-50/30 border-emerald-100 text-slate-900 shadow-2xs"
-                    }`}
-                  >
-                    <div className="flex items-start gap-2.5">
-                      <div className="p-1.5 rounded-lg bg-white border border-slate-200 shrink-0 shadow-2xs">
-                        {getIcon(notif.type)}
-                      </div>
-                      <div className="flex-1 overflow-hidden">
-                        <div className="flex items-center justify-between">
-                          <p className="font-bold text-slate-900 truncate">{notif.title}</p>
-                          <span className="text-[10px] text-slate-400 font-medium shrink-0 ml-1">
-                            {notif.timestamp}
-                          </span>
+                  return (
+                    <div
+                      key={notif.id}
+                      className={`p-3 rounded-xl border text-xs transition-all space-y-2 ${
+                        notif.isRead
+                          ? "bg-slate-50/50 border-slate-100 text-slate-600"
+                          : "bg-emerald-50/30 border-emerald-100 text-slate-900 shadow-2xs"
+                      }`}
+                    >
+                      <div className="flex items-start gap-2.5">
+                        <div className="p-1.5 rounded-lg bg-white border border-slate-200 shrink-0 shadow-2xs">
+                          {getIcon(notif.type)}
                         </div>
-                        <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed font-medium">
-                          {notif.message}
-                        </p>
+                        <div className="flex-1 overflow-hidden">
+                          <div className="flex items-center justify-between">
+                            <p className="font-bold text-slate-900 truncate">{notif.title}</p>
+                            <span className="text-[10px] text-slate-400 font-medium shrink-0 ml-1">
+                              {notif.timestamp}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed font-medium">
+                            {notif.message}
+                          </p>
+                        </div>
                       </div>
-                    </div>
 
-                    {/* Quick WhatsApp Remind Trigger for Overdue alerts */}
-                    {notif.type === "overdue" && cleanPhone && (
-                      <div className="pt-1 flex items-center justify-end gap-2 border-t border-slate-100">
-                        <a
-                          href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(
-                            `Hello ${notif.clientName || "Client"}, this is a friendly reminder that your balance payment of ₹${(
-                              notif.amount || 0
-                            ).toLocaleString("en-IN")} is overdue. Kindly arrange for settlement today. Thank you!`
-                          )}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="clay-tag inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 shadow-2xs transition-colors cursor-pointer"
-                        >
-                          <MessageSquare className="h-3 w-3 text-amber-600" />
-                          <span>1-Click WhatsApp Remind</span>
-                        </a>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                      {/* Quick WhatsApp Remind Trigger for Overdue alerts */}
+                      {notif.type === "overdue" && cleanPhone && (
+                        <div className="pt-1 flex items-center justify-end gap-2 border-t border-slate-100">
+                          <a
+                            href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(
+                              `Hello ${notif.clientName || "Client"}, this is a friendly reminder that your balance payment of ₹${(
+                                notif.amount || 0
+                              ).toLocaleString("en-IN")} is overdue. Kindly arrange for settlement today. Thank you!`
+                            )}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="clay-tag inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 shadow-2xs transition-colors cursor-pointer"
+                          >
+                            <MessageSquare className="h-3 w-3 text-amber-600" />
+                            <span>1-Click WhatsApp Remind</span>
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Test Push Notifications Action Bar */}
             <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">

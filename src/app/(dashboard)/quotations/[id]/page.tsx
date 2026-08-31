@@ -1,173 +1,164 @@
-import React from "react";
+"use client";
+
+import React, { useState, use, useEffect } from "react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { MOCK_QUOTATIONS } from "@/mock/quotations.mock";
+import { QuotationService } from "@/services/quotation.service";
+import { Quotation } from "@/types";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { QuotationStatusBadge } from "@/components/quotations";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { generateShareableWhatsAppUrl, generateShareableEmailUrl } from "@/lib/pdf-generator";
 import {
   ArrowLeft,
-  Printer,
   Share2,
-  Mail,
   Receipt,
-  Edit,
   Eye,
-  CheckCircle,
+  Loader2,
 } from "lucide-react";
 
-export default async function QuotationDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const quote = MOCK_QUOTATIONS.find((q) => q.id === id) || MOCK_QUOTATIONS[0];
+export default function QuotationDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const [quote, setQuote] = useState<Quotation | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  if (!quote) {
-    notFound();
+  useEffect(() => {
+    QuotationService.getQuotationById(id).then((data) => {
+      setQuote(data);
+      setIsLoading(false);
+    });
+  }, [id]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px] text-slate-400 gap-2">
+        <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+        <span className="text-sm font-medium">Loading Quotation...</span>
+      </div>
+    );
   }
 
-  const whatsappText = `Hello ${quote.clientName},\nPlease find attached your quotation #${quote.quotationNumber} for ${formatCurrency(quote.totalAmount, quote.currency)}.`;
-  const whatsappUrl = generateShareableWhatsAppUrl(quote.clientPhone || "", whatsappText);
-  const emailUrl = generateShareableEmailUrl(
-    quote.clientEmail || "",
-    `Quotation #${quote.quotationNumber} from Royal Events & Print`,
-    whatsappText
-  );
+  if (!quote) {
+    return (
+      <div className="text-center py-16 space-y-4">
+        <h2 className="text-lg font-bold text-slate-800">Quotation Not Found</h2>
+        <p className="text-xs text-slate-500">The requested quotation record does not exist in the database.</p>
+        <Link
+          href="/quotations"
+          className="clay-btn-primary inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span>Back to Quotations</span>
+        </Link>
+      </div>
+    );
+  }
+
+  const cleanPhone = quote.clientPhone ? quote.clientPhone.replace(/[^0-9]/g, "") : "";
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : "https://billease.app";
+  const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(
+    `Hello *${quote.clientName}*,\n\nYour quotation *#${quote.quotationNumber}* for *${formatCurrency(
+      quote.totalAmount,
+      quote.currency
+    )}* is ready.\n\n📄 View / Download Estimate PDF:\n${baseUrl}/quotations/${quote.id}/preview\n\nThank you!`
+  )}`;
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Action Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Link href="/quotations" className="text-slate-500 hover:text-slate-900">
+          <Link href="/quotations" className="clay-icon-squircle p-2 rounded-xl bg-slate-50 text-slate-600 hover:text-slate-900 border border-slate-200/80">
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-                {quote.quotationNumber}
+                #{quote.quotationNumber}
               </h1>
               <QuotationStatusBadge status={quote.status} />
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Issued on {formatDate(quote.date)} | Valid until {formatDate(quote.validUntil)}
+              Issued: {formatDate(quote.date)} | Valid until: {formatDate(quote.validUntil)}
             </p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <Link href={`/quotations/${quote.id}/preview`}>
-            <Button size="sm" variant="outline" className="gap-1 text-xs">
+            <Button size="sm" variant="outline" className="gap-1.5 text-xs font-bold">
               <Eye className="h-3.5 w-3.5" />
-              <span>Full Preview / Print</span>
+              <span>Preview / PDF</span>
             </Button>
           </Link>
 
-          <a href={whatsappUrl} target="_blank" rel="noopener noreferrer">
-            <Button size="sm" variant="outline" className="gap-1 text-xs text-emerald-700">
-              <Share2 className="h-3.5 w-3.5" />
-              <span>WhatsApp</span>
-            </Button>
-          </a>
-
-          {quote.clientEmail && (
-            <a href={emailUrl}>
-              <Button size="sm" variant="outline" className="gap-1 text-xs">
-                <Mail className="h-3.5 w-3.5" />
-                <span>Email</span>
+          {cleanPhone && (
+            <a href={whatsappUrl} target="_blank" rel="noopener noreferrer">
+              <Button size="sm" variant="outline" className="gap-1.5 text-xs font-bold text-teal-700 bg-teal-50 border-teal-200 hover:bg-teal-100">
+                <Share2 className="h-3.5 w-3.5" />
+                <span>WhatsApp</span>
               </Button>
             </a>
           )}
 
-          {quote.status !== "converted" && (
-            <Link href={`/invoices/new?fromQuote=${quote.id}`}>
-              <Button size="sm" className="gap-1 text-xs bg-emerald-600 hover:bg-emerald-700">
-                <Receipt className="h-3.5 w-3.5" />
-                <span>Convert to Invoice</span>
-              </Button>
-            </Link>
-          )}
+          <Link href={`/invoices/new?quotationId=${quote.id}`}>
+            <Button size="sm" className="gap-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white">
+              <Receipt className="h-3.5 w-3.5" />
+              <span>Convert to Invoice</span>
+            </Button>
+          </Link>
         </div>
       </div>
 
-      {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Client</p>
-          <h3 className="font-bold text-slate-900">{quote.clientName}</h3>
-          <p className="text-xs text-slate-600">{quote.clientPhone}</p>
-          {quote.clientEmail && <p className="text-xs text-slate-600">{quote.clientEmail}</p>}
-          {quote.clientGstin && (
-            <p className="text-xs text-slate-700 font-medium">GSTIN: {quote.clientGstin}</p>
-          )}
-        </Card>
-
-        <Card className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-            Total Quotation Value
-          </p>
-          <h3 className="text-2xl font-extrabold text-slate-900">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card className="clay-card p-5">
+          <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Estimate Total</p>
+          <p className="text-2xl font-black text-slate-900 mt-1">
             {formatCurrency(quote.totalAmount, quote.currency)}
-          </h3>
-          <p className="text-xs text-slate-500">
-            {quote.isTaxEnabled ? "Inclusive of GST" : "Exclusive of GST"}
           </p>
         </Card>
-
-        <Card className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-            Conversion Status
+        <Card className="clay-card p-5">
+          <p className="text-xs text-blue-700 font-bold uppercase tracking-wider">Subtotal</p>
+          <p className="text-2xl font-black text-blue-800 mt-1">
+            {formatCurrency(quote.subtotal, quote.currency)}
           </p>
-          {quote.convertedToInvoiceId ? (
-            <div className="space-y-1">
-              <div className="flex items-center gap-1.5 text-emerald-600 text-xs font-bold">
-                <CheckCircle className="h-4 w-4" />
-                <span>Converted to Invoice</span>
-              </div>
-              <Link
-                href={`/invoices/${quote.convertedToInvoiceId}`}
-                className="text-xs text-slate-700 underline font-medium"
-              >
-                View Linked Invoice
-              </Link>
-            </div>
-          ) : (
-            <p className="text-xs text-slate-500">
-              Not yet converted. Click &quot;Convert to Invoice&quot; once client accepts.
-            </p>
-          )}
+        </Card>
+        <Card className="clay-card p-5">
+          <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Tax Total</p>
+          <p className="text-2xl font-black text-slate-900 mt-1">
+            {formatCurrency(quote.totalTax, quote.currency)}
+          </p>
         </Card>
       </div>
 
-      {/* Scope Items */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base font-semibold">Scope of Work & Items</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="divide-y divide-slate-100">
-            {quote.items.map((item, idx) => (
-              <div key={item.id} className="py-3 flex justify-between items-start">
-                <div className="space-y-1">
-                  <p className="font-semibold text-slate-900 text-sm">
-                    {idx + 1}. {item.description}
-                  </p>
-                  {item.detailedNotes && (
-                    <p className="text-xs text-slate-500 whitespace-pre-line">{item.detailedNotes}</p>
-                  )}
-                  {item.quantity !== undefined && (
-                    <p className="text-xs text-slate-400">
-                      Qty: {item.quantity} {item.unit || ""} {item.rate && `@ ${formatCurrency(item.rate, quote.currency)}`}
-                    </p>
-                  )}
-                </div>
-                <span className="font-bold text-slate-900 text-sm">
-                  {formatCurrency(item.amount, quote.currency)}
-                </span>
-              </div>
-            ))}
-          </div>
-        </CardContent>
+      {/* Line Items Table */}
+      <Card className="clay-card p-5 space-y-4">
+        <h3 className="font-bold text-sm text-slate-900 border-b border-slate-100 pb-2">Estimated Items</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs text-left">
+            <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+              <tr>
+                <th className="py-2.5 px-3">Description</th>
+                <th className="py-2.5 px-3 text-right">Qty</th>
+                <th className="py-2.5 px-3 text-right">Rate</th>
+                <th className="py-2.5 px-3 text-right">Amount</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {(quote.items || []).map((item, idx) => (
+                <tr key={idx}>
+                  <td className="py-3 px-3 font-semibold text-slate-800">
+                    <p>{item.description}</p>
+                    {item.detailedNotes && <p className="text-[11px] text-slate-400 mt-0.5">{item.detailedNotes}</p>}
+                  </td>
+                  <td className="py-3 px-3 text-right font-medium">{item.quantity || 1} {item.unit}</td>
+                  <td className="py-3 px-3 text-right font-medium">{item.rate ? formatCurrency(item.rate, quote.currency) : "-"}</td>
+                  <td className="py-3 px-3 text-right font-bold">{formatCurrency(item.amount, quote.currency)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </Card>
     </div>
   );

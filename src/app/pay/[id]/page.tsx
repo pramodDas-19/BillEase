@@ -1,35 +1,64 @@
 "use client";
 
-import React, { useState, use } from "react";
+import React, { useState, use, useEffect } from "react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { MOCK_INVOICES } from "@/mock/invoices.mock";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { InvoiceService } from "@/services/invoice.service";
+import { Invoice } from "@/types";
+import { formatCurrency } from "@/lib/utils";
 import { generateUpiIntentUrl, getUpiQrImageUrl } from "@/lib/upi";
 import {
   Smartphone,
   CheckCircle2,
   Download,
   Copy,
-  ExternalLink,
   ShieldCheck,
-  ReceiptText,
-  CreditCard,
-  Building2,
   FileCheck,
+  Loader2,
+  ArrowLeft,
 } from "lucide-react";
 
 export default function ClientPayPortalPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const invoice = MOCK_INVOICES.find((i) => i.id === id) || MOCK_INVOICES[0];
+  const [invoice, setInvoice] = useState<Invoice | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [copied, setCopied] = useState(false);
   const [utrInput, setUtrInput] = useState("");
-  const [isSettled, setIsSettled] = useState(invoice.balanceDue <= 0 || invoice.status === "paid");
+  const [isSettled, setIsSettled] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  useEffect(() => {
+    InvoiceService.getInvoiceById(id).then((data) => {
+      setInvoice(data);
+      if (data && (data.balanceDue <= 0 || data.status === "paid")) {
+        setIsSettled(true);
+      }
+      setIsLoading(false);
+    });
+  }, [id]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center text-slate-400 gap-2">
+        <Loader2 className="h-6 w-6 animate-spin text-emerald-500" />
+        <span className="text-sm font-medium text-white">Loading Payment Portal...</span>
+      </div>
+    );
+  }
+
   if (!invoice) {
-    notFound();
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-center space-y-4">
+        <h2 className="text-xl font-bold text-white">Invoice Not Found</h2>
+        <p className="text-xs text-slate-400">The invoice reference does not exist or has expired.</p>
+        <Link
+          href="/"
+          className="clay-tag px-4 py-2 text-xs font-bold bg-white/10 text-white border border-white/20"
+        >
+          Return Home
+        </Link>
+      </div>
+    );
   }
 
   const businessName = "Royal Events & Print Studio";
@@ -45,7 +74,6 @@ export default function ClientPayPortalPage({ params }: { params: Promise<{ id: 
     note: `Invoice ${invoice.invoiceNumber}`,
   });
 
-  // Dedicated app intent links
   const gpayUri = `gpay://upi/pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(
     businessName
   )}&am=${balanceDue}&tr=${encodeURIComponent(invoice.invoiceNumber)}&cu=INR`;
@@ -166,7 +194,7 @@ export default function ClientPayPortalPage({ params }: { params: Promise<{ id: 
                 </p>
               </div>
 
-              {/* 1-Click Mobile UPI App Launchers (Visible on all devices) */}
+              {/* 1-Click Mobile UPI App Launchers */}
               <div className="space-y-2">
                 <span className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-400 text-center">
                   1-Click Instant Pay on Mobile:

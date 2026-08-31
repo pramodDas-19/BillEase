@@ -20,32 +20,32 @@ import {
 } from "lucide-react";
 
 export default function SettingsPage() {
-  const { currentTenant } = useTenant();
+  const { currentTenant, updateTenantProfile, updateTenantSettings } = useTenant();
   const [activeTab, setActiveTab] = useState<
     "profile" | "numbering" | "bank" | "tax" | "reminders"
   >("profile");
 
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  // Form states
-  const [businessName, setBusinessName] = useState(currentTenant.businessName);
-  const [ownerName, setOwnerName] = useState(currentTenant.ownerName);
-  const [phone, setPhone] = useState(currentTenant.phone);
-  const [email, setEmail] = useState(currentTenant.email);
-  const [gstin, setGstin] = useState(currentTenant.gstin || "");
-  const [address, setAddress] = useState(currentTenant.address?.street || "Level 3, Royal Square, MG Road, Mumbai");
+  // Form states initialized clean
+  const [businessName, setBusinessName] = useState(currentTenant?.businessName || "");
+  const [ownerName, setOwnerName] = useState(currentTenant?.ownerName || "");
+  const [phone, setPhone] = useState(currentTenant?.phone || "");
+  const [email, setEmail] = useState(currentTenant?.email || "");
+  const [gstin, setGstin] = useState(currentTenant?.gstin || "");
+  const [address, setAddress] = useState(currentTenant?.address?.street || "");
 
   // Numbering states
-  const [quotePrefix, setQuotePrefix] = useState(currentTenant.settings.quotationNumbering.prefix || "QT-");
-  const [quoteNext, setQuoteNext] = useState(currentTenant.settings.quotationNumbering.nextNumber || 1045);
-  const [invPrefix, setInvPrefix] = useState(currentTenant.settings.invoiceNumbering.prefix || "INV-");
-  const [invNext, setInvNext] = useState(currentTenant.settings.invoiceNumbering.nextNumber || 1024);
+  const [quotePrefix, setQuotePrefix] = useState(currentTenant?.settings?.quotationNumbering?.prefix || "QT-");
+  const [quoteNext, setQuoteNext] = useState(currentTenant?.settings?.quotationNumbering?.nextNumber || 1001);
+  const [invPrefix, setInvPrefix] = useState(currentTenant?.settings?.invoiceNumbering?.prefix || "INV-");
+  const [invNext, setInvNext] = useState(currentTenant?.settings?.invoiceNumbering?.nextNumber || 1001);
 
   // Bank & UPI states
-  const [bankName, setBankName] = useState("HDFC Bank Ltd");
-  const [accountNumber, setAccountNumber] = useState("50200088991122");
-  const [ifscCode, setIfscCode] = useState("HDFC0001234");
-  const [upiId, setUpiId] = useState("royalevents@okhdfcbank");
+  const [bankName, setBankName] = useState(currentTenant?.bankDetails?.bankName || "");
+  const [accountNumber, setAccountNumber] = useState(currentTenant?.bankDetails?.accountNumber || "");
+  const [ifscCode, setIfscCode] = useState(currentTenant?.bankDetails?.ifscCode || "");
+  const [upiId, setUpiId] = useState(currentTenant?.bankDetails?.upiId || "");
 
   // Reminder message template
   const [reminderTemplate, setReminderTemplate] = useState(
@@ -54,9 +54,29 @@ export default function SettingsPage() {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    updateTenantProfile({
+      businessName,
+      ownerName,
+      phone,
+      email,
+      gstin,
+      address: {
+        ...currentTenant.address,
+        street: address,
+      },
+      bankDetails: {
+        accountName: businessName,
+        accountNumber,
+        ifscCode,
+        bankName,
+        upiId,
+      },
+    });
+
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 3000);
   };
+
 
   const navTabs = [
     { id: "profile", label: "Business Profile & Branding", Icon: Building2 },

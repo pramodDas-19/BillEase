@@ -1,6 +1,5 @@
 import { supabase } from "@/lib/supabase/client";
 import { Payment } from "@/types";
-import { MOCK_PAYMENTS } from "@/mock/payments.mock";
 
 const TENANT_ID = "tenant-royal-events";
 
@@ -15,14 +14,11 @@ export const PaymentService = {
         .order("created_at", { ascending: false });
 
       if (error) {
-        console.warn("Supabase fetch payments error, using mock:", error.message);
-        return MOCK_PAYMENTS;
+        console.warn("Supabase fetch payments error:", error.message);
+        return [];
       }
 
-      if (!data || data.length === 0) {
-        await this.seedInitialPayments();
-        return MOCK_PAYMENTS;
-      }
+      if (!data) return [];
 
       return data.map((p) => ({
         id: p.id,
@@ -44,62 +40,68 @@ export const PaymentService = {
       }));
     } catch (err) {
       console.error("PaymentService.getPayments error:", err);
-      return MOCK_PAYMENTS;
+      return [];
     }
   },
 
-  // Record a new payment and update invoice & client balance
+  // Create payment alias
   async createPayment(payment: Partial<Payment>): Promise<Payment | null> {
+    return this.recordPayment(payment);
+  },
+
+  // Record a new payment in Supabase and update invoice balance
+  async recordPayment(payment: Partial<Payment>): Promise<Payment | null> {
+
     try {
-      const payId = `pay-${Date.now()}`;
+      const paymentId = `pay-${Date.now()}`;
+      const paymentNumber = payment.paymentNumber || `PAY-${Date.now().toString().slice(-4)}`;
+
+      // 1. Insert payment record
       const payload = {
-        id: payId,
+        id: paymentId,
         tenant_id: TENANT_ID,
-        payment_number: payment.paymentNumber,
-        invoice_id: payment.invoiceId,
-        invoice_number: payment.invoiceNumber,
+        payment_number: paymentNumber,
+        invoice_id: payment.invoiceId || null,
+        invoice_number: payment.invoiceNumber || null,
         client_id: payment.clientId || null,
         client_name: payment.clientName,
-        amount: payment.amount,
+        amount: payment.amount || 0,
         currency: payment.currency || "INR",
-        payment_date: payment.paymentDate,
+        payment_date: payment.paymentDate || new Date().toISOString().split("T")[0],
         payment_method: payment.paymentMethod || "upi",
         transaction_reference: payment.transactionReference || null,
         notes: payment.notes || null,
         status: "completed",
       };
 
-      const { data, error } = await supabase
-        .from("payments")
-        .insert(payload)
-        .select()
-        .single();
-
-      if (error) {
-        console.error("Supabase insert payment error:", error);
+      const { error: payError } = await supabase.from("payments").insert([payload]);
+      if (payError) {
+        console.error("Supabase insert payment error:", payError);
         return null;
       }
 
-      // Update invoice paid amount and balance due in Supabase
-      if (payment.invoiceId && payment.amount) {
-        const { data: inv } = await supabase
+      // 2. If attached to an invoice, auto-update invoice paid_amount & balance_due
+      if (payment.invoiceId) {
+        const { data: invData } = await supabase
           .from("invoices")
-          .select("total_amount, paid_amount")
+          .select("*")
           .eq("id", payment.invoiceId)
           .single();
 
-        if (inv) {
-          const newPaid = parseFloat(inv.paid_amount || "0") + payment.amount;
-          const totalAmt = parseFloat(inv.total_amount || "0");
-          const newDue = Math.max(0, totalAmt - newPaid);
-          const newStatus = newDue === 0 ? "paid" : "partially_paid";
+        if (invData) {
+          const currentPaid = parseFloat(invData.paid_amount || "0");
+          const totalAmt = parseFloat(invData.total_amount || "0");
+          const newPaid = currentPaid + (payment.amount || 0);
+          const newBalance = Math.max(0, totalAmt - newPaid);
+          const newStatus = newBalance <= 0 ? "paid" : "partially_paid";
 
           await supabase
             .from("invoices")
             .update({
               paid_amount: newPaid,
-              balance_due: newDue,
+              balance_due: newBalance,
               status: newStatus,
+              updated_at: new Date().toISOString(),
             })
             .eq("id", payment.invoiceId);
         }
@@ -107,16 +109,17 @@ export const PaymentService = {
 
       return {
         ...payment,
-        id: payId,
+        id: paymentId,
+        paymentNumber,
         tenantId: TENANT_ID,
       } as Payment;
     } catch (err) {
-      console.error("PaymentService.createPayment error:", err);
+      console.error("PaymentService.recordPayment error:", err);
       return null;
     }
   },
 
-  // Delete a payment
+  // Delete a payment receipt
   async deletePayment(id: string): Promise<boolean> {
     try {
       const { error } = await supabase.from("payments").delete().eq("id", id);
@@ -128,32 +131,6 @@ export const PaymentService = {
     } catch (err) {
       console.error("PaymentService.deletePayment error:", err);
       return false;
-    }
-  },
-
-  // Seed helper
-  async seedInitialPayments() {
-    try {
-      const rows = MOCK_PAYMENTS.map((p) => ({
-        id: p.id,
-        tenant_id: TENANT_ID,
-        payment_number: p.paymentNumber,
-        invoice_id: p.invoiceId,
-        invoice_number: p.invoiceNumber,
-        client_id: p.clientId || null,
-        client_name: p.clientName,
-        amount: p.amount,
-        currency: p.currency,
-        payment_date: p.paymentDate,
-        payment_method: p.paymentMethod,
-        transaction_reference: p.transactionReference || null,
-        notes: p.notes || null,
-        status: p.status,
-      }));
-
-      await supabase.from("payments").upsert(rows);
-    } catch (e) {
-      console.warn("Could not auto-seed payments:", e);
     }
   },
 };

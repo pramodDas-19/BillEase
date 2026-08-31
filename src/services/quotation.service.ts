@@ -1,6 +1,5 @@
 import { supabase } from "@/lib/supabase/client";
 import { Quotation } from "@/types";
-import { MOCK_QUOTATIONS } from "@/mock/quotations.mock";
 
 const TENANT_ID = "tenant-royal-events";
 
@@ -18,14 +17,11 @@ export const QuotationService = {
         .order("created_at", { ascending: false });
 
       if (error) {
-        console.warn("Supabase fetch quotations error, using mock:", error.message);
-        return MOCK_QUOTATIONS;
+        console.warn("Supabase fetch quotations error:", error.message);
+        return [];
       }
 
-      if (!data || data.length === 0) {
-        await this.seedInitialQuotations();
-        return MOCK_QUOTATIONS;
-      }
+      if (!data) return [];
 
       return data.map((q) => ({
         id: q.id,
@@ -59,75 +55,130 @@ export const QuotationService = {
         totalAmount: parseFloat(q.total_amount || "0"),
         termsAndConditions: q.terms_and_conditions,
         notes: q.notes,
-        convertedToInvoiceId: q.converted_to_invoice_id,
         createdAt: q.created_at,
         updatedAt: q.updated_at,
       }));
     } catch (err) {
       console.error("QuotationService.getQuotations error:", err);
-      return MOCK_QUOTATIONS;
+      return [];
     }
   },
 
-  // Create a new quotation + items in Supabase
-  async createQuotation(quote: Partial<Quotation>): Promise<Quotation | null> {
+  // Fetch single quotation by ID
+  async getQuotationById(id: string): Promise<Quotation | null> {
     try {
-      const quoteId = `qt-${Date.now()}`;
-      const payload = {
-        id: quoteId,
-        tenant_id: TENANT_ID,
-        quotation_number: quote.quotationNumber,
-        client_id: quote.clientId || null,
-        client_name: quote.clientName,
-        client_email: quote.clientEmail || null,
-        clientPhone: quote.clientPhone || null,
-        client_address: quote.clientAddress || null,
-        client_gstin: quote.clientGstin || null,
-        date: quote.date,
-        valid_until: quote.validUntil,
-        status: quote.status || "sent",
-        currency: quote.currency || "INR",
-        subtotal: quote.subtotal || 0,
-        discount_type: quote.discountType || "percentage",
-        discount_value: quote.discountValue || 0,
-        discount_amount: quote.discountAmount || 0,
-        is_tax_enabled: quote.isTaxEnabled ?? true,
-        total_tax: quote.totalTax || 0,
-        total_amount: quote.totalAmount || 0,
-        terms_and_conditions: quote.termsAndConditions || null,
-        notes: quote.notes || null,
-      };
-
       const { data, error } = await supabase
         .from("quotations")
-        .insert(payload)
-        .select()
+        .select(`
+          *,
+          quotation_items (*)
+        `)
+        .eq("id", id)
         .single();
 
-      if (error) {
-        console.error("Supabase insert quotation error:", error);
+      if (error || !data) return null;
+
+      return {
+        id: data.id,
+        tenantId: data.tenant_id,
+        quotationNumber: data.quotation_number,
+        clientId: data.client_id,
+        clientName: data.client_name,
+        clientEmail: data.client_email,
+        clientPhone: data.client_phone,
+        clientAddress: data.client_address,
+        clientGstin: data.client_gstin,
+        date: data.date,
+        validUntil: data.valid_until,
+        status: data.status,
+        currency: data.currency || "INR",
+        items: (data.quotation_items || []).map((item: any) => ({
+          id: item.id,
+          description: item.description,
+          detailedNotes: item.detailed_notes,
+          quantity: item.quantity ? parseFloat(item.quantity) : undefined,
+          unit: item.unit,
+          rate: item.rate ? parseFloat(item.rate) : undefined,
+          amount: parseFloat(item.amount || "0"),
+        })),
+        subtotal: parseFloat(data.subtotal || "0"),
+        discountType: data.discount_type,
+        discountValue: parseFloat(data.discount_value || "0"),
+        discountAmount: parseFloat(data.discount_amount || "0"),
+        isTaxEnabled: data.is_tax_enabled ?? true,
+        totalTax: parseFloat(data.total_tax || "0"),
+        totalAmount: parseFloat(data.total_amount || "0"),
+        termsAndConditions: data.terms_and_conditions,
+        notes: data.notes,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+      };
+    } catch (err) {
+      return null;
+    }
+  },
+
+  // Create a new quotation with line items in Supabase
+  async createQuotation(quotation: Partial<Quotation>): Promise<Quotation | null> {
+    try {
+      const quoteId = `quote-${Date.now()}`;
+      const quoteNumber = quotation.quotationNumber || `QT-${Date.now().toString().slice(-4)}`;
+
+      // 1. Insert master quotation record
+      const quotePayload = {
+        id: quoteId,
+        tenant_id: TENANT_ID,
+        quotation_number: quoteNumber,
+        client_id: quotation.clientId || null,
+        client_name: quotation.clientName,
+        client_email: quotation.clientEmail || null,
+        client_phone: quotation.clientPhone || null,
+        client_address: quotation.clientAddress || null,
+        client_gstin: quotation.clientGstin || null,
+        date: quotation.date || new Date().toISOString().split("T")[0],
+        valid_until: quotation.validUntil || new Date(Date.now() + 14 * 86400000).toISOString().split("T")[0],
+        status: quotation.status || "draft",
+        currency: quotation.currency || "INR",
+        subtotal: quotation.subtotal || 0,
+        discount_type: quotation.discountType || null,
+        discount_value: quotation.discountValue || 0,
+        discount_amount: quotation.discountAmount || 0,
+        is_tax_enabled: quotation.isTaxEnabled ?? true,
+        total_tax: quotation.totalTax || 0,
+        total_amount: quotation.totalAmount || 0,
+        terms_and_conditions: quotation.termsAndConditions || null,
+        notes: quotation.notes || null,
+      };
+
+      const { error: quoteError } = await supabase.from("quotations").insert([quotePayload]);
+      if (quoteError) {
+        console.error("Supabase insert quotation error:", quoteError);
         return null;
       }
 
-      // Insert line items
-      if (quote.items && quote.items.length > 0) {
-        const itemRows = quote.items.map((item, idx) => ({
-          id: `item-${Date.now()}-${idx}`,
+      // 2. Insert line items
+      if (quotation.items && quotation.items.length > 0) {
+        const itemRows = quotation.items.map((item, idx) => ({
+          id: `qi-${Date.now()}-${idx}`,
           quotation_id: quoteId,
           description: item.description,
           detailed_notes: item.detailedNotes || null,
-          quantity: item.quantity || 1,
-          unit: item.unit || "pcs",
-          rate: item.rate || 0,
-          amount: item.amount || 0,
+          quantity: item.quantity || null,
+          unit: item.unit || null,
+          rate: item.rate || null,
+          amount: item.amount,
         }));
 
-        await supabase.from("quotation_items").insert(itemRows);
+        const { error: itemsError } = await supabase.from("quotation_items").insert(itemRows);
+        if (itemsError) {
+          console.error("Supabase insert quotation_items error:", itemsError);
+        }
       }
 
       return {
-        ...quote,
+        ...quotation,
         id: quoteId,
+        quotationNumber: quoteNumber,
         tenantId: TENANT_ID,
       } as Quotation;
     } catch (err) {
@@ -139,6 +190,7 @@ export const QuotationService = {
   // Delete a quotation
   async deleteQuotation(id: string): Promise<boolean> {
     try {
+      await supabase.from("quotation_items").delete().eq("quotation_id", id);
       const { error } = await supabase.from("quotations").delete().eq("id", id);
       if (error) {
         console.error("Supabase delete quotation error:", error);
@@ -148,54 +200,6 @@ export const QuotationService = {
     } catch (err) {
       console.error("QuotationService.deleteQuotation error:", err);
       return false;
-    }
-  },
-
-  // Seed helper
-  async seedInitialQuotations() {
-    try {
-      for (const q of MOCK_QUOTATIONS) {
-        await supabase.from("quotations").upsert({
-          id: q.id,
-          tenant_id: TENANT_ID,
-          quotation_number: q.quotationNumber,
-          client_id: q.clientId || null,
-          client_name: q.clientName,
-          client_email: q.clientEmail || null,
-          client_phone: q.clientPhone || null,
-          client_address: q.clientAddress || null,
-          client_gstin: q.clientGstin || null,
-          date: q.date,
-          valid_until: q.validUntil,
-          status: q.status,
-          currency: q.currency,
-          subtotal: q.subtotal,
-          discount_type: q.discountType || "fixed",
-          discount_value: q.discountValue || 0,
-          discount_amount: q.discountAmount || 0,
-          is_tax_enabled: q.isTaxEnabled,
-          total_tax: q.totalTax,
-          total_amount: q.totalAmount,
-          notes: q.notes || null,
-          converted_to_invoice_id: q.convertedToInvoiceId || null,
-        });
-
-        if (q.items && q.items.length > 0) {
-          const itemRows = q.items.map((item) => ({
-            id: item.id,
-            quotation_id: q.id,
-            description: item.description,
-            detailed_notes: item.detailedNotes || null,
-            quantity: item.quantity || 1,
-            unit: item.unit || "pcs",
-            rate: item.rate || 0,
-            amount: item.amount,
-          }));
-          await supabase.from("quotation_items").upsert(itemRows);
-        }
-      }
-    } catch (e) {
-      console.warn("Could not auto-seed quotations:", e);
     }
   },
 };

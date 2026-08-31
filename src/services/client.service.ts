@@ -1,6 +1,5 @@
 import { supabase } from "@/lib/supabase/client";
 import { Client } from "@/types";
-import { MOCK_CLIENTS } from "@/mock/clients.mock";
 
 const TENANT_ID = "tenant-royal-events";
 
@@ -15,14 +14,11 @@ export const ClientService = {
         .order("created_at", { ascending: false });
 
       if (error) {
-        console.warn("Supabase fetch error, using local data:", error.message);
-        return MOCK_CLIENTS;
+        console.warn("Supabase fetch clients error:", error.message);
+        return [];
       }
 
-      if (!data || data.length === 0) {
-        await this.seedInitialClients();
-        return MOCK_CLIENTS;
-      }
+      if (!data) return [];
 
       return data.map((c) => ({
         id: c.id,
@@ -42,7 +38,39 @@ export const ClientService = {
       }));
     } catch (err) {
       console.error("ClientService.getClients error:", err);
-      return MOCK_CLIENTS;
+      return [];
+    }
+  },
+
+  // Get Client by ID
+  async getClientById(id: string): Promise<Client | null> {
+    try {
+      const { data, error } = await supabase
+        .from("clients")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (error || !data) return null;
+
+      return {
+        id: data.id,
+        tenantId: data.tenant_id,
+        name: data.name,
+        companyName: data.company_name,
+        email: data.email,
+        phone: data.phone,
+        gstin: data.gstin,
+        address: data.address,
+        segmentTags: data.segment_tags || [],
+        totalBilled: parseFloat(data.total_billed || "0"),
+        totalPaid: parseFloat(data.total_paid || "0"),
+        balanceDue: parseFloat(data.balance_due || "0"),
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+      };
+    } catch (err) {
+      return null;
     }
   },
 
@@ -110,30 +138,6 @@ export const ClientService = {
     } catch (err) {
       console.error("ClientService.deleteClient error:", err);
       return false;
-    }
-  },
-
-  // Seed helper
-  async seedInitialClients() {
-    try {
-      const rows = MOCK_CLIENTS.map((c) => ({
-        id: c.id,
-        tenant_id: TENANT_ID,
-        name: c.name,
-        company_name: c.companyName || null,
-        email: c.email || null,
-        phone: c.phone,
-        gstin: c.gstin || null,
-        address: c.address || null,
-        segment_tags: c.segmentTags || [],
-        total_billed: c.totalBilled || 0,
-        total_paid: c.totalPaid || 0,
-        balance_due: c.balanceDue || 0,
-      }));
-
-      await supabase.from("clients").upsert(rows);
-    } catch (e) {
-      console.warn("Could not auto-seed clients:", e);
     }
   },
 };

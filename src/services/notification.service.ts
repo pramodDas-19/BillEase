@@ -1,3 +1,7 @@
+import { InvoiceService } from "./invoice.service";
+import { PaymentService } from "./payment.service";
+import { formatCurrency, formatDate } from "@/lib/utils";
+
 export interface AppNotification {
   id: string;
   type: "overdue" | "payment_received" | "quote_accepted" | "due_soon";
@@ -10,43 +14,6 @@ export interface AppNotification {
   clientName?: string;
   amount?: number;
 }
-
-const INITIAL_NOTIFICATIONS: AppNotification[] = [
-  {
-    id: "notif-1",
-    type: "overdue",
-    title: "Overdue Invoice Alert (₹45,000)",
-    message: "Invoice #INV-2026-003 for Apex Tech Solutions is 5 days overdue.",
-    timestamp: "10 mins ago",
-    isRead: false,
-    actionUrl: "/invoices",
-    clientPhone: "+919876543210",
-    clientName: "Rahul Sharma (Apex Tech)",
-    amount: 45000,
-  },
-  {
-    id: "notif-2",
-    type: "payment_received",
-    title: "Payment Received (₹1,50,000)",
-    message: "50% advance logged via UPI for Grand Hyatt Wedding Reception.",
-    timestamp: "2 hours ago",
-    isRead: false,
-    actionUrl: "/payments",
-    amount: 150000,
-  },
-  {
-    id: "notif-3",
-    type: "due_soon",
-    title: "Payment Due Tomorrow (₹28,500)",
-    message: "Invoice #INV-2026-008 for Horizon Media is due on 01 Sep 2026.",
-    timestamp: "5 hours ago",
-    isRead: true,
-    actionUrl: "/invoices",
-    clientPhone: "+919811122233",
-    clientName: "Pooja Verma (Horizon Media)",
-    amount: 28500,
-  },
-];
 
 export class NotificationService {
   /**
@@ -84,9 +51,68 @@ export class NotificationService {
   }
 
   /**
-   * Retrieves active notification feed.
+   * Generates REAL dynamic notifications directly from Supabase invoices and payments.
    */
-  static getNotifications(): AppNotification[] {
-    return INITIAL_NOTIFICATIONS;
+  static async getLiveNotifications(): Promise<AppNotification[]> {
+    try {
+      const [invoices, payments] = await Promise.all([
+        InvoiceService.getInvoices(),
+        PaymentService.getPayments(),
+      ]);
+
+      const notifications: AppNotification[] = [];
+      const today = new Date().toISOString().split("T")[0];
+
+      // 1. Check for real Overdue Invoices
+      (invoices || []).forEach((inv) => {
+        if (inv.balanceDue > 0 && inv.dueDate && inv.dueDate < today) {
+          notifications.push({
+            id: `notif-overdue-${inv.id}`,
+            type: "overdue",
+            title: `Overdue Invoice (${formatCurrency(inv.balanceDue, inv.currency)})`,
+            message: `Invoice #${inv.invoiceNumber} for ${inv.clientName} is past its due date (${formatDate(inv.dueDate)}).`,
+            timestamp: "Action Required",
+            isRead: false,
+            actionUrl: `/invoices/${inv.id}/preview`,
+            clientPhone: inv.clientPhone,
+            clientName: inv.clientName,
+            amount: inv.balanceDue,
+          });
+        } else if (inv.balanceDue > 0 && inv.dueDate === today) {
+          notifications.push({
+            id: `notif-due-today-${inv.id}`,
+            type: "due_soon",
+            title: `Payment Due Today (${formatCurrency(inv.balanceDue, inv.currency)})`,
+            message: `Invoice #${inv.invoiceNumber} for ${inv.clientName} is due today.`,
+            timestamp: "Due Today",
+            isRead: false,
+            actionUrl: `/invoices/${inv.id}/preview`,
+            clientPhone: inv.clientPhone,
+            clientName: inv.clientName,
+            amount: inv.balanceDue,
+          });
+        }
+      });
+
+      // 2. Add Recent Payment Receipts (up to 3)
+      (payments || []).slice(0, 3).forEach((p) => {
+        notifications.push({
+          id: `notif-pay-${p.id}`,
+          type: "payment_received",
+          title: `Payment Received (${formatCurrency(p.amount, p.currency)})`,
+          message: `Receipt #${p.paymentNumber} recorded for ${p.clientName} via ${p.paymentMethod.toUpperCase()}.`,
+          timestamp: p.paymentDate ? formatDate(p.paymentDate) : "Recent",
+          isRead: false,
+          actionUrl: "/payments",
+          clientName: p.clientName,
+          amount: p.amount,
+        });
+      });
+
+      return notifications;
+    } catch (err) {
+      console.error("Failed to generate live notifications:", err);
+      return [];
+    }
   }
 }

@@ -1,6 +1,5 @@
 import { supabase } from "@/lib/supabase/client";
 import { Invoice } from "@/types";
-import { MOCK_INVOICES } from "@/mock/invoices.mock";
 
 const TENANT_ID = "tenant-royal-events";
 
@@ -18,14 +17,11 @@ export const InvoiceService = {
         .order("created_at", { ascending: false });
 
       if (error) {
-        console.warn("Supabase fetch invoices error, using mock:", error.message);
-        return MOCK_INVOICES;
+        console.warn("Supabase fetch invoices error:", error.message);
+        return [];
       }
 
-      if (!data || data.length === 0) {
-        await this.seedInitialInvoices();
-        return MOCK_INVOICES;
-      }
+      if (!data) return [];
 
       return data.map((inv) => ({
         id: inv.id,
@@ -68,73 +64,133 @@ export const InvoiceService = {
       }));
     } catch (err) {
       console.error("InvoiceService.getInvoices error:", err);
-      return MOCK_INVOICES;
+      return [];
     }
   },
 
-  // Create a new invoice + items in Supabase
-  async createInvoice(inv: Partial<Invoice>): Promise<Invoice | null> {
+  // Fetch single invoice by ID
+  async getInvoiceById(id: string): Promise<Invoice | null> {
     try {
-      const invId = `inv-${Date.now()}`;
-      const payload = {
-        id: invId,
-        tenant_id: TENANT_ID,
-        invoice_number: inv.invoiceNumber,
-        quotation_id: inv.quotationId || null,
-        quotation_number: inv.quotationNumber || null,
-        client_id: inv.clientId || null,
-        client_name: inv.clientName,
-        client_email: inv.clientEmail || null,
-        client_phone: inv.clientPhone || null,
-        client_address: inv.clientAddress || null,
-        client_gstin: inv.clientGstin || null,
-        issue_date: inv.issueDate,
-        due_date: inv.dueDate,
-        status: inv.status || "due",
-        currency: inv.currency || "INR",
-        subtotal: inv.subtotal || 0,
-        discount_type: inv.discountType || "percentage",
-        discount_value: inv.discountValue || 0,
-        discount_amount: inv.discountAmount || 0,
-        is_tax_enabled: inv.isTaxEnabled ?? true,
-        total_tax: inv.totalTax || 0,
-        total_amount: inv.totalAmount || 0,
-        paid_amount: inv.paidAmount || 0,
-        balance_due: inv.balanceDue ?? inv.totalAmount ?? 0,
-        terms_and_conditions: inv.termsAndConditions || null,
-        notes: inv.notes || null,
-      };
-
       const { data, error } = await supabase
         .from("invoices")
-        .insert(payload)
-        .select()
+        .select(`
+          *,
+          invoice_items (*)
+        `)
+        .eq("id", id)
         .single();
 
-      if (error) {
-        console.error("Supabase insert invoice error:", error);
+      if (error || !data) return null;
+
+      return {
+        id: data.id,
+        tenantId: data.tenant_id,
+        invoiceNumber: data.invoice_number,
+        quotationId: data.quotation_id,
+        quotationNumber: data.quotation_number,
+        clientId: data.client_id,
+        clientName: data.client_name,
+        clientEmail: data.client_email,
+        clientPhone: data.client_phone,
+        clientAddress: data.client_address,
+        clientGstin: data.client_gstin,
+        issueDate: data.issue_date,
+        dueDate: data.due_date,
+        status: data.status,
+        currency: data.currency || "INR",
+        items: (data.invoice_items || []).map((item: any) => ({
+          id: item.id,
+          description: item.description,
+          detailedNotes: item.detailed_notes,
+          quantity: item.quantity ? parseFloat(item.quantity) : undefined,
+          unit: item.unit,
+          rate: item.rate ? parseFloat(item.rate) : undefined,
+          amount: parseFloat(item.amount || "0"),
+        })),
+        subtotal: parseFloat(data.subtotal || "0"),
+        discountType: data.discount_type,
+        discountValue: parseFloat(data.discount_value || "0"),
+        discountAmount: parseFloat(data.discount_amount || "0"),
+        isTaxEnabled: data.is_tax_enabled ?? true,
+        totalTax: parseFloat(data.total_tax || "0"),
+        totalAmount: parseFloat(data.total_amount || "0"),
+        paidAmount: parseFloat(data.paid_amount || "0"),
+        balanceDue: parseFloat(data.balance_due || "0"),
+        termsAndConditions: data.terms_and_conditions,
+        notes: data.notes,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+      };
+    } catch (err) {
+      return null;
+    }
+  },
+
+  // Create a new invoice with line items in Supabase
+  async createInvoice(invoice: Partial<Invoice>): Promise<Invoice | null> {
+    try {
+      const invoiceId = `inv-${Date.now()}`;
+      const invoiceNumber = invoice.invoiceNumber || `INV-${Date.now().toString().slice(-4)}`;
+
+      // 1. Insert master invoice record
+      const invoicePayload = {
+        id: invoiceId,
+        tenant_id: TENANT_ID,
+        invoice_number: invoiceNumber,
+        quotation_id: invoice.quotationId || null,
+        quotation_number: invoice.quotationNumber || null,
+        client_id: invoice.clientId || null,
+        client_name: invoice.clientName,
+        client_email: invoice.clientEmail || null,
+        client_phone: invoice.clientPhone || null,
+        client_address: invoice.clientAddress || null,
+        client_gstin: invoice.clientGstin || null,
+        issue_date: invoice.issueDate || new Date().toISOString().split("T")[0],
+        due_date: invoice.dueDate || new Date(Date.now() + 14 * 86400000).toISOString().split("T")[0],
+        status: invoice.status || "unpaid",
+        currency: invoice.currency || "INR",
+        subtotal: invoice.subtotal || 0,
+        discount_type: invoice.discountType || null,
+        discount_value: invoice.discountValue || 0,
+        discount_amount: invoice.discountAmount || 0,
+        is_tax_enabled: invoice.isTaxEnabled ?? true,
+        total_tax: invoice.totalTax || 0,
+        total_amount: invoice.totalAmount || 0,
+        paid_amount: invoice.paidAmount || 0,
+        balance_due: invoice.balanceDue !== undefined ? invoice.balanceDue : invoice.totalAmount || 0,
+        terms_and_conditions: invoice.termsAndConditions || null,
+        notes: invoice.notes || null,
+      };
+
+      const { error: invError } = await supabase.from("invoices").insert([invoicePayload]);
+      if (invError) {
+        console.error("Supabase insert invoice error:", invError);
         return null;
       }
 
-      // Insert line items
-      if (inv.items && inv.items.length > 0) {
-        const itemRows = inv.items.map((item, idx) => ({
-          id: `inv-item-${Date.now()}-${idx}`,
-          invoice_id: invId,
+      // 2. Insert line items
+      if (invoice.items && invoice.items.length > 0) {
+        const itemRows = invoice.items.map((item, idx) => ({
+          id: `ii-${Date.now()}-${idx}`,
+          invoice_id: invoiceId,
           description: item.description,
           detailed_notes: item.detailedNotes || null,
-          quantity: item.quantity || 1,
-          unit: item.unit || "pcs",
-          rate: item.rate || 0,
-          amount: item.amount || 0,
+          quantity: item.quantity || null,
+          unit: item.unit || null,
+          rate: item.rate || null,
+          amount: item.amount,
         }));
 
-        await supabase.from("invoice_items").insert(itemRows);
+        const { error: itemsError } = await supabase.from("invoice_items").insert(itemRows);
+        if (itemsError) {
+          console.error("Supabase insert invoice_items error:", itemsError);
+        }
       }
 
       return {
-        ...inv,
-        id: invId,
+        ...invoice,
+        id: invoiceId,
+        invoiceNumber,
         tenantId: TENANT_ID,
       } as Invoice;
     } catch (err) {
@@ -146,6 +202,7 @@ export const InvoiceService = {
   // Delete an invoice
   async deleteInvoice(id: string): Promise<boolean> {
     try {
+      await supabase.from("invoice_items").delete().eq("invoice_id", id);
       const { error } = await supabase.from("invoices").delete().eq("id", id);
       if (error) {
         console.error("Supabase delete invoice error:", error);
@@ -155,57 +212,6 @@ export const InvoiceService = {
     } catch (err) {
       console.error("InvoiceService.deleteInvoice error:", err);
       return false;
-    }
-  },
-
-  // Seed helper
-  async seedInitialInvoices() {
-    try {
-      for (const inv of MOCK_INVOICES) {
-        await supabase.from("invoices").upsert({
-          id: inv.id,
-          tenant_id: TENANT_ID,
-          invoice_number: inv.invoiceNumber,
-          quotation_id: inv.quotationId || null,
-          quotation_number: inv.quotationNumber || null,
-          client_id: inv.clientId || null,
-          client_name: inv.clientName,
-          client_email: inv.clientEmail || null,
-          client_phone: inv.clientPhone || null,
-          client_address: inv.clientAddress || null,
-          client_gstin: inv.clientGstin || null,
-          issue_date: inv.issueDate,
-          due_date: inv.dueDate,
-          status: inv.status,
-          currency: inv.currency,
-          subtotal: inv.subtotal,
-          discount_type: inv.discountType || "fixed",
-          discount_value: inv.discountValue || 0,
-          discount_amount: inv.discountAmount || 0,
-          is_tax_enabled: inv.isTaxEnabled,
-          total_tax: inv.totalTax,
-          total_amount: inv.totalAmount,
-          paid_amount: inv.paidAmount,
-          balance_due: inv.balanceDue,
-          notes: inv.notes || null,
-        });
-
-        if (inv.items && inv.items.length > 0) {
-          const itemRows = inv.items.map((item) => ({
-            id: item.id,
-            invoice_id: inv.id,
-            description: item.description,
-            detailed_notes: item.detailedNotes || null,
-            quantity: item.quantity || 1,
-            unit: item.unit || "pcs",
-            rate: item.rate || 0,
-            amount: item.amount,
-          }));
-          await supabase.from("invoice_items").upsert(itemRows);
-        }
-      }
-    } catch (e) {
-      console.warn("Could not auto-seed invoices:", e);
     }
   },
 };

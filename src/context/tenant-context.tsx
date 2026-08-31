@@ -10,6 +10,7 @@ interface TenantContextType {
   availableTenants: Tenant[];
   switchTenant: (tenantId: string) => void;
   updateTenantSettings: (newSettings: Partial<Tenant["settings"]>) => void;
+  updateTenantProfile: (newProfile: Partial<Tenant>) => void;
 }
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
@@ -36,6 +37,13 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  const updateTenantProfile = (newProfile: Partial<Tenant>) => {
+    setCurrentTenant((prev) => ({
+      ...prev,
+      ...newProfile,
+    }));
+  };
+
   return (
     <TenantContext.Provider
       value={{
@@ -44,6 +52,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         availableTenants,
         switchTenant,
         updateTenantSettings,
+        updateTenantProfile,
       }}
     >
       {children}
