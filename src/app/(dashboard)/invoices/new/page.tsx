@@ -70,12 +70,24 @@ function NewInvoiceContent() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [clientsData, quotesData] = await Promise.all([
+        const [clientsData, quotesData, invoicesData] = await Promise.all([
           ClientService.getClients(),
           QuotationService.getQuotations(),
+          InvoiceService.getInvoices(),
         ]);
         setClients(clientsData || []);
         setQuotations(quotesData || []);
+
+        // Calculate next invoice number from database
+        const prefix = currentTenant?.settings?.invoiceNumbering?.prefix || "INV-";
+        let nextNum = 1001;
+        if (invoicesData && invoicesData.length > 0) {
+          const numbers = invoicesData.map((inv) => {
+            const match = inv.invoiceNumber.match(/\d+$/);
+            return match ? parseInt(match[0], 10) : 0;
+          });
+          nextNum = Math.max(...numbers, 1000) + 1;
+        }
 
         // If fromQuoteId is present, fetch the full quotation details
         if (fromQuoteId) {
@@ -89,6 +101,7 @@ function NewInvoiceContent() {
             // Populate all state from quotation
             setState((prev) => ({
               ...prev,
+              invoiceNumber: `${prefix}${nextNum}`,
               quotationId: quote.id,
               quotationNumber: quote.quotationNumber,
               clientId: quote.clientId || prev.clientId,
@@ -117,6 +130,11 @@ function NewInvoiceContent() {
               notes: quote.notes || prev.notes,
             }));
           }
+        } else {
+          setState((prev) => ({
+            ...prev,
+            invoiceNumber: `${prefix}${nextNum}`,
+          }));
         }
       } catch (err) {
         console.error("Failed to load initial invoice data:", err);
@@ -126,7 +144,8 @@ function NewInvoiceContent() {
     }
 
     loadData();
-  }, [fromQuoteId]);
+  }, [fromQuoteId, currentTenant]);
+
 
   const handleClientSelect = (clientId: string) => {
     const found = clients.find((c) => c.id === clientId);

@@ -21,12 +21,32 @@ export default function NewQuotationPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    async function loadClients() {
-      const data = await ClientService.getClients();
-      setClients(data);
+    async function loadData() {
+      const [clientsData, quotesData] = await Promise.all([
+        ClientService.getClients(),
+        QuotationService.getQuotations(),
+      ]);
+      setClients(clientsData || []);
+
+      // Calculate next quotation number from database
+      const prefix = currentTenant?.settings?.quotationNumbering?.prefix || "QT-";
+      let nextNum = 1001;
+      if (quotesData && quotesData.length > 0) {
+        const numbers = quotesData.map((q) => {
+          const match = q.quotationNumber.match(/\d+$/);
+          return match ? parseInt(match[0], 10) : 0;
+        });
+        nextNum = Math.max(...numbers, 1000) + 1;
+      }
+
+      setState((prev) => ({
+        ...prev,
+        quotationNumber: `${prefix}${nextNum}`,
+      }));
     }
-    loadClients();
-  }, []);
+    loadData();
+  }, [currentTenant]);
+
 
   const {
     state,
