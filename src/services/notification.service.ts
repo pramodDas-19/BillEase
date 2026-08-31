@@ -1,5 +1,6 @@
 import { InvoiceService } from "./invoice.service";
 import { PaymentService } from "./payment.service";
+import { QuotationService } from "./quotation.service";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export interface AppNotification {
@@ -51,13 +52,14 @@ export class NotificationService {
   }
 
   /**
-   * Generates REAL dynamic notifications directly from Supabase invoices and payments.
+   * Generates REAL dynamic notifications directly from Supabase invoices, payments, and quotations.
    */
   static async getLiveNotifications(): Promise<AppNotification[]> {
     try {
-      const [invoices, payments] = await Promise.all([
+      const [invoices, payments, quotations] = await Promise.all([
         InvoiceService.getInvoices(),
         PaymentService.getPayments(),
+        QuotationService.getQuotations(),
       ]);
 
       const notifications: AppNotification[] = [];
@@ -109,10 +111,32 @@ export class NotificationService {
         });
       });
 
+      // 3. Add Converted Quotation Alerts (up to 2)
+      (quotations || [])
+        .filter((q) => q.status === "converted" || q.status === "accepted")
+        .slice(0, 2)
+        .forEach((q) => {
+          notifications.push({
+            id: `notif-quote-conv-${q.id}`,
+            type: "quote_accepted",
+            title: `Quotation Converted (${formatCurrency(q.totalAmount, q.currency)})`,
+            message: `Quotation #${q.quotationNumber} for ${q.clientName} has been converted into a Tax Invoice.`,
+            timestamp: "Deal Won",
+            isRead: false,
+            actionUrl: "/invoices",
+            clientName: q.clientName,
+            amount: q.totalAmount,
+          });
+        });
+
       return notifications;
     } catch (err) {
       console.error("Failed to generate live notifications:", err);
       return [];
     }
+  }
+
+  static async getNotifications(): Promise<AppNotification[]> {
+    return this.getLiveNotifications();
   }
 }
