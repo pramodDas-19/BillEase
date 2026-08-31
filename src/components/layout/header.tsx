@@ -4,7 +4,9 @@ import React, { useState } from "react";
 import { usePathname } from "next/navigation";
 import { UserNav } from "@/components/layout/user-nav";
 import { NotificationDropdown } from "@/components/layout/notification-dropdown";
+import { HelpModal } from "@/components/layout/help-modal";
 import { useLayoutState } from "./dashboard-shell";
+
 
 import {
   Menu,
@@ -146,16 +148,12 @@ export function Header() {
           </div>
         </div>
 
-        {/* Help Button with Tactile Squircle */}
-        <button
-          title="Help & documentation"
-          className="clay-icon-squircle flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 border border-slate-200/70 text-slate-500 hover:text-slate-900 hover:bg-white transition-all cursor-pointer shadow-2xs"
-        >
-          <HelpCircle className="h-4 w-4" />
-        </button>
+        {/* Interactive Help & Shortcuts Modal */}
+        <HelpModal />
 
         {/* Interactive Notification Center */}
         <NotificationDropdown />
+
 
         <div className="h-6 w-px bg-slate-200/80 mx-0.5 hidden sm:block" />
 
