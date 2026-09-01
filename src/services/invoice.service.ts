@@ -220,6 +220,19 @@ export const InvoiceService = {
         }
       }
 
+      // 4. Dispatch Notification
+      try {
+        const { NotificationService } = await import("./notification.service");
+        NotificationService.notifyAction({
+          type: "action_created",
+          title: `Invoice Created (${invoice.currency || "₹"}${invoice.totalAmount || 0})`,
+          message: `Invoice #${invoiceNumber} for ${invoice.clientName} generated.`,
+          actionUrl: `/invoices/${invoiceId}`,
+          clientName: invoice.clientName,
+          amount: invoice.totalAmount,
+        });
+      } catch {}
+
       return {
         ...invoice,
         id: invoiceId,
@@ -231,6 +244,7 @@ export const InvoiceService = {
       console.error("InvoiceService.createInvoice error:", err);
       return null;
     }
+
   },
 
   // Update an existing invoice in Supabase

@@ -211,6 +211,19 @@ export const QuotationService = {
         }
       }
 
+      // 3. Dispatch Notification
+      try {
+        const { NotificationService } = await import("./notification.service");
+        NotificationService.notifyAction({
+          type: "action_created",
+          title: `Quotation Created (${quotation.currency || "₹"}${quotation.totalAmount || 0})`,
+          message: `Quotation #${quoteNumber} for ${quotation.clientName} generated.`,
+          actionUrl: `/quotations/${quoteId}`,
+          clientName: quotation.clientName,
+          amount: quotation.totalAmount,
+        });
+      } catch {}
+
       return {
         ...quotation,
         id: quoteId,
@@ -221,6 +234,7 @@ export const QuotationService = {
       console.error("QuotationService.createQuotation error:", err);
       return null;
     }
+
   },
 
   // Update an existing quotation with updated line items

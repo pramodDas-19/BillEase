@@ -107,6 +107,19 @@ export const PaymentService = {
         }
       }
 
+      // 3. Dispatch Notification
+      try {
+        const { NotificationService } = await import("./notification.service");
+        NotificationService.notifyAction({
+          type: "payment_received",
+          title: `Payment Received (${payment.currency || "₹"}${payment.amount || 0})`,
+          message: `Receipt #${paymentNumber} recorded for ${payment.clientName} via ${(payment.paymentMethod || "upi").toUpperCase()}.`,
+          actionUrl: "/payments",
+          clientName: payment.clientName,
+          amount: payment.amount,
+        });
+      } catch {}
+
       return {
         ...payment,
         id: paymentId,
@@ -117,6 +130,7 @@ export const PaymentService = {
       console.error("PaymentService.recordPayment error:", err);
       return null;
     }
+
   },
 
   // Delete a payment receipt
