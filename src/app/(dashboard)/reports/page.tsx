@@ -121,12 +121,38 @@ export default function ReportsPage() {
     }));
   }, [invoices]);
 
-  // 5. Rank Clients by Lifetime Invoiced
+  // 5. Rank Clients by Real Lifetime Invoiced Spend
   const rankedClients = useMemo(() => {
-    return [...clients]
+    const enriched = clients.map((client) => {
+      const clientInvoices = invoices.filter(
+        (inv) =>
+          inv.clientId === client.id ||
+          (inv.clientName && inv.clientName.trim().toLowerCase() === client.name.trim().toLowerCase())
+      );
+
+      const computedTotalBilled = clientInvoices.reduce(
+        (acc, inv) => acc + (inv.totalAmount || 0),
+        0
+      );
+      const computedTotalPaid = clientInvoices.reduce(
+        (acc, inv) => acc + (inv.paidAmount || 0),
+        0
+      );
+      const computedBalanceDue = Math.max(0, computedTotalBilled - computedTotalPaid);
+
+      return {
+        ...client,
+        totalBilled: clientInvoices.length > 0 ? computedTotalBilled : (client.totalBilled || 0),
+        totalPaid: clientInvoices.length > 0 ? computedTotalPaid : (client.totalPaid || 0),
+        balanceDue: clientInvoices.length > 0 ? computedBalanceDue : (client.balanceDue || 0),
+      };
+    });
+
+    return enriched
       .sort((a, b) => (b.totalBilled || 0) - (a.totalBilled || 0))
       .slice(0, 5);
-  }, [clients]);
+  }, [clients, invoices]);
+
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-200">
