@@ -16,26 +16,27 @@ export function InvoicePrintDocument({ invoice, tenant }: InvoicePrintDocumentPr
   const hasQtyOrRate = invoice.items.some((item) => item.quantity !== undefined || item.rate !== undefined);
   const isFullyPaid = (invoice.balanceDue ?? 0) <= 0 || invoice.status === "paid";
 
-  const bankDetails = tenant.bankDetails || {
-    accountName: tenant.businessName,
-    accountNumber: "50200012345678",
-    ifscCode: "HDFC0001234",
-    bankName: "HDFC Bank (Sector 18 Branch)",
-    upiId: "royalevents@hdfcbank",
+  const bankDetails = tenant?.bankDetails || {
+    accountName: tenant?.businessName || "",
+    accountNumber: "",
+    ifscCode: "",
+    bankName: "",
+    upiId: "",
   };
 
-  const upiId = bankDetails.upiId || "royalevents@hdfcbank";
+  const upiId = bankDetails.upiId || "";
 
   // Generate dynamic QR code URL with invoice balance embedded
   const upiUri = generateUpiIntentUrl({
-    upiId,
-    businessName: tenant.businessName,
+    upiId: upiId || "business@upi",
+    businessName: tenant?.businessName || "Business",
     amount: invoice.balanceDue > 0 ? invoice.balanceDue : invoice.totalAmount,
     transactionRef: invoice.invoiceNumber,
     note: `Invoice ${invoice.invoiceNumber}`,
   });
 
   const qrImageUrl = getUpiQrImageUrl(upiUri, 200);
+
 
   return (
     <div className="mx-auto max-w-4xl bg-white p-6 sm:p-8 text-slate-900 shadow-sm print:p-0 print:shadow-none print:max-w-none">

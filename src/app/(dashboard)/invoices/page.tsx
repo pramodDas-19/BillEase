@@ -8,8 +8,10 @@ import { Invoice, InvoiceStatus } from "@/types";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { getWhatsAppInvoiceShareUrl } from "@/lib/whatsapp";
 import { UpiQrModal } from "@/components/payments/upi-qr-modal";
+import { useTenant } from "@/hooks/use-tenant";
 
 import {
+
   ReceiptText,
   Plus,
   Search,
@@ -32,7 +34,9 @@ import {
 
 export default function InvoicesPage() {
   const router = useRouter();
+  const { currentTenant } = useTenant();
   const [invoicesList, setInvoicesList] = useState<Invoice[]>([]);
+
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilter, setSelectedFilter] = useState<string>("all");
@@ -717,7 +721,10 @@ export default function InvoicesPage() {
           invoiceNumber={activeQrInvoice.invoiceNumber}
           clientName={activeQrInvoice.clientName}
           balanceDue={activeQrInvoice.balanceDue}
+          businessName={currentTenant?.businessName}
+          upiId={currentTenant?.bankDetails?.upiId}
         />
+
       )}
     </div>
   );
