@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { NotificationService, AppNotification } from "@/services/notification.service";
+import { getWhatsAppReminderUrl } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
 import {
   Bell,
@@ -273,11 +274,12 @@ export function NotificationDropdown() {
                         onClick={(e) => e.stopPropagation()}
                       >
                         <a
-                          href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(
-                            `Hello ${notif.clientName || "Client"}, this is a friendly reminder that your balance payment of ₹${(
-                              notif.amount || 0
-                            ).toLocaleString("en-IN")} is overdue. Kindly arrange for settlement today. Thank you!`
-                          )}`}
+                          href={getWhatsAppReminderUrl({
+                            clientPhone: notif.clientPhone || "",
+                            clientName: notif.clientName || "Client",
+                            balanceDue: notif.amount || 0,
+                            invoiceId: notif.actionUrl?.replace("/invoices/", ""),
+                          })}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="clay-tag inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 shadow-2xs transition-colors cursor-pointer"
@@ -285,6 +287,7 @@ export function NotificationDropdown() {
                           <MessageSquare className="h-3 w-3 text-amber-600" />
                           <span>1-Click WhatsApp Remind</span>
                         </a>
+
                       </div>
                     )}
                   </div>

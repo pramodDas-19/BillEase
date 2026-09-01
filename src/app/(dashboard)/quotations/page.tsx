@@ -598,20 +598,24 @@ export default function QuotationsPage() {
                           {/* WhatsApp Share */}
                           {q.clientPhone && (
                             <a
-                              href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(
-                                `Hello ${q.clientName}, here is your quotation #${q.quotationNumber} for ${formatCurrency(
-                                  q.totalAmount,
-                                  q.currency
-                                )}. Please review and let us know. Thank you!`
-                              )}`}
+                              href={getWhatsAppQuotationShareUrl({
+                                clientPhone: q.clientPhone,
+                                clientName: q.clientName,
+                                quotationNumber: q.quotationNumber,
+                                quotationId: q.id,
+                                totalAmount: q.totalAmount,
+                                validUntil: formatDate(q.validUntil),
+                                currency: q.currency,
+                              })}
                               target="_blank"
                               rel="noopener noreferrer"
-                              title="Share on WhatsApp"
+                              title="Share Quote & 1-Click Pay on WhatsApp"
                               className="clay-icon-squircle p-1.5 rounded-lg bg-teal-50 text-teal-700 hover:bg-teal-600 hover:text-white transition-colors"
                             >
                               <MessageSquare className="h-3 w-3" />
                             </a>
                           )}
+
 
                           {/* Preview PDF */}
                           <Link

@@ -7,6 +7,7 @@ import { ClientService } from "@/services/client.service";
 import { InvoiceService } from "@/services/invoice.service";
 import { ClientEditDialog } from "@/components/clients/client-edit-dialog";
 import { Client, Invoice } from "@/types";
+import { getWhatsAppReminderUrl } from "@/lib/whatsapp";
 
 import { cn, formatCurrency } from "@/lib/utils";
 import {
@@ -584,9 +585,11 @@ export default function ClientsPage() {
                           {/* WhatsApp Reminder for Overdue Clients */}
                           {hasDue && (
                             <a
-                              href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(
-                                `Hello ${client.name}, this is a friendly reminder regarding your outstanding balance of ${formatCurrency(client.balanceDue || 0, "INR")}. Kindly arrange for settlement at your convenience. Thank you!`
-                              )}`}
+                              href={getWhatsAppReminderUrl({
+                                clientPhone: client.phone,
+                                clientName: client.name,
+                                balanceDue: client.balanceDue || 0,
+                              })}
                               target="_blank"
                               rel="noopener noreferrer"
                               title={`Send WhatsApp Reminder`}
@@ -595,6 +598,7 @@ export default function ClientsPage() {
                               <BellRing className="h-3 w-3" />
                             </a>
                           )}
+
 
                           {/* Edit Client */}
                           <button

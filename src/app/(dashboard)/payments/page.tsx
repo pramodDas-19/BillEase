@@ -4,7 +4,9 @@ import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { PaymentService } from "@/services/payment.service";
 import { Payment, PaymentMethod } from "@/types";
+import { getWhatsAppPaymentReceiptUrl } from "@/lib/whatsapp";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
+
 import {
   CreditCard,
   Plus,
@@ -408,12 +410,13 @@ export default function PaymentsPage() {
                   <div className="grid grid-cols-2 gap-2">
                     {/* 1-Click WhatsApp Receipt Acknowledgment */}
                     <a
-                      href={`https://wa.me/?text=${encodeURIComponent(
-                        `Hello ${p.clientName}, payment of ${formatCurrency(
-                          p.amount,
-                          p.currency
-                        )} for invoice #${p.invoiceNumber} (Receipt #${p.paymentNumber}) has been recorded with thanks. Royal Events & Prints.`
-                      )}`}
+                      href={getWhatsAppPaymentReceiptUrl({
+                        clientName: p.clientName,
+                        invoiceNumber: p.invoiceNumber,
+                        paymentNumber: p.paymentNumber,
+                        amount: p.amount,
+                        currency: p.currency,
+                      })}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="clay-tag flex items-center justify-center gap-1.5 py-2 text-xs font-bold bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 transition-colors"
@@ -500,12 +503,13 @@ export default function PaymentsPage() {
                         <div className="flex items-center justify-center gap-1.5">
                           {/* WhatsApp Acknowledgment */}
                           <a
-                            href={`https://wa.me/?text=${encodeURIComponent(
-                              `Hello ${p.clientName}, payment of ${formatCurrency(
-                                p.amount,
-                                p.currency
-                              )} for invoice #${p.invoiceNumber} (Receipt #${p.paymentNumber}) has been recorded with thanks.`
-                            )}`}
+                            href={getWhatsAppPaymentReceiptUrl({
+                              clientName: p.clientName,
+                              invoiceNumber: p.invoiceNumber,
+                              paymentNumber: p.paymentNumber,
+                              amount: p.amount,
+                              currency: p.currency,
+                            })}
                             target="_blank"
                             rel="noopener noreferrer"
                             title="Send WhatsApp Acknowledgment"
@@ -513,6 +517,7 @@ export default function PaymentsPage() {
                           >
                             <MessageSquare className="h-3 w-3" />
                           </a>
+
 
                           {/* Delete Receipt */}
                           <button
