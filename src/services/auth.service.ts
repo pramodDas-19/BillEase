@@ -43,6 +43,17 @@ export class AuthService {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("billease_active_tenant_id");
       if (stored) return stored;
+
+      const registered = localStorage.getItem("billease_registered_user");
+      if (registered) {
+        try {
+          const parsed = JSON.parse(registered);
+          if (parsed.tenantId) {
+            localStorage.setItem("billease_active_tenant_id", parsed.tenantId);
+            return parsed.tenantId;
+          }
+        } catch (e) {}
+      }
     }
 
     return "tenant-royal-events";
@@ -102,24 +113,45 @@ export class AuthService {
 
     this.setActiveTenantId(tenantId);
 
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        "billease_registered_user",
+        JSON.stringify({
+          tenantId,
+          businessName: params.businessName,
+          ownerName: params.ownerName,
+          email: params.email,
+          phone: params.phone,
+        })
+      );
+    }
+
     // Auto-create tenant record in the database
-    if (data.user) {
-      try {
-        await supabase.from("tenants").upsert([
-          {
-            id: tenantId,
-            business_name: params.businessName,
-            owner_name: params.ownerName,
-            email: params.email,
-            phone: params.phone,
-            address: { street: "", city: "", state: "", pincode: "" },
-            bank_details: { bankName: "HDFC Bank", accountNumber: "", ifscCode: "", upiId: "" },
-            settings: { quotationPrefix: "QT-", invoicePrefix: "INV-", enableGstByDefault: true },
+    try {
+      await supabase.from("tenants").upsert([
+        {
+          id: tenantId,
+          business_name: params.businessName,
+          owner_name: params.ownerName,
+          email: params.email,
+          phone: params.phone,
+          address: { street: "", city: "", state: "", postalCode: "" },
+          bank_details: { bankName: "HDFC Bank", accountNumber: "", ifscCode: "", upiId: "" },
+          settings: {
+            defaultCurrency: "INR",
+            enableGstByDefault: true,
+            defaultTaxRate: 18,
+            quotationNumbering: { prefix: "QT-", nextNumber: 1001, digitLength: 4 },
+            invoiceNumbering: { prefix: "INV-", nextNumber: 1001, digitLength: 4 },
+            defaultQuotationValidityDays: 14,
+            defaultInvoiceDueDays: 14,
+            defaultTermsAndConditions: "1. 50% advance required to confirm booking.\n2. Balance due within 14 days of invoice.",
+            defaultInvoiceNotes: "Thank you for your business!",
           },
-        ]);
-      } catch (insertErr) {
-        console.warn("Could not insert initial tenant row:", insertErr);
-      }
+        },
+      ]);
+    } catch (insertErr) {
+      console.warn("Could not insert initial tenant row:", insertErr);
     }
 
     return data;
@@ -131,6 +163,7 @@ export class AuthService {
   static async signOut(): Promise<void> {
     if (typeof window !== "undefined") {
       localStorage.removeItem("billease_active_tenant_id");
+      localStorage.removeItem("billease_registered_user");
     }
     const { error } = await supabase.auth.signOut();
     if (error) {
@@ -142,23 +175,40 @@ export class AuthService {
    * Retrieves the currently authenticated user.
    */
   static async getCurrentUser(): Promise<UserSession | null> {
-    const { data: { user }, error } = await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
 
-    if (error || !user) {
-      return null;
+    if (user) {
+      const tenantId = user.user_metadata?.tenant_id || `tenant-${user.id.slice(0, 8)}`;
+      this.setActiveTenantId(tenantId);
+
+      return {
+        id: user.id,
+        email: user.email || "",
+        businessName: user.user_metadata?.business_name || "My Business",
+        ownerName: user.user_metadata?.owner_name || "Account Owner",
+        phone: user.user_metadata?.phone || "",
+        tenantId,
+      };
     }
 
-    const tenantId = user.user_metadata?.tenant_id || "tenant-royal-events";
-    this.setActiveTenantId(tenantId);
+    if (typeof window !== "undefined") {
+      const registered = localStorage.getItem("billease_registered_user");
+      if (registered) {
+        try {
+          const parsed = JSON.parse(registered);
+          return {
+            id: parsed.tenantId || "user-local",
+            email: parsed.email || "",
+            businessName: parsed.businessName || "My Business",
+            ownerName: parsed.ownerName || "Account Owner",
+            phone: parsed.phone || "",
+            tenantId: parsed.tenantId,
+          };
+        } catch (e) {}
+      }
+    }
 
-    return {
-      id: user.id,
-      email: user.email || "",
-      businessName: user.user_metadata?.business_name || "My Business",
-      ownerName: user.user_metadata?.owner_name || "Account Owner",
-      phone: user.user_metadata?.phone || "",
-      tenantId,
-    };
+    return null;
   }
 
   /**

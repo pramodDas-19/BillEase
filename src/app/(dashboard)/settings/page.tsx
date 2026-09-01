@@ -46,15 +46,34 @@ export default function SettingsPage() {
   const [accountNumber, setAccountNumber] = useState(currentTenant?.bankDetails?.accountNumber || "");
   const [ifscCode, setIfscCode] = useState(currentTenant?.bankDetails?.ifscCode || "");
   const [upiId, setUpiId] = useState(currentTenant?.bankDetails?.upiId || "");
-
-  // Reminder message template
   const [reminderTemplate, setReminderTemplate] = useState(
     "Hello {client_name}, this is a friendly reminder from {business_name} regarding pending invoice #{invoice_num} for {balance_due}. Kindly arrange for settlement at your earliest convenience. Thank you!"
   );
 
-  const handleSave = (e: React.FormEvent) => {
+  // Sync form inputs when currentTenant loads or updates
+
+  React.useEffect(() => {
+    if (currentTenant) {
+      setBusinessName(currentTenant.businessName || "");
+      setOwnerName(currentTenant.ownerName || "");
+      setPhone(currentTenant.phone || "");
+      setEmail(currentTenant.email || "");
+      setGstin(currentTenant.gstin || "");
+      setAddress(currentTenant.address?.street || "");
+      setQuotePrefix(currentTenant.settings?.quotationNumbering?.prefix || "QT-");
+      setQuoteNext(currentTenant.settings?.quotationNumbering?.nextNumber || 1001);
+      setInvPrefix(currentTenant.settings?.invoiceNumbering?.prefix || "INV-");
+      setInvNext(currentTenant.settings?.invoiceNumbering?.nextNumber || 1001);
+      setBankName(currentTenant.bankDetails?.bankName || "");
+      setAccountNumber(currentTenant.bankDetails?.accountNumber || "");
+      setIfscCode(currentTenant.bankDetails?.ifscCode || "");
+      setUpiId(currentTenant.bankDetails?.upiId || "");
+    }
+  }, [currentTenant]);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateTenantProfile({
+    await updateTenantProfile({
       businessName,
       ownerName,
       phone,
@@ -73,9 +92,23 @@ export default function SettingsPage() {
       },
     });
 
+    await updateTenantSettings({
+      quotationNumbering: {
+        ...currentTenant.settings.quotationNumbering,
+        prefix: quotePrefix,
+        nextNumber: Number(quoteNext),
+      },
+      invoiceNumbering: {
+        ...currentTenant.settings.invoiceNumbering,
+        prefix: invPrefix,
+        nextNumber: Number(invNext),
+      },
+    });
+
     setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 3000);
+    setTimeout(() => setSavedSuccess(false), 3500);
   };
+
 
 
   const navTabs = [

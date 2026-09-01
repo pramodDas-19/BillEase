@@ -64,7 +64,7 @@ export default function SignupPage() {
           Create Business Account
         </h2>
         <p className="text-xs sm:text-sm text-slate-400 font-medium">
-          For event planners, printing presses, and creative studios.
+          Start managing clients, quotations, invoices, and payments effortlessly.
         </p>
       </div>
 
@@ -154,7 +154,7 @@ export default function SignupPage() {
             </div>
             <input
               type="email"
-              placeholder="owner@studio.com"
+              placeholder="owner@business.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -165,7 +165,7 @@ export default function SignupPage() {
 
         <div className="space-y-1.5">
           <label className="text-xs font-bold uppercase tracking-wider text-slate-300">
-            Create Password <span className="text-emerald-400">*</span>
+            Password <span className="text-emerald-400">*</span>
           </label>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -173,7 +173,7 @@ export default function SignupPage() {
             </div>
             <input
               type="password"
-              placeholder="Minimum 6 characters"
+              placeholder="At least 6 characters"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -188,7 +188,7 @@ export default function SignupPage() {
             disabled={isLoading || !!successMsg}
             className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/50 hover:shadow-emerald-900/60 active:scale-[0.99] transition-all cursor-pointer"
           >
-            <span>{isLoading ? "Creating Account..." : "Create Business Workspace"}</span>
+            <span>{isLoading ? "Creating account..." : "Create Account"}</span>
             <ArrowRight className="h-4 w-4" />
           </button>
         </div>
@@ -196,11 +196,12 @@ export default function SignupPage() {
 
       {/* Sign In Link */}
       <div className="text-center text-xs text-slate-400 pt-2 font-medium">
-        Already registered?{" "}
+        Already have an account?{" "}
         <Link href="/login" className="font-bold text-emerald-400 hover:text-emerald-300 underline underline-offset-4">
-          Sign In Here
+          Sign in
         </Link>
       </div>
     </div>
   );
 }
+

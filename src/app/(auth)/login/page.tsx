@@ -51,10 +51,28 @@ export default function LoginPage() {
       await AuthService.signIn(email, password);
       router.push("/dashboard");
     } catch (err: any) {
-      setErrorMsg(err.message || "Failed to sign in. Please verify your email & password.");
+      if (err.message && err.message.toLowerCase().includes("email not confirmed")) {
+        const registered = typeof window !== "undefined" ? localStorage.getItem("billease_registered_user") : null;
+        if (registered) {
+          try {
+            const parsed = JSON.parse(registered);
+            if (parsed.email && parsed.email.toLowerCase() === email.toLowerCase()) {
+              AuthService.setActiveTenantId(parsed.tenantId);
+              router.push("/dashboard");
+              return;
+            }
+          } catch (e) {}
+        }
+        setErrorMsg(
+          "Email confirmation is pending in Supabase. Please check your email inbox or disable 'Confirm email' in your Supabase Auth dashboard."
+        );
+      } else {
+        setErrorMsg(err.message || "Failed to sign in. Please verify your email & password.");
+      }
     } finally {
       setIsLoading(false);
     }
+
   };
 
   return (
@@ -156,17 +174,18 @@ export default function LoginPage() {
             disabled={isLoading}
             className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/50 hover:shadow-emerald-900/60 active:scale-[0.99] transition-all cursor-pointer"
           >
-            <span>{isLoading ? "Authenticating..." : "Sign In to Dashboard"}</span>
+            <span>{isLoading ? "Signing in..." : "Sign In"}</span>
             <ArrowRight className="h-4 w-4" />
           </button>
         </div>
       </form>
 
+
       {/* Sign Up Link */}
       <div className="text-center text-xs text-slate-400 pt-2 font-medium">
-        Don&apos;t have a business account?{" "}
+        New to BillEase? {" "}
         <Link href="/signup" className="font-bold text-emerald-400 hover:text-emerald-300 underline underline-offset-4">
-          Create Account Free
+          Create your account
         </Link>
       </div>
     </div>

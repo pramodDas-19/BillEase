@@ -58,8 +58,8 @@ interface TenantContextType {
   availableTenants: Tenant[];
   isLoading: boolean;
   switchTenant: (tenantId: string) => void;
-  updateTenantSettings: (newSettings: Partial<Tenant["settings"]>) => void;
-  updateTenantProfile: (newProfile: Partial<Tenant>) => void;
+  updateTenantSettings: (newSettings: Partial<Tenant["settings"]>) => Promise<void>;
+  updateTenantProfile: (newProfile: Partial<Tenant>) => Promise<void>;
   refreshTenantData: () => Promise<void>;
 }
 
@@ -75,54 +75,95 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
+      let tenantId = "";
+      let registeredInfo: any = null;
+
+      if (typeof window !== "undefined") {
+        const regStr = localStorage.getItem("billease_registered_user");
+        if (regStr) {
+          try {
+            registeredInfo = JSON.parse(regStr);
+            if (registeredInfo.tenantId) {
+              tenantId = registeredInfo.tenantId;
+            }
+          } catch (e) {}
+        }
+      }
+
       if (user) {
         const metadata = user.user_metadata || {};
-        const tenantId = metadata.tenant_id || `tenant-${user.id.slice(0, 8)}`;
-        AuthService.setActiveTenantId(tenantId);
-
-        // Fetch tenant from supabase database table
-        const { data: tenantRow } = await supabase
-          .from("tenants")
-          .select("*")
-          .eq("id", tenantId)
-          .single();
-
-        const businessName = tenantRow?.business_name || metadata.business_name || "My Business Studio";
-        const ownerName = tenantRow?.owner_name || metadata.owner_name || user.email?.split("@")[0] || "Owner";
-        const phone = tenantRow?.phone || metadata.phone || "";
-        const email = tenantRow?.email || user.email || "";
-
-        const loadedTenant: Tenant = {
-          id: tenantId,
-          businessName: businessName,
-          slug: businessName.toLowerCase().replace(/[^a-z0-9]/g, "-"),
-          businessType: tenantRow?.business_type || "event_planner",
-          ownerName: ownerName,
-          email: email,
-          phone: phone,
-          address: tenantRow?.address || DEFAULT_TENANT.address,
-          bankDetails: tenantRow?.bank_details || DEFAULT_TENANT.bankDetails,
-          settings: {
-            ...DEFAULT_TENANT.settings,
-            ...(tenantRow?.settings || {}),
-          },
-          createdAt: tenantRow?.created_at || new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-
-        const loadedUser: User = {
-          id: user.id,
-          tenantId: tenantId,
-          name: ownerName,
-          email: email,
-          role: "owner",
-          createdAt: user.created_at || new Date().toISOString(),
-        };
-
-        setCurrentTenant(loadedTenant);
-        setCurrentUser(loadedUser);
-        setAvailableTenants([loadedTenant]);
+        tenantId = metadata.tenant_id || tenantId || `tenant-${user.id.slice(0, 8)}`;
       }
+
+      if (!tenantId) {
+        tenantId = "tenant-royal-events";
+      }
+
+      AuthService.setActiveTenantId(tenantId);
+
+      // Fetch tenant row from supabase
+      const { data: tenantRow } = await supabase
+        .from("tenants")
+        .select("*")
+        .eq("id", tenantId)
+        .single();
+
+      const businessName =
+        tenantRow?.business_name ||
+        user?.user_metadata?.business_name ||
+        registeredInfo?.businessName ||
+        "My Business Studio";
+
+      const ownerName =
+        tenantRow?.owner_name ||
+        user?.user_metadata?.owner_name ||
+        registeredInfo?.ownerName ||
+        user?.email?.split("@")[0] ||
+        "Account Owner";
+
+      const phone =
+        tenantRow?.phone ||
+        user?.user_metadata?.phone ||
+        registeredInfo?.phone ||
+        "";
+
+      const email =
+        tenantRow?.email ||
+        user?.email ||
+        registeredInfo?.email ||
+        "";
+
+      const loadedTenant: Tenant = {
+        id: tenantId,
+        businessName: businessName,
+        slug: businessName.toLowerCase().replace(/[^a-z0-9]/g, "-"),
+        businessType: tenantRow?.business_type || "event_planner",
+        ownerName: ownerName,
+        email: email,
+        phone: phone,
+        gstin: tenantRow?.gstin || "",
+        address: tenantRow?.address || DEFAULT_TENANT.address,
+        bankDetails: tenantRow?.bank_details || DEFAULT_TENANT.bankDetails,
+        settings: {
+          ...DEFAULT_TENANT.settings,
+          ...(tenantRow?.settings || {}),
+        },
+        createdAt: tenantRow?.created_at || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const loadedUser: User = {
+        id: user?.id || registeredInfo?.tenantId || "user-active",
+        tenantId: tenantId,
+        name: ownerName,
+        email: email,
+        role: "owner",
+        createdAt: user?.created_at || new Date().toISOString(),
+      };
+
+      setCurrentTenant(loadedTenant);
+      setCurrentUser(loadedUser);
+      setAvailableTenants([loadedTenant]);
     } catch (err) {
       console.warn("Could not load dynamic tenant session:", err);
     } finally {
@@ -172,23 +213,51 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   };
 
   const updateTenantProfile = async (newProfile: Partial<Tenant>) => {
-    setCurrentTenant((prev) => ({
-      ...prev,
+    const updated = {
+      ...currentTenant,
       ...newProfile,
-    }));
+      address: {
+        ...currentTenant.address,
+        ...(newProfile.address || {}),
+      },
+      bankDetails: {
+        ...currentTenant.bankDetails,
+        ...(newProfile.bankDetails || {}),
+      },
+    };
+
+    setCurrentTenant(updated);
+
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        "billease_registered_user",
+        JSON.stringify({
+          tenantId: currentTenant.id,
+          businessName: updated.businessName,
+          ownerName: updated.ownerName,
+          email: updated.email,
+          phone: updated.phone,
+        })
+      );
+    }
 
     try {
       await supabase
         .from("tenants")
-        .update({
-          business_name: newProfile.businessName,
-          owner_name: newProfile.ownerName,
-          phone: newProfile.phone,
-          email: newProfile.email,
-          address: newProfile.address,
-          bank_details: newProfile.bankDetails,
-        })
-        .eq("id", currentTenant.id);
+        .upsert([
+          {
+            id: currentTenant.id,
+            business_name: updated.businessName,
+            owner_name: updated.ownerName,
+            phone: updated.phone,
+            email: updated.email,
+            gstin: updated.gstin || null,
+            address: updated.address,
+            bank_details: updated.bankDetails,
+            settings: updated.settings,
+            updated_at: new Date().toISOString(),
+          },
+        ]);
     } catch (e) {
       console.error("Failed to persist tenant profile:", e);
     }
