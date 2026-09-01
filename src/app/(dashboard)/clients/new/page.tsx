@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ClientService } from "@/services/client.service";
@@ -17,6 +17,7 @@ import {
   FileCheck2,
   Tag,
   Plus,
+  X,
 } from "lucide-react";
 
 export default function NewClientPage() {
@@ -29,20 +30,31 @@ export default function NewClientPage() {
   const [email, setEmail] = useState("");
   const [gstin, setGstin] = useState("");
   const [city, setCity] = useState("");
-  const [state, setState] = useState("Maharashtra");
+  const [state, setState] = useState("");
   const [address, setAddress] = useState("");
-  const [selectedTags, setSelectedTags] = useState<string[]>(["Corporate Event"]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [customTagInput, setCustomTagInput] = useState("");
   const [isAddingTag, setIsAddingTag] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const availableTags = [
-    "Corporate Event",
-    "Wedding Planner",
-    "Printing",
-    "Flex Banners",
-    "VIP",
-    "Exhibition",
-  ];
+  useEffect(() => {
+    async function loadExistingTags() {
+      try {
+        const clients = await ClientService.getClients();
+        const tagsSet = new Set<string>();
+        clients.forEach((c) => {
+          if (c.segmentTags && Array.isArray(c.segmentTags)) {
+            c.segmentTags.forEach((t) => tagsSet.add(t));
+          }
+        });
+        setAvailableTags(Array.from(tagsSet));
+      } catch (err) {
+        console.warn("Could not load existing tags:", err);
+      }
+    }
+    loadExistingTags();
+  }, []);
 
   const toggleTag = (tag: string) => {
     setSelectedTags((prev) =>
@@ -54,13 +66,17 @@ export default function NewClientPage() {
     const trimmed = customTagInput.trim();
     if (trimmed && !selectedTags.includes(trimmed)) {
       setSelectedTags((prev) => [...prev, trimmed]);
+      if (!availableTags.includes(trimmed)) {
+        setAvailableTags((prev) => [...prev, trimmed]);
+      }
       setCustomTagInput("");
       setIsAddingTag(false);
     }
   };
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
+  const removeTag = (tagToRemove: string) => {
+    setSelectedTags((prev) => prev.filter((t) => t !== tagToRemove));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,7 +89,7 @@ export default function NewClientPage() {
         phone,
         email: email || undefined,
         gstin: gstin || undefined,
-        address: address || undefined,
+        address: address || (city ? `${city}, ${state}` : undefined),
         segmentTags: selectedTags,
         totalBilled: 0,
         totalPaid: 0,
@@ -86,7 +102,6 @@ export default function NewClientPage() {
       setIsSubmitting(false);
     }
   };
-
 
   return (
     <div className="space-y-6 max-w-3xl animate-in fade-in-50 duration-200">
@@ -118,28 +133,30 @@ export default function NewClientPage() {
             <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
               Contact / Client Name <span className="text-rose-500">*</span>
             </label>
-            <input
-              type="text"
-              required
-              placeholder="e.g. Rahul Sharma"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-2.5 text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="e.g. Ramesh Patel"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 font-semibold placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-2xs"
+              />
+            </div>
           </div>
 
           <div className="space-y-1.5">
             <label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center justify-between">
-              <span>Company / Brand Name</span>
+              <span>Company / Organization</span>
               <span className="text-[10px] text-slate-400 font-medium lowercase">optional</span>
             </label>
             <div className="relative">
               <input
                 type="text"
-                placeholder="e.g. Sharma Tech Solutions Pvt Ltd"
+                placeholder="e.g. Patel Traders Ltd"
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-2.5 text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 font-semibold placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-2xs"
               />
             </div>
           </div>
@@ -149,17 +166,19 @@ export default function NewClientPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <div className="space-y-1.5">
             <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
-              Phone / WhatsApp <span className="text-rose-500">*</span>
+              WhatsApp Phone <span className="text-rose-500">*</span>
             </label>
             <div className="relative">
-              <Phone className="h-4 w-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <Phone className="h-4 w-4" />
+              </div>
               <input
                 type="tel"
-                required
                 placeholder="+91 98765 43210"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/70 pl-10 pr-4 py-2.5 text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                required
+                className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2.5 text-sm text-slate-900 font-semibold placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-2xs"
               />
             </div>
           </div>
@@ -170,94 +189,132 @@ export default function NewClientPage() {
               <span className="text-[10px] text-slate-400 font-medium lowercase">optional</span>
             </label>
             <div className="relative">
-              <Mail className="h-4 w-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <Mail className="h-4 w-4" />
+              </div>
               <input
                 type="email"
                 placeholder="client@company.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/70 pl-10 pr-4 py-2.5 text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2.5 text-sm text-slate-900 font-semibold placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-2xs"
               />
             </div>
           </div>
         </div>
 
-        {/* GSTIN & Tax Details (100% Optional) */}
-        <div className="pt-2 border-t border-slate-100 space-y-1.5">
-          <label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center justify-between">
-            <span>Client GSTIN</span>
-            <span className="text-[10px] text-slate-400 font-medium lowercase">
-              100% optional (leave blank for retail/individual clients)
-            </span>
-          </label>
-          <input
-            type="text"
-            placeholder="e.g. 27AAACS1429B1Z5"
-            value={gstin}
-            onChange={(e) => setGstin(e.target.value.toUpperCase())}
-            maxLength={15}
-            className="w-full uppercase tracking-wider rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-2.5 text-sm font-semibold text-slate-900 placeholder:normal-case placeholder:tracking-normal placeholder:text-slate-400 focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
-          />
+        {/* GSTIN & Billing Address */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center justify-between">
+              <span>GSTIN Number</span>
+              <span className="text-[10px] text-slate-400 font-medium lowercase">optional</span>
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <FileCheck2 className="h-4 w-4" />
+              </div>
+              <input
+                type="text"
+                placeholder="27AAAAA0000A1Z5"
+                value={gstin}
+                onChange={(e) => setGstin(e.target.value.toUpperCase())}
+                maxLength={15}
+                className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2.5 text-sm text-slate-900 font-semibold placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-2xs uppercase"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center justify-between">
+              <span>City / Region</span>
+              <span className="text-[10px] text-slate-400 font-medium lowercase">optional</span>
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <MapPin className="h-4 w-4" />
+              </div>
+              <input
+                type="text"
+                placeholder="e.g. Mumbai, Maharashtra"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2.5 text-sm text-slate-900 font-semibold placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-2xs"
+              />
+            </div>
+          </div>
         </div>
 
-        {/* Billing Address (Optional) */}
-        <div className="space-y-1.5 pt-2 border-t border-slate-100">
+        {/* Full Address */}
+        <div className="space-y-1.5">
           <label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center justify-between">
-            <span>Billing / Delivery Address</span>
+            <span>Full Billing Address</span>
             <span className="text-[10px] text-slate-400 font-medium lowercase">optional</span>
           </label>
           <textarea
             rows={2}
-            placeholder="Street address, city, state, pincode..."
+            placeholder="Street address, building, suite..."
             value={address}
             onChange={(e) => setAddress(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all font-medium"
+            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 font-semibold placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-2xs resize-none"
           />
         </div>
 
-
-        {/* Client Tags / Categories */}
+        {/* Dynamic User Tags Section */}
         <div className="space-y-2 pt-2 border-t border-slate-100">
           <label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center justify-between">
             <span>Tags & Segment</span>
             <span className="text-[10px] text-slate-400 font-medium lowercase">optional</span>
           </label>
-          <div className="flex items-center gap-2 flex-wrap">
-            {availableTags.map((tag) => {
-              const isSelected = selectedTags.includes(tag);
-              return (
+
+          <div className="flex items-center gap-2 flex-wrap min-h-[36px]">
+            {/* Selected Tags */}
+            {selectedTags.map((tag) => (
+              <span
+                key={tag}
+                className="clay-tag px-3 py-1 text-xs font-bold bg-slate-900 text-white shadow-xs inline-flex items-center gap-1.5 rounded-lg"
+              >
+                <span>{tag}</span>
+                <button
+                  type="button"
+                  onClick={() => removeTag(tag)}
+                  className="text-slate-400 hover:text-white cursor-pointer ml-0.5"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+
+            {/* Previously used tags that aren't currently selected */}
+            {availableTags
+              .filter((t) => !selectedTags.includes(t))
+              .map((tag) => (
                 <button
                   type="button"
                   key={tag}
                   onClick={() => toggleTag(tag)}
-                  className={cn(
-                    "clay-tag px-3 py-1 text-xs font-bold transition-all cursor-pointer",
-                    isSelected
-                      ? "bg-slate-900 text-white shadow-xs"
-                      : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/70"
-                  )}
+                  className="clay-tag px-3 py-1 text-xs font-bold bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/70 transition-all cursor-pointer rounded-lg"
                 >
-                  {tag}
+                  + {tag}
                 </button>
-              );
-            })}
+              ))}
 
             {/* Custom Tag Adder */}
             {!isAddingTag ? (
               <button
                 type="button"
                 onClick={() => setIsAddingTag(true)}
-                className="clay-tag px-3 py-1 text-xs font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50/70 border border-emerald-200/70 inline-flex items-center gap-1 cursor-pointer"
+                className="clay-tag px-3 py-1 text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 border border-emerald-200/80 inline-flex items-center gap-1 cursor-pointer rounded-lg"
               >
                 <Plus className="h-3 w-3" />
-                <span>+ Custom Tag</span>
+                <span>Add Custom Tag</span>
               </button>
             ) : (
               <div className="flex items-center gap-1">
                 <input
                   type="text"
                   autoFocus
-                  placeholder="Tag name"
+                  placeholder="e.g. VIP, Wholesale, Regular"
                   value={customTagInput}
                   onChange={(e) => setCustomTagInput(e.target.value)}
                   onKeyDown={(e) => {
@@ -266,7 +323,7 @@ export default function NewClientPage() {
                       handleAddCustomTag();
                     }
                   }}
-                  className="rounded-lg border border-emerald-500 px-2 py-1 text-xs font-bold text-slate-900 focus:outline-none"
+                  className="rounded-lg border border-emerald-500 px-2.5 py-1 text-xs font-bold text-slate-900 focus:outline-none shadow-2xs"
                 />
                 <button
                   type="button"
@@ -299,10 +356,11 @@ export default function NewClientPage() {
           </Link>
           <button
             type="submit"
+            disabled={isSubmitting}
             className="clay-btn-emerald inline-flex items-center gap-2 h-11 px-6 font-bold text-xs sm:text-sm rounded-2xl cursor-pointer"
           >
             <Save className="h-4 w-4" />
-            <span>Save Client Profile</span>
+            <span>{isSubmitting ? "Saving Client..." : "Save Client Profile"}</span>
           </button>
         </div>
       </form>

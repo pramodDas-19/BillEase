@@ -86,12 +86,17 @@ export default function ServicesPage() {
     },
   };
 
-  const categoryFilters = [
-    { id: "all", label: "All Items" },
-    { id: "event", label: "Events & Rentals" },
-    { id: "printing", label: "Printing & Signage" },
-    { id: "design", label: "Design & Creative" },
-  ];
+  const userCategories = useMemo(() => {
+    return Array.from(new Set(servicesList.map((s) => s.category).filter(Boolean))) as string[];
+  }, [servicesList]);
+
+  const categoryFilters = useMemo(() => {
+    return [
+      { id: "all", label: "All Items" },
+      ...userCategories.map((cat) => ({ id: cat, label: cat })),
+    ];
+  }, [userCategories]);
+
 
   // Search & filter logic
   const filteredServices = useMemo(() => {
