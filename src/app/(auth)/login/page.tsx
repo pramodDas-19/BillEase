@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AuthService } from "@/services/auth.service";
@@ -19,8 +19,20 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Check for saved email in localStorage
+    if (typeof window !== "undefined") {
+      const savedEmail = localStorage.getItem("billease_remember_email");
+      if (savedEmail) {
+        setEmail(savedEmail);
+        setRememberMe(true);
+      }
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,6 +40,14 @@ export default function LoginPage() {
     setErrorMsg(null);
 
     try {
+      if (typeof window !== "undefined") {
+        if (rememberMe) {
+          localStorage.setItem("billease_remember_email", email);
+        } else {
+          localStorage.removeItem("billease_remember_email");
+        }
+      }
+
       await AuthService.signIn(email, password);
       router.push("/dashboard");
     } catch (err: any) {
@@ -85,17 +105,9 @@ export default function LoginPage() {
 
         {/* Password Input */}
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-300">
-              Password <span className="text-emerald-400">*</span>
-            </label>
-            <Link
-              href="/forgot-password"
-              className="text-xs font-bold text-emerald-400 hover:text-emerald-300 transition-colors"
-            >
-              Forgot password?
-            </Link>
-          </div>
+          <label className="text-xs font-bold uppercase tracking-wider text-slate-300">
+            Password <span className="text-emerald-400">*</span>
+          </label>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
               <Lock className="h-4 w-4" />
@@ -111,11 +123,30 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-300 transition-colors"
+              className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-300 transition-colors cursor-pointer"
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
+        </div>
+
+        {/* Remember Me & Forgot Password */}
+        <div className="flex items-center justify-between text-xs pt-0.5">
+          <label className="flex items-center gap-2 cursor-pointer select-none text-slate-300 hover:text-white transition-colors">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="h-4 w-4 rounded-md border-slate-700 bg-slate-900 text-emerald-500 focus:ring-emerald-500/20 focus:ring-offset-0 cursor-pointer accent-emerald-500"
+            />
+            <span className="font-medium">Remember me</span>
+          </label>
+          <Link
+            href="/forgot-password"
+            className="font-bold text-emerald-400 hover:text-emerald-300 transition-colors"
+          >
+            Forgot password?
+          </Link>
         </div>
 
         {/* Submit Button */}
