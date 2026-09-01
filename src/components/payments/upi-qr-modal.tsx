@@ -3,7 +3,8 @@
 import React, { useState } from "react";
 import { generateUpiIntentUrl, getUpiQrImageUrl } from "@/lib/upi";
 import { formatCurrency } from "@/lib/utils";
-import { QrCode, X, Copy, CheckCircle2, Smartphone, ExternalLink, ShieldCheck } from "lucide-react";
+import { useTenant } from "@/hooks/use-tenant";
+import { QrCode, X, Copy, CheckCircle2, Smartphone, ShieldCheck } from "lucide-react";
 
 interface UpiQrModalProps {
   isOpen: boolean;
@@ -21,16 +22,22 @@ export function UpiQrModal({
   invoiceNumber,
   clientName,
   balanceDue,
-  businessName = "Royal Events & Studio",
-  upiId = "royalevents@hdfcbank",
+  businessName,
+  upiId,
 }: UpiQrModalProps) {
+  const { currentTenant } = useTenant();
   const [copied, setCopied] = useState(false);
 
   if (!isOpen) return null;
 
+  const activeBusinessName =
+    businessName || currentTenant?.businessName || "Business Studio";
+  const activeUpiId =
+    upiId || currentTenant?.bankDetails?.upiId || "business@upi";
+
   const upiIntentUrl = generateUpiIntentUrl({
-    upiId,
-    businessName,
+    upiId: activeUpiId,
+    businessName: activeBusinessName,
     amount: balanceDue,
     transactionRef: invoiceNumber,
     note: `Invoice ${invoiceNumber}`,
@@ -39,7 +46,7 @@ export function UpiQrModal({
   const qrImageUrl = getUpiQrImageUrl(upiIntentUrl, 360);
 
   const handleCopyUpi = () => {
-    navigator.clipboard.writeText(upiId);
+    navigator.clipboard.writeText(activeUpiId);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -100,25 +107,27 @@ export function UpiQrModal({
             <span className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">
               Exact Amount:
             </span>
-            <span className="text-base font-extrabold text-slate-900">
+            <span className="font-black text-slate-900 text-base">
               {formatCurrency(balanceDue, "INR")}
             </span>
           </div>
 
-          <div className="flex items-center justify-between bg-slate-50 px-3 py-2 rounded-xl border border-slate-200/80 text-xs">
-            <span className="font-mono text-slate-700 text-[11px] truncate">{upiId}</span>
+          <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200/80 text-xs">
+            <span className="font-mono font-medium text-slate-700 truncate pr-2">
+              {activeUpiId}
+            </span>
             <button
               onClick={handleCopyUpi}
-              className="flex items-center gap-1 font-bold text-[11px] text-emerald-700 hover:text-emerald-800 cursor-pointer shrink-0 ml-2"
+              className="clay-tag inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold bg-white text-slate-700 hover:bg-slate-100 border border-slate-200 shrink-0 cursor-pointer shadow-2xs"
             >
               {copied ? (
                 <>
                   <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-                  <span>Copied!</span>
+                  <span className="text-emerald-700">Copied!</span>
                 </>
               ) : (
                 <>
-                  <Copy className="h-3 w-3 text-emerald-600" />
+                  <Copy className="h-3 w-3" />
                   <span>Copy VPA</span>
                 </>
               )}
@@ -126,8 +135,7 @@ export function UpiQrModal({
           </div>
         </div>
 
-        {/* Security Note */}
-        <div className="flex items-center justify-center gap-1.5 text-[10px] text-slate-400 font-semibold">
+        <div className="flex items-center justify-center gap-1.5 text-[10px] font-medium text-slate-400">
           <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
           <span>Direct Bank-to-Bank Encrypted Settlement</span>
         </div>
