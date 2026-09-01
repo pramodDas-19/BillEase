@@ -9,10 +9,11 @@ import { ClientService } from "@/services/client.service";
 import { QuotationService } from "@/services/quotation.service";
 import { CatalogService } from "@/services/service.service";
 import { Client } from "@/types";
-import { QuotationItemRow, QuotationSummary } from "@/components/quotations";
+import { QuotationItemRow } from "@/components/quotations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import { formatCurrency } from "@/lib/utils";
 import { ArrowLeft, Plus, Save, Loader2 } from "lucide-react";
 
 function NewQuotationContent() {
@@ -153,18 +154,22 @@ function NewQuotationContent() {
         if (existing) {
           resolvedClientId = existing.id;
         } else {
-          const newClient = await ClientService.createClient({
-            name: state.clientName.trim(),
-            phone: state.clientPhone || "",
-            email: state.clientEmail || undefined,
-            address: state.clientAddress || undefined,
-            gstin: state.clientGstin || undefined,
-            totalBilled: 0,
-            totalPaid: 0,
-            balanceDue: 0,
-          });
-          if (newClient) {
-            resolvedClientId = newClient.id;
+          try {
+            const newClient = await ClientService.createClient({
+              name: state.clientName.trim(),
+              phone: state.clientPhone || "",
+              email: state.clientEmail || undefined,
+              address: state.clientAddress || undefined,
+              gstin: state.clientGstin || undefined,
+              totalBilled: 0,
+              totalPaid: 0,
+              balanceDue: 0,
+            });
+            if (newClient) {
+              resolvedClientId = newClient.id;
+            }
+          } catch (cErr) {
+            console.warn("Could not auto-create client for quotation:", cErr);
           }
         }
       }
@@ -173,7 +178,7 @@ function NewQuotationContent() {
         ...state,
         clientId: resolvedClientId || undefined,
         status: "draft",
-        validUntil: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+        validUntil: state.validUntil || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
         items: state.items.map((it) => ({
           ...it,
           amount: it.amount || (it.quantity || 1) * (it.rate || 0),
@@ -192,8 +197,8 @@ function NewQuotationContent() {
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12 animate-in fade-in-50 duration-200">
-      {/* Top Bar */}
+    <form onSubmit={handleSubmit} className="space-y-8 pb-12 animate-in fade-in-50 duration-200">
+      {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3">
           <Link
@@ -203,8 +208,8 @@ function NewQuotationContent() {
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
-              New Quotation
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 flex items-center gap-2">
+              <span>Create New Quotation</span>
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5 font-medium">
               Create an official estimate with itemized pricing, GST, and terms.
@@ -216,195 +221,253 @@ function NewQuotationContent() {
           <Button
             type="button"
             variant="outline"
-            onClick={() => router.back()}
-            disabled={isSubmitting}
-            className="rounded-xl font-bold text-xs cursor-pointer"
+            size="sm"
+            onClick={() => router.push("/quotations")}
+            className="rounded-xl text-xs font-bold cursor-pointer"
           >
             Cancel
           </Button>
-          <Button
-            type="button"
-            onClick={handleSubmit}
+          <button
+            type="submit"
             disabled={isSubmitting || state.items.length === 0}
-            className="clay-btn-emerald rounded-2xl font-bold text-xs sm:text-sm px-6 h-11 cursor-pointer"
+            className="clay-btn-emerald inline-flex items-center gap-2 h-10 px-5 font-bold text-xs sm:text-sm rounded-2xl cursor-pointer"
           >
-            <Save className="h-4 w-4 mr-2" />
-            <span>{isSubmitting ? "Creating Quote..." : "Save & Create Quote"}</span>
-          </Button>
+            <Save className="h-4 w-4" />
+            <span>{isSubmitting ? "Saving..." : "Save Quotation"}</span>
+          </button>
         </div>
       </div>
 
-      {/* Main Form Body */}
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Quotation Header & Client Information */}
-        <Card className="clay-card p-6 sm:p-7 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
-            <div>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Estimate Number
-              </span>
-              <div className="text-xl font-extrabold text-slate-900 mt-0.5">
-                {state.quotationNumber}
-              </div>
+      {/* 2-Column Split Layout: Same as Invoices */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left 2 Cols: Client & Line Items & Terms */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Header & Client Details Card */}
+          <div className="clay-card p-6 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Input
+                label="Quotation Number *"
+                value={state.quotationNumber}
+                onChange={(e) => setState((p) => ({ ...p, quotationNumber: e.target.value }))}
+                required
+              />
+              <Input
+                label="Quote Date *"
+                type="date"
+                value={state.date}
+                onChange={(e) => setState((p) => ({ ...p, date: e.target.value }))}
+                required
+              />
+              <Input
+                label="Valid Until *"
+                type="date"
+                value={state.validUntil}
+                onChange={(e) => setState((p) => ({ ...p, validUntil: e.target.value }))}
+                required
+              />
             </div>
 
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-bold text-slate-500">Quick Client Pick:</span>
+            <div className="space-y-2 pt-3 border-t border-slate-100">
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                Client Selection
+              </label>
               <select
-                onChange={(e) => handleClientSelect(e.target.value)}
                 value={state.clientId || ""}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-900 focus:border-emerald-500 focus:outline-none shadow-2xs cursor-pointer"
+                onChange={(e) => handleClientSelect(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-2.5 text-sm font-semibold text-slate-900 focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all cursor-pointer"
               >
-                <option value="">-- Choose Existing Client --</option>
+                <option value="">-- Choose Existing Client or Type Below --</option>
                 {clients.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.name} {c.companyName ? `(${c.companyName})` : ""}
+                    {c.name} {c.companyName ? `(${c.companyName})` : ""} - {c.phone}
                   </option>
                 ))}
               </select>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                <Input
+                  label="Client Name *"
+                  placeholder="e.g. Rahul Sharma"
+                  value={state.clientName || ""}
+                  onChange={(e) => setState((p) => ({ ...p, clientName: e.target.value }))}
+                  required
+                />
+                <Input
+                  label="Phone *"
+                  placeholder="+91 98765 43210"
+                  value={state.clientPhone || ""}
+                  onChange={(e) => setState((p) => ({ ...p, clientPhone: e.target.value }))}
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                <Input
+                  label="Email"
+                  placeholder="client@example.com"
+                  value={state.clientEmail || ""}
+                  onChange={(e) => setState((p) => ({ ...p, clientEmail: e.target.value }))}
+                />
+                <Input
+                  label="Client GSTIN (Optional)"
+                  placeholder="27AAACS1429B1Z5"
+                  value={state.clientGstin || ""}
+                  onChange={(e) => setState((p) => ({ ...p, clientGstin: e.target.value }))}
+                />
+              </div>
+
+              <div className="pt-2">
+                <Input
+                  label="Billing Address"
+                  placeholder="Street address, city, state..."
+                  value={state.clientAddress || ""}
+                  onChange={(e) => setState((p) => ({ ...p, clientAddress: e.target.value }))}
+                />
+              </div>
             </div>
           </div>
 
-          {/* Client Details Form */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                Client Name <span className="text-rose-500">*</span>
-              </label>
-              <Input
-                type="text"
-                placeholder="e.g. Ramesh Patel"
-                required
-                value={state.clientName}
-                onChange={(e) => setState((prev) => ({ ...prev, clientName: e.target.value }))}
-                className="font-semibold text-xs sm:text-sm rounded-xl"
-              />
+          {/* Line Items Card */}
+          <div className="clay-card p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm">Quotation Line Items</h3>
+                <p className="text-xs text-slate-400 font-medium mt-0.5">
+                  Item description required. Quantity, Unit, and Rate are optional.
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={addItem}
+                className="text-xs font-bold rounded-xl cursor-pointer"
+              >
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                Add Item
+              </Button>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                WhatsApp Phone <span className="text-rose-500">*</span>
-              </label>
-              <Input
-                type="tel"
-                placeholder="+91 98765 43210"
-                required
-                value={state.clientPhone}
-                onChange={(e) => setState((prev) => ({ ...prev, clientPhone: e.target.value }))}
-                className="font-semibold text-xs sm:text-sm rounded-xl"
-              />
+            <div className="space-y-3">
+              {state.items.map((item, index) => (
+                <QuotationItemRow
+                  key={item.id}
+                  item={item}
+                  index={index}
+                  isRemovable={state.items.length > 1}
+                  onUpdate={(id, updates) => updateItem(id, updates)}
+                  onRemove={(id) => removeItem(id)}
+                />
+              ))}
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                Email Address
-              </label>
-              <Input
-                type="email"
-                placeholder="client@domain.com"
-                value={state.clientEmail}
-                onChange={(e) => setState((prev) => ({ ...prev, clientEmail: e.target.value }))}
-                className="font-semibold text-xs sm:text-sm rounded-xl"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                Billing Address
-              </label>
-              <Input
-                type="text"
-                placeholder="Street address, city, state..."
-                value={state.clientAddress}
-                onChange={(e) => setState((prev) => ({ ...prev, clientAddress: e.target.value }))}
-                className="font-semibold text-xs sm:text-sm rounded-xl"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                Client GSTIN (optional)
-              </label>
-              <Input
-                type="text"
-                placeholder="27AAAAA0000A1Z5"
-                value={state.clientGstin}
-                onChange={(e) => setState((prev) => ({ ...prev, clientGstin: e.target.value.toUpperCase() }))}
-                className="font-semibold text-xs sm:text-sm rounded-xl uppercase"
-              />
-            </div>
-          </div>
-        </Card>
-
-        {/* Quotation Line Items Card */}
-        <Card className="clay-card p-6 sm:p-7 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <h2 className="text-sm font-extrabold uppercase tracking-wider text-slate-900">
-              Line Items & Services
-            </h2>
             <Button
               type="button"
               variant="outline"
-              size="sm"
               onClick={addItem}
-              className="rounded-xl font-bold text-xs text-emerald-700 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 cursor-pointer"
+              className="w-full text-xs font-bold border-dashed border-slate-300 py-3 rounded-2xl cursor-pointer hover:bg-slate-50"
             >
               <Plus className="h-3.5 w-3.5 mr-1" />
-              <span>Add Line Item</span>
+              Add Another Line Item
             </Button>
           </div>
 
-          <div className="space-y-3">
-            {state.items.map((item, index) => (
-              <QuotationItemRow
-                key={item.id}
-                item={item}
-                index={index}
-                onUpdate={updateItem}
-                onRemove={removeItem}
-                isRemovable={state.items.length > 1}
-              />
-            ))}
-          </div>
-        </Card>
-
-        {/* Financial Totals & Summary */}
-        <QuotationSummary
-          subtotal={totals.subtotal}
-          discountType={state.discountType}
-          discountValue={state.discountValue}
-          discountAmount={totals.discountAmount}
-          onDiscountChange={(type: "percentage" | "fixed" | undefined, value: number) =>
-            setState((prev) => ({ ...prev, discountType: type, discountValue: value }))
-          }
-          isTaxEnabled={state.isTaxEnabled}
-          onTaxToggle={(enabled: boolean) => setState((prev) => ({ ...prev, isTaxEnabled: enabled }))}
-          taxRate={state.defaultTaxRate}
-          onTaxRateChange={(rate: number) => setState((prev) => ({ ...prev, defaultTaxRate: rate }))}
-          totalTax={totals.totalTax}
-          totalAmount={totals.totalAmount}
-          currency={state.currency}
-        />
-
-        {/* Terms & Notes Card */}
-        <Card className="clay-card p-6 sm:p-7 space-y-4">
-          <div className="space-y-1.5">
+          {/* Terms & Notes Card */}
+          <div className="clay-card p-6 space-y-3">
             <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
               Terms & Conditions
             </label>
             <textarea
               rows={3}
               value={state.termsAndConditions}
-              onChange={(e) => setState((prev) => ({ ...prev, termsAndConditions: e.target.value }))}
+              onChange={(e) => setState((p) => ({ ...p, termsAndConditions: e.target.value }))}
               placeholder="e.g. 50% advance required to confirm booking..."
               className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs sm:text-sm font-semibold text-slate-900 focus:border-emerald-500 focus:outline-none shadow-2xs resize-none"
             />
           </div>
-        </Card>
-      </form>
-    </div>
+        </div>
+
+        {/* Right 1 Col: Financial Summary Card */}
+        <div className="space-y-6">
+          <Card className="clay-card p-6 space-y-4 sticky top-20">
+            <h3 className="font-bold text-slate-900 text-sm border-b border-slate-100 pb-3">
+              Quotation Calculations
+            </h3>
+
+            <div className="space-y-3 text-xs">
+              <div className="flex justify-between items-center text-slate-600">
+                <span className="font-semibold">Subtotal</span>
+                <span className="font-extrabold text-slate-900">
+                  {formatCurrency(totals.subtotal, state.currency)}
+                </span>
+              </div>
+
+              {/* Discount Section */}
+              <div className="pt-2 border-t border-slate-100 space-y-2">
+                <div className="flex justify-between items-center text-slate-600">
+                  <span className="font-semibold">Discount</span>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      placeholder="0"
+                      value={state.discountValue || ""}
+                      onChange={(e) =>
+                        setState((p) => ({
+                          ...p,
+                          discountType: "percentage",
+                          discountValue: parseFloat(e.target.value) || 0,
+                        }))
+                      }
+                      className="w-16 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-right text-xs font-bold text-slate-900 focus:bg-white focus:outline-none"
+                    />
+                    <span className="text-slate-400 font-bold">%</span>
+                  </div>
+                </div>
+                {totals.discountAmount > 0 && (
+                  <div className="flex justify-between items-center text-rose-600 pl-2">
+                    <span>Discount Applied</span>
+                    <span className="font-bold">
+                      -{formatCurrency(totals.discountAmount, state.currency)}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* GST Toggle */}
+              <div className="pt-2 border-t border-slate-100">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={state.isTaxEnabled}
+                    onChange={(e) => setState((p) => ({ ...p, isTaxEnabled: e.target.checked }))}
+                    className="h-4 w-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                  />
+                  <span className="font-bold text-slate-800">
+                    Apply GST ({state.defaultTaxRate || 18}%)
+                  </span>
+                </label>
+                {state.isTaxEnabled && (
+                  <div className="flex justify-between items-center text-slate-600 mt-2 pl-6">
+                    <span>GST Amount</span>
+                    <span className="font-bold text-slate-900">
+                      {formatCurrency(totals.totalTax, state.currency)}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Grand Total */}
+              <div className="pt-3 border-t border-slate-100 flex justify-between items-center">
+                <span className="font-extrabold text-slate-900 text-sm">Estimated Total</span>
+                <span className="font-black text-lg text-emerald-800">
+                  {formatCurrency(totals.totalAmount, state.currency)}
+                </span>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+    </form>
   );
 }
 

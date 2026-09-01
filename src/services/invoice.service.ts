@@ -233,6 +233,79 @@ export const InvoiceService = {
     }
   },
 
+  // Update an existing invoice in Supabase
+  async updateInvoice(id: string, invoice: Partial<Invoice>): Promise<Invoice | null> {
+    try {
+      const invPayload: any = {
+        updated_at: new Date().toISOString(),
+      };
+
+      if (invoice.invoiceNumber) invPayload.invoice_number = invoice.invoiceNumber;
+      if (invoice.quotationId !== undefined) invPayload.quotation_id = invoice.quotationId || null;
+      if (invoice.quotationNumber !== undefined) invPayload.quotation_number = invoice.quotationNumber || null;
+      if (invoice.clientId !== undefined) invPayload.client_id = invoice.clientId || null;
+      if (invoice.clientName !== undefined) invPayload.client_name = invoice.clientName;
+      if (invoice.clientEmail !== undefined) invPayload.client_email = invoice.clientEmail || null;
+      if (invoice.clientPhone !== undefined) invPayload.client_phone = invoice.clientPhone || null;
+      if (invoice.clientAddress !== undefined) invPayload.client_address = invoice.clientAddress || null;
+      if (invoice.clientGstin !== undefined) invPayload.client_gstin = invoice.clientGstin || null;
+      if (invoice.issueDate) invPayload.issue_date = invoice.issueDate;
+      if (invoice.dueDate) invPayload.due_date = invoice.dueDate;
+      if (invoice.status) invPayload.status = invoice.status;
+      if (invoice.currency) invPayload.currency = invoice.currency;
+      if (invoice.subtotal !== undefined) invPayload.subtotal = invoice.subtotal;
+      if (invoice.discountType !== undefined) invPayload.discount_type = invoice.discountType || null;
+      if (invoice.discountValue !== undefined) invPayload.discount_value = invoice.discountValue;
+      if (invoice.discountAmount !== undefined) invPayload.discount_amount = invoice.discountAmount;
+      if (invoice.isTaxEnabled !== undefined) invPayload.is_tax_enabled = invoice.isTaxEnabled;
+      if (invoice.totalTax !== undefined) invPayload.total_tax = invoice.totalTax;
+      if (invoice.totalAmount !== undefined) invPayload.total_amount = invoice.totalAmount;
+      if (invoice.paidAmount !== undefined) invPayload.paid_amount = invoice.paidAmount;
+      if (invoice.balanceDue !== undefined) invPayload.balance_due = invoice.balanceDue;
+      if (invoice.termsAndConditions !== undefined) invPayload.terms_and_conditions = invoice.termsAndConditions || null;
+      if (invoice.notes !== undefined) invPayload.notes = invoice.notes || null;
+
+      const { error: invError } = await supabase
+        .from("invoices")
+        .update(invPayload)
+        .eq("id", id);
+
+      if (invError) {
+        console.error("Supabase update invoice error:", invError);
+        return null;
+      }
+
+      // Update line items: Delete old and insert updated
+      if (invoice.items && invoice.items.length > 0) {
+        await supabase.from("invoice_items").delete().eq("invoice_id", id);
+
+        const itemRows = invoice.items.map((item, idx) => ({
+          id: item.id && !item.id.startsWith("item-") ? item.id : `ii-${Date.now()}-${idx}`,
+          invoice_id: id,
+          description: item.description,
+          detailed_notes: item.detailedNotes || null,
+          quantity: item.quantity || null,
+          unit: item.unit || null,
+          rate: item.rate || null,
+          amount: item.amount,
+        }));
+
+        const { error: itemsError } = await supabase.from("invoice_items").insert(itemRows);
+        if (itemsError) {
+          console.error("Supabase insert updated invoice_items error:", itemsError);
+        }
+      }
+
+      return {
+        ...invoice,
+        id,
+      } as Invoice;
+    } catch (err) {
+      console.error("InvoiceService.updateInvoice error:", err);
+      return null;
+    }
+  },
+
   // Delete an invoice
   async deleteInvoice(id: string): Promise<boolean> {
     try {
@@ -249,3 +322,4 @@ export const InvoiceService = {
     }
   },
 };
+

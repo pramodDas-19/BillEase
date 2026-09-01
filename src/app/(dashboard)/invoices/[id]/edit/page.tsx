@@ -57,7 +57,6 @@ export default function EditInvoicePage({
             quotationNumber: invData.quotationNumber,
             clientId: invData.clientId || "",
             clientName: invData.clientName || "",
-
             clientEmail: invData.clientEmail || "",
             clientPhone: invData.clientPhone || "",
             clientAddress: invData.clientAddress || "",
@@ -100,7 +99,6 @@ export default function EditInvoicePage({
         setIsLoading(false);
       }
     }
-
     loadData();
   }, [id]);
 
@@ -113,11 +111,7 @@ export default function EditInvoicePage({
         clientName: found.name,
         clientEmail: found.email || "",
         clientPhone: found.phone,
-        clientAddress:
-          found.address ||
-          (found.billingAddress
-            ? `${found.billingAddress.street}, ${found.billingAddress.city}`
-            : ""),
+        clientAddress: found.address || (found.billingAddress ? `${found.billingAddress.street}, ${found.billingAddress.city}` : ""),
         clientGstin: found.gstin || "",
       }));
     }
@@ -128,28 +122,28 @@ export default function EditInvoicePage({
     setIsSubmitting(true);
 
     try {
-      // 1. Delete and re-create invoice with updated calculations
-      await InvoiceService.deleteInvoice(id);
-      await InvoiceService.createInvoice({
-        id,
-        invoiceNumber: state.invoiceNumber,
-        quotationId: state.quotationId,
-        quotationNumber: state.quotationNumber,
-        clientId: state.clientId || undefined,
-        clientName: state.clientName,
-        clientEmail: state.clientEmail || undefined,
-        clientPhone: state.clientPhone || undefined,
-        clientAddress: state.clientAddress || undefined,
-        clientGstin: state.clientGstin || undefined,
-        issueDate: state.issueDate,
-        dueDate: state.dueDate,
+      let resolvedClientId = state.clientId;
+
+      if (!resolvedClientId && state.clientName.trim()) {
+        const existing = clients.find(
+          (c) =>
+            c.name.toLowerCase() === state.clientName.trim().toLowerCase() ||
+            (state.clientPhone && c.phone === state.clientPhone)
+        );
+        if (existing) {
+          resolvedClientId = existing.id;
+        }
+      }
+
+      await InvoiceService.updateInvoice(id, {
+        ...state,
+        clientId: resolvedClientId || undefined,
         status:
           totals.balanceDue <= 0
             ? "paid"
             : state.paidAmount && state.paidAmount > 0
             ? "partially_paid"
             : "due",
-        currency: state.currency,
         items: state.items.map((i) => ({
           id: i.id,
           description: i.description,
@@ -168,11 +162,9 @@ export default function EditInvoicePage({
         totalAmount: totals.totalAmount,
         paidAmount: state.paidAmount || 0,
         balanceDue: totals.balanceDue,
-        termsAndConditions: state.termsAndConditions,
-        notes: state.notes,
       });
 
-      router.push(`/invoices/${id}`);
+      router.push("/invoices");
     } catch (err) {
       console.error("Failed to update invoice:", err);
       setIsSubmitting(false);
@@ -181,23 +173,18 @@ export default function EditInvoicePage({
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px] text-slate-400 gap-2">
-        <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
-        <span className="text-sm font-medium">Loading Invoice Editor...</span>
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
       </div>
     );
   }
 
   if (!invoice) {
     return (
-      <div className="text-center py-16 space-y-4">
+      <div className="p-8 text-center">
         <h2 className="text-lg font-bold text-slate-800">Invoice Not Found</h2>
-        <Link
-          href="/invoices"
-          className="clay-btn-primary inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          <span>Back to Invoices</span>
+        <Link href="/invoices" className="mt-4 inline-block text-sm text-emerald-600 font-bold">
+          ← Return to Invoices
         </Link>
       </div>
     );
@@ -209,20 +196,17 @@ export default function EditInvoicePage({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3">
           <Link
-            href={`/invoices/${id}`}
+            href="/invoices"
             className="clay-icon-squircle p-2 text-slate-500 hover:text-slate-900 bg-slate-50 border border-slate-200/80 rounded-xl"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 flex items-center gap-2">
-              <span>Edit Tax Invoice #{invoice.invoiceNumber}</span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                Editing
-              </span>
+              <span>Edit Invoice #{invoice.invoiceNumber}</span>
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5 font-medium">
-              Modify line items, advance deductions, and client details.
+              Update billed line items, discounts, advance payments, and customer details.
             </p>
           </div>
         </div>
@@ -232,18 +216,18 @@ export default function EditInvoicePage({
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => router.push(`/invoices/${id}`)}
-            className="rounded-xl text-xs font-bold"
+            onClick={() => router.push("/invoices")}
+            className="rounded-xl text-xs font-bold cursor-pointer"
           >
             Cancel
           </Button>
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || state.items.length === 0}
             className="clay-btn-emerald inline-flex items-center gap-2 h-10 px-5 font-bold text-xs sm:text-sm rounded-2xl cursor-pointer"
           >
             <Save className="h-4 w-4" />
-            <span>{isSubmitting ? "Saving..." : "Save Invoice"}</span>
+            <span>{isSubmitting ? "Updating..." : "Save Changes"}</span>
           </button>
         </div>
       </div>
@@ -282,9 +266,9 @@ export default function EditInvoicePage({
               <select
                 value={state.clientId || ""}
                 onChange={(e) => handleClientSelect(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-2.5 text-sm font-semibold text-slate-900 focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-2.5 text-sm font-semibold text-slate-900 focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all cursor-pointer"
               >
-                <option value="">-- Choose Existing Client or Edit Below --</option>
+                <option value="">-- Choose Existing Client or Type Below --</option>
                 {clients.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name} {c.companyName ? `(${c.companyName})` : ""} - {c.phone}
@@ -323,6 +307,15 @@ export default function EditInvoicePage({
                   onChange={(e) => setState((p) => ({ ...p, clientGstin: e.target.value }))}
                 />
               </div>
+
+              <div className="pt-2">
+                <Input
+                  label="Billing Address"
+                  placeholder="Street address, city, state..."
+                  value={state.clientAddress || ""}
+                  onChange={(e) => setState((p) => ({ ...p, clientAddress: e.target.value }))}
+                />
+              </div>
             </div>
           </div>
 
@@ -332,7 +325,7 @@ export default function EditInvoicePage({
               <div>
                 <h3 className="font-bold text-slate-900 text-sm">Invoice Line Items</h3>
                 <p className="text-xs text-slate-400 font-medium mt-0.5">
-                  Pick from catalog or customize item rates and quantities.
+                  Item description required. Quantity, Unit, and Rate are optional.
                 </p>
               </div>
               <Button
@@ -340,7 +333,7 @@ export default function EditInvoicePage({
                 size="sm"
                 variant="outline"
                 onClick={addItem}
-                className="text-xs font-bold rounded-xl"
+                className="text-xs font-bold rounded-xl cursor-pointer"
               >
                 <Plus className="h-3.5 w-3.5 mr-1" />
                 Add Item
@@ -354,8 +347,8 @@ export default function EditInvoicePage({
                   item={item}
                   index={index}
                   isRemovable={state.items.length > 1}
-                  onUpdate={(id, updates) => updateItem(id, updates)}
-                  onRemove={(id) => removeItem(id)}
+                  onUpdate={(itemId, updates) => updateItem(itemId, updates)}
+                  onRemove={(itemId) => removeItem(itemId)}
                 />
               ))}
             </div>
@@ -364,11 +357,25 @@ export default function EditInvoicePage({
               type="button"
               variant="outline"
               onClick={addItem}
-              className="w-full text-xs font-bold border-dashed border-slate-300 py-3 rounded-2xl"
+              className="w-full text-xs font-bold border-dashed border-slate-300 py-3 rounded-2xl cursor-pointer hover:bg-slate-50"
             >
               <Plus className="h-3.5 w-3.5 mr-1" />
               Add Another Line Item
             </Button>
+          </div>
+
+          {/* Terms & Conditions Card */}
+          <div className="clay-card p-6 space-y-3">
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
+              Terms & Conditions
+            </label>
+            <textarea
+              rows={3}
+              value={state.termsAndConditions}
+              onChange={(e) => setState((p) => ({ ...p, termsAndConditions: e.target.value }))}
+              placeholder="Payment terms, bank details, return policy..."
+              className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs sm:text-sm font-semibold text-slate-900 focus:border-emerald-500 focus:outline-none shadow-2xs resize-none"
+            />
           </div>
         </div>
 
@@ -387,6 +394,37 @@ export default function EditInvoicePage({
                 </span>
               </div>
 
+              {/* Discount Section */}
+              <div className="pt-2 border-t border-slate-100 space-y-2">
+                <div className="flex justify-between items-center text-slate-600">
+                  <span className="font-semibold">Discount</span>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      placeholder="0"
+                      value={state.discountValue || ""}
+                      onChange={(e) =>
+                        setState((p) => ({
+                          ...p,
+                          discountType: "percentage",
+                          discountValue: parseFloat(e.target.value) || 0,
+                        }))
+                      }
+                      className="w-16 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-right text-xs font-bold text-slate-900 focus:bg-white focus:outline-none"
+                    />
+                    <span className="text-slate-400 font-bold">%</span>
+                  </div>
+                </div>
+                {totals.discountAmount > 0 && (
+                  <div className="flex justify-between items-center text-rose-600 pl-2">
+                    <span>Discount Applied</span>
+                    <span className="font-bold">
+                      -{formatCurrency(totals.discountAmount, state.currency)}
+                    </span>
+                  </div>
+                )}
+              </div>
+
               {/* GST Toggle */}
               <div className="pt-2 border-t border-slate-100">
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -394,7 +432,7 @@ export default function EditInvoicePage({
                     type="checkbox"
                     checked={state.isTaxEnabled}
                     onChange={(e) => setState((p) => ({ ...p, isTaxEnabled: e.target.checked }))}
-                    className="h-4 w-4 rounded text-emerald-600 focus:ring-emerald-500"
+                    className="h-4 w-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                   />
                   <span className="font-bold text-slate-800">
                     Apply GST ({state.defaultTaxRate || 18}%)

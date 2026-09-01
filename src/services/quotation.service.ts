@@ -3,7 +3,7 @@ import { Quotation, QuotationStatus } from "@/types";
 import { AuthService } from "./auth.service";
 
 export const QuotationService = {
-  // Fetch all quotations with line items for active tenant from Supabase
+  // Fetch all quotations for active tenant from Supabase
   async getQuotations(): Promise<Quotation[]> {
     try {
       const tenantId = await AuthService.getActiveTenantId();
@@ -21,9 +21,11 @@ export const QuotationService = {
         return [];
       }
 
-      if (!data) return [];
+      if (!data || data.length === 0) {
+        return [];
+      }
 
-      return data.map((q) => ({
+      return data.map((q: any) => ({
         id: q.id,
         tenantId: q.tenant_id,
         quotationNumber: q.quotation_number,
@@ -42,9 +44,9 @@ export const QuotationService = {
           id: item.id,
           description: item.description,
           detailedNotes: item.detailed_notes,
-          quantity: item.quantity ? parseFloat(item.quantity) : undefined,
+          quantity: item.quantity !== null && item.quantity !== undefined ? parseFloat(item.quantity) : undefined,
           unit: item.unit,
-          rate: item.rate ? parseFloat(item.rate) : undefined,
+          rate: item.rate !== null && item.rate !== undefined ? parseFloat(item.rate) : undefined,
           amount: parseFloat(item.amount || "0"),
         })),
         subtotal: parseFloat(q.subtotal || "0"),
@@ -65,7 +67,7 @@ export const QuotationService = {
     }
   },
 
-  // Fetch single quotation by ID
+  // Get a single quotation by ID
   async getQuotationById(id: string): Promise<Quotation | null> {
     try {
       const { data, error } = await supabase
@@ -98,9 +100,9 @@ export const QuotationService = {
           id: item.id,
           description: item.description,
           detailedNotes: item.detailed_notes,
-          quantity: item.quantity ? parseFloat(item.quantity) : undefined,
+          quantity: item.quantity !== null && item.quantity !== undefined ? parseFloat(item.quantity) : undefined,
           unit: item.unit,
-          rate: item.rate ? parseFloat(item.rate) : undefined,
+          rate: item.rate !== null && item.rate !== undefined ? parseFloat(item.rate) : undefined,
           amount: parseFloat(item.amount || "0"),
         })),
         subtotal: parseFloat(data.subtotal || "0"),
@@ -217,6 +219,75 @@ export const QuotationService = {
       } as Quotation;
     } catch (err) {
       console.error("QuotationService.createQuotation error:", err);
+      return null;
+    }
+  },
+
+  // Update an existing quotation with updated line items
+  async updateQuotation(id: string, quotation: Partial<Quotation>): Promise<Quotation | null> {
+    try {
+      const quotePayload: any = {
+        updated_at: new Date().toISOString(),
+      };
+
+      if (quotation.quotationNumber) quotePayload.quotation_number = quotation.quotationNumber;
+      if (quotation.clientId !== undefined) quotePayload.client_id = quotation.clientId || null;
+      if (quotation.clientName !== undefined) quotePayload.client_name = quotation.clientName;
+      if (quotation.clientEmail !== undefined) quotePayload.client_email = quotation.clientEmail || null;
+      if (quotation.clientPhone !== undefined) quotePayload.client_phone = quotation.clientPhone || null;
+      if (quotation.clientAddress !== undefined) quotePayload.client_address = quotation.clientAddress || null;
+      if (quotation.clientGstin !== undefined) quotePayload.client_gstin = quotation.clientGstin || null;
+      if (quotation.date) quotePayload.date = quotation.date;
+      if (quotation.validUntil) quotePayload.valid_until = quotation.validUntil;
+      if (quotation.status) quotePayload.status = quotation.status;
+      if (quotation.currency) quotePayload.currency = quotation.currency;
+      if (quotation.subtotal !== undefined) quotePayload.subtotal = quotation.subtotal;
+      if (quotation.discountType !== undefined) quotePayload.discount_type = quotation.discountType || null;
+      if (quotation.discountValue !== undefined) quotePayload.discount_value = quotation.discountValue;
+      if (quotation.discountAmount !== undefined) quotePayload.discount_amount = quotation.discountAmount;
+      if (quotation.isTaxEnabled !== undefined) quotePayload.is_tax_enabled = quotation.isTaxEnabled;
+      if (quotation.totalTax !== undefined) quotePayload.total_tax = quotation.totalTax;
+      if (quotation.totalAmount !== undefined) quotePayload.total_amount = quotation.totalAmount;
+      if (quotation.termsAndConditions !== undefined) quotePayload.terms_and_conditions = quotation.termsAndConditions || null;
+      if (quotation.notes !== undefined) quotePayload.notes = quotation.notes || null;
+
+      const { error: quoteError } = await supabase
+        .from("quotations")
+        .update(quotePayload)
+        .eq("id", id);
+
+      if (quoteError) {
+        console.error("Supabase update quotation error:", quoteError);
+        return null;
+      }
+
+      // Update line items: Delete old and insert updated
+      if (quotation.items && quotation.items.length > 0) {
+        await supabase.from("quotation_items").delete().eq("quotation_id", id);
+
+        const itemRows = quotation.items.map((item, idx) => ({
+          id: item.id && !item.id.startsWith("item-") ? item.id : `qi-${Date.now()}-${idx}`,
+          quotation_id: id,
+          description: item.description,
+          detailed_notes: item.detailedNotes || null,
+          quantity: item.quantity || null,
+          unit: item.unit || null,
+          rate: item.rate || null,
+          amount: item.amount,
+        }));
+
+        const { error: itemsError } = await supabase.from("quotation_items").insert(itemRows);
+        if (itemsError) {
+          console.error("Supabase insert updated quotation_items error:", itemsError);
+        }
+      }
+
+      return {
+        ...quotation,
+        id,
+      } as Quotation;
+    } catch (err) {
+      console.error("QuotationService.updateQuotation error:", err);
       return null;
     }
   },

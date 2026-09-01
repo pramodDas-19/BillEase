@@ -27,6 +27,7 @@ import {
   Sparkles,
   ArrowRight,
   AlertCircle,
+  Edit3,
 } from "lucide-react";
 
 export default function QuotationsPage() {
@@ -417,6 +418,14 @@ export default function QuotationsPage() {
                       )}
 
 
+                      <Link
+                        href={`/quotations/${q.id}/edit`}
+                        title={`Edit Quotation #${q.quotationNumber}`}
+                        className="clay-icon-squircle flex h-7 w-7 items-center justify-center rounded-lg bg-slate-50 border border-slate-200/80 text-slate-600 hover:bg-slate-900 hover:text-white hover:border-slate-900 shadow-2xs transition-all cursor-pointer"
+                      >
+                        <Edit3 className="h-3 w-3" />
+                      </Link>
+
                       <button
                         onClick={() => handleDeleteQuote(q.id, q.quotationNumber)}
                         title="Delete Quotation"
@@ -424,6 +433,7 @@ export default function QuotationsPage() {
                       >
                         <Trash2 className="h-3 w-3" />
                       </button>
+
                     </div>
                   </div>
 
@@ -612,6 +622,15 @@ export default function QuotationsPage() {
                             <Eye className="h-3 w-3" />
                           </Link>
 
+                          {/* Edit Quote */}
+                          <Link
+                            href={`/quotations/${q.id}/edit`}
+                            title="Edit Quotation"
+                            className="clay-icon-squircle p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-900 hover:text-white transition-colors"
+                          >
+                            <Edit3 className="h-3 w-3" />
+                          </Link>
+
                           {/* Red Clay Delete */}
                           <button
                             onClick={() => handleDeleteQuote(q.id, q.quotationNumber)}
@@ -620,6 +639,7 @@ export default function QuotationsPage() {
                           >
                             <Trash2 className="h-3 w-3" />
                           </button>
+
                         </div>
                       </td>
                     </tr>

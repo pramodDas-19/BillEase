@@ -27,6 +27,7 @@ import {
   CreditCard,
   BellRing,
   QrCode,
+  Edit3,
 } from "lucide-react";
 
 export default function InvoicesPage() {
@@ -416,6 +417,14 @@ export default function InvoicesPage() {
                         </button>
                       )}
 
+                      <Link
+                        href={`/invoices/${inv.id}/edit`}
+                        title={`Edit Invoice #${inv.invoiceNumber}`}
+                        className="clay-icon-squircle flex h-7 w-7 items-center justify-center rounded-lg bg-slate-50 border border-slate-200/80 text-slate-600 hover:bg-slate-900 hover:text-white hover:border-slate-900 shadow-2xs transition-all cursor-pointer"
+                      >
+                        <Edit3 className="h-3 w-3" />
+                      </Link>
+
                       <button
                         onClick={() => handleDeleteInvoice(inv.id, inv.invoiceNumber)}
                         title="Delete Invoice"
@@ -423,6 +432,7 @@ export default function InvoicesPage() {
                       >
                         <Trash2 className="h-3 w-3" />
                       </button>
+
 
                     </div>
                   </div>
@@ -670,6 +680,15 @@ export default function InvoicesPage() {
                             <Eye className="h-3 w-3" />
                           </Link>
 
+                          {/* Edit Invoice */}
+                          <Link
+                            href={`/invoices/${inv.id}/edit`}
+                            title="Edit Invoice"
+                            className="clay-icon-squircle p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-900 hover:text-white transition-colors"
+                          >
+                            <Edit3 className="h-3 w-3" />
+                          </Link>
+
                           {/* Red Clay Delete */}
                           <button
                             onClick={() => handleDeleteInvoice(inv.id, inv.invoiceNumber)}
@@ -678,6 +697,7 @@ export default function InvoicesPage() {
                           >
                             <Trash2 className="h-3 w-3" />
                           </button>
+
                         </div>
                       </td>
                     </tr>

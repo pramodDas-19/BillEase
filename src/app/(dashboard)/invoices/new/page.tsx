@@ -473,8 +473,40 @@ function NewInvoiceContent() {
                 </span>
               </div>
 
+              {/* Discount Section */}
+              <div className="pt-2 border-t border-slate-100 space-y-2">
+                <div className="flex justify-between items-center text-slate-600">
+                  <span className="font-semibold">Discount</span>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      placeholder="0"
+                      value={state.discountValue || ""}
+                      onChange={(e) =>
+                        setState((p) => ({
+                          ...p,
+                          discountType: "percentage",
+                          discountValue: parseFloat(e.target.value) || 0,
+                        }))
+                      }
+                      className="w-16 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-right text-xs font-bold text-slate-900 focus:bg-white focus:outline-none"
+                    />
+                    <span className="text-slate-400 font-bold">%</span>
+                  </div>
+                </div>
+                {totals.discountAmount > 0 && (
+                  <div className="flex justify-between items-center text-rose-600 pl-2">
+                    <span>Discount Applied</span>
+                    <span className="font-bold">
+                      -{formatCurrency(totals.discountAmount, state.currency)}
+                    </span>
+                  </div>
+                )}
+              </div>
+
               {/* GST Toggle */}
               <div className="pt-2 border-t border-slate-100">
+
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
