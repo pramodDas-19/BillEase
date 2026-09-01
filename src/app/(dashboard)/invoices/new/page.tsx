@@ -8,6 +8,7 @@ import { useTenant } from "@/hooks/use-tenant";
 import { ClientService } from "@/services/client.service";
 import { QuotationService } from "@/services/quotation.service";
 import { InvoiceService } from "@/services/invoice.service";
+import { CatalogService } from "@/services/service.service";
 import { Client, Quotation } from "@/types";
 import { QuotationItemRow } from "@/components/quotations";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ function NewInvoiceContent() {
     searchParams.get("fromQuoteId") ||
     searchParams.get("fromQuote");
   const preSelectedClientId = searchParams.get("clientId");
+  const preSelectedServiceId = searchParams.get("serviceId");
 
   const [clients, setClients] = useState<Client[]>([]);
   const [quotations, setQuotations] = useState<Quotation[]>([]);
@@ -70,10 +72,11 @@ function NewInvoiceContent() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [clientsData, quotesData, invoicesData] = await Promise.all([
+        const [clientsData, quotesData, invoicesData, servicesData] = await Promise.all([
           ClientService.getClients(),
           QuotationService.getQuotations(),
           InvoiceService.getInvoices(),
+          CatalogService.getServices(),
         ]);
         setClients(clientsData || []);
         setQuotations(quotesData || []);
@@ -87,6 +90,33 @@ function NewInvoiceContent() {
             return match ? parseInt(match[0], 10) : 0;
           });
           nextNum = Math.max(...numbers, 1000) + 1;
+        }
+
+        // If preSelectedServiceId is present, prefill with service item
+        if (preSelectedServiceId && servicesData) {
+          const srv = servicesData.find((s) => s.id === preSelectedServiceId);
+          if (srv) {
+            const sRate = srv.rate !== undefined ? srv.rate : (srv.defaultRate ?? 0);
+            const sGst = srv.gstRate !== undefined ? srv.gstRate : (srv.defaultTaxRate ?? 18);
+            setState((prev) => ({
+              ...prev,
+              invoiceNumber: `${prefix}${nextNum}`,
+              items: [
+                {
+                  id: `item-${Date.now()}`,
+                  description: srv.name,
+                  detailedNotes: srv.description || "",
+                  quantity: 1,
+                  unit: srv.unit || srv.defaultUnit || "",
+                  rate: sRate,
+                  amount: sRate,
+                },
+              ],
+              defaultTaxRate: sGst,
+              isTaxEnabled: sGst > 0,
+            }));
+            return;
+          }
         }
 
         // If fromQuoteId is present, fetch the full quotation details
@@ -142,9 +172,9 @@ function NewInvoiceContent() {
         setIsInitialLoading(false);
       }
     }
-
     loadData();
-  }, [fromQuoteId, currentTenant]);
+  }, [fromQuoteId, preSelectedClientId, preSelectedServiceId, currentTenant]);
+
 
 
   const handleClientSelect = (clientId: string) => {

@@ -121,19 +121,23 @@ export default function NewServicePage() {
       ? customCategoryInput.trim() || selectedCategory || "General"
       : selectedCategory || "General";
 
+    const parsedRate = parseFloat(defaultRate);
+    const parsedTax = parseFloat(taxRate);
+
     try {
       await CatalogService.createService({
         name: serviceName,
         category: categoryToSave,
-        rate: parseFloat(defaultRate) || 0,
-        unit: isAddingCustomUnit ? customUnitInput.trim() || selectedUnit : selectedUnit,
-        hsnSac: hsnCode || undefined,
-        gstRate: parseFloat(taxRate) || 18,
-        description: description || undefined,
+        rate: isNaN(parsedRate) ? 0 : parsedRate,
+        unit: isAddingCustomUnit ? customUnitInput.trim() : (selectedUnit || ""),
+        hsnSac: hsnCode.trim() || undefined,
+        gstRate: isNaN(parsedTax) ? 0 : parsedTax,
+        description: description.trim() || undefined,
         isActive: true,
       });
 
       router.push("/services");
+
     } catch (err) {
       console.error("Failed to create service:", err);
       setIsSubmitting(false);
