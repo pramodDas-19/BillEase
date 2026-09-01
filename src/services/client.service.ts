@@ -18,7 +18,9 @@ export const ClientService = {
         return [];
       }
 
-      if (!data) return [];
+      if (!data || data.length === 0) {
+        return [];
+      }
 
       return data.map((c) => ({
         id: c.id,
@@ -42,7 +44,7 @@ export const ClientService = {
     }
   },
 
-  // Get Client by ID
+  // Get a single client by ID
   async getClientById(id: string): Promise<Client | null> {
     try {
       const { data, error } = await supabase
@@ -123,6 +125,58 @@ export const ClientService = {
       };
     } catch (err) {
       console.error("ClientService.createClient error:", err);
+      return null;
+    }
+  },
+
+  // Update an existing client in Supabase
+  async updateClient(id: string, updates: Partial<Client>): Promise<Client | null> {
+    try {
+      const payload: any = {
+        updated_at: new Date().toISOString(),
+      };
+
+      if (updates.name !== undefined) payload.name = updates.name;
+      if (updates.companyName !== undefined) payload.company_name = updates.companyName || null;
+      if (updates.email !== undefined) payload.email = updates.email || null;
+      if (updates.phone !== undefined) payload.phone = updates.phone;
+      if (updates.gstin !== undefined) payload.gstin = updates.gstin || null;
+      if (updates.address !== undefined) payload.address = updates.address || null;
+      if (updates.segmentTags !== undefined) payload.segment_tags = updates.segmentTags;
+      if (updates.totalBilled !== undefined) payload.total_billed = updates.totalBilled;
+      if (updates.totalPaid !== undefined) payload.total_paid = updates.totalPaid;
+      if (updates.balanceDue !== undefined) payload.balance_due = updates.balanceDue;
+
+      const { data, error } = await supabase
+        .from("clients")
+        .update(payload)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Supabase update client error:", error);
+        return null;
+      }
+
+      return {
+        id: data.id,
+        tenantId: data.tenant_id,
+        name: data.name,
+        companyName: data.company_name,
+        email: data.email,
+        phone: data.phone,
+        gstin: data.gstin,
+        address: data.address,
+        segmentTags: data.segment_tags || [],
+        totalBilled: parseFloat(data.total_billed || "0"),
+        totalPaid: parseFloat(data.total_paid || "0"),
+        balanceDue: parseFloat(data.balance_due || "0"),
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+      };
+    } catch (err) {
+      console.error("ClientService.updateClient error:", err);
       return null;
     }
   },
