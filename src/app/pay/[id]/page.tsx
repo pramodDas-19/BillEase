@@ -3,7 +3,6 @@
 import React, { useState, use, useEffect } from "react";
 import { InvoiceService } from "@/services/invoice.service";
 import { QuotationService } from "@/services/quotation.service";
-import { PaymentService } from "@/services/payment.service";
 import { supabase } from "@/lib/supabase/client";
 import { Invoice, Quotation } from "@/types";
 import { formatCurrency } from "@/lib/utils";
@@ -18,7 +17,7 @@ import {
   Building2,
   QrCode,
   Sparkles,
-  XCircle,
+  ArrowLeft,
 } from "lucide-react";
 
 export default function ClientPayPortalPage({ params }: { params: Promise<{ id: string }> }) {
@@ -39,12 +38,10 @@ export default function ClientPayPortalPage({ params }: { params: Promise<{ id: 
   const [isLoading, setIsLoading] = useState(true);
 
   const [copied, setCopied] = useState<string | null>(null);
-  const [utrInput, setUtrInput] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"upi" | "bank_transfer">("upi");
   const [isSettled, setIsSettled] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCancelled, setIsCancelled] = useState(false);
 
+  // Load record and poll for live settlement updates
   useEffect(() => {
     async function loadRecord() {
       try {
@@ -88,7 +85,6 @@ export default function ClientPayPortalPage({ params }: { params: Promise<{ id: 
             });
           }
         } else if (typeof window !== "undefined") {
-          // Fallback to local registered tenant if single tenant session
           const localStr = localStorage.getItem("billease_registered_user");
           if (localStr) {
             try {
@@ -108,7 +104,27 @@ export default function ClientPayPortalPage({ params }: { params: Promise<{ id: 
         setIsLoading(false);
       }
     }
+
     loadRecord();
+
+    // Auto-poll status every 4 seconds to detect settlement in real time
+    const interval = setInterval(async () => {
+      try {
+        const inv = await InvoiceService.getInvoiceById(id);
+        if (inv && (inv.balanceDue <= 0 || inv.status === "paid")) {
+          setIsSettled(true);
+          setInvoice(inv);
+        } else {
+          const quote = await QuotationService.getQuotationById(id);
+          if (quote && quote.status === "converted") {
+            setIsSettled(true);
+            setQuotation(quote);
+          }
+        }
+      } catch {}
+    }, 4000);
+
+    return () => clearInterval(interval);
   }, [id]);
 
   const copyToClipboard = (text: string, label: string) => {
@@ -122,8 +138,6 @@ export default function ClientPayPortalPage({ params }: { params: Promise<{ id: 
   const handleExitSession = () => {
     if (typeof window !== "undefined") {
       window.close();
-      // Fallback if window.close is blocked by browser
-      setIsCancelled(true);
     }
   };
 
@@ -138,16 +152,16 @@ export default function ClientPayPortalPage({ params }: { params: Promise<{ id: 
 
   const targetDoc = invoice || quotation;
 
-  if (!targetDoc || isCancelled) {
+  if (!targetDoc) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-center space-y-4">
         <div className="h-16 w-16 mx-auto rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400">
           <Lock className="h-8 w-8" />
         </div>
-        <h2 className="text-xl font-bold text-white">Payment Session Closed</h2>
+        <h2 className="text-xl font-bold text-white">Bill Reference Not Found</h2>
         <p className="text-xs text-slate-400 max-w-sm">
-          This payment portal link is closed or has expired. Please contact{" "}
-          <strong>{tenantInfo.businessName}</strong> if you need a new link.
+          This payment portal link is invalid or has expired. Please contact{" "}
+          <strong>{tenantInfo.businessName}</strong>.
         </p>
       </div>
     );
@@ -157,7 +171,6 @@ export default function ClientPayPortalPage({ params }: { params: Promise<{ id: 
   const businessName = tenantInfo.businessName;
   const upiId = tenantInfo.upiId || "payments@upi";
 
-  // If quotation, standard 50% advance deposit; if invoice, use balanceDue
   const totalBillAmount = isQuoteFlow ? quotation.totalAmount : invoice!.totalAmount;
   const payableAmount = isQuoteFlow
     ? Math.round(quotation.totalAmount * 0.5)
@@ -185,84 +198,6 @@ export default function ClientPayPortalPage({ params }: { params: Promise<{ id: 
   const paytmUri = `paytmmp://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(
     businessName
   )}&am=${payableAmount}&tr=${encodeURIComponent(docNumber)}&cu=INR`;
-
-  const handleConfirmPayment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
-    try {
-      const payNum = `PAY-${Date.now().toString().slice(-4)}`;
-
-      if (isQuoteFlow) {
-        // 1. Convert quotation to invoice upon advance payment
-        const newInv = await InvoiceService.createInvoice({
-          quotationId: quotation.id,
-          quotationNumber: quotation.quotationNumber,
-          clientId: quotation.clientId,
-          clientName: quotation.clientName,
-          clientEmail: quotation.clientEmail,
-          clientPhone: quotation.clientPhone,
-          clientAddress: quotation.clientAddress,
-          clientGstin: quotation.clientGstin,
-          issueDate: new Date().toISOString().split("T")[0],
-          dueDate: new Date(Date.now() + 14 * 86400000).toISOString().split("T")[0],
-          items: quotation.items,
-          subtotal: quotation.subtotal,
-          discountType: quotation.discountType,
-          discountValue: quotation.discountValue,
-          discountAmount: quotation.discountAmount,
-          isTaxEnabled: quotation.isTaxEnabled,
-          totalTax: quotation.totalTax,
-          totalAmount: quotation.totalAmount,
-          paidAmount: payableAmount,
-          balanceDue: Math.max(0, quotation.totalAmount - payableAmount),
-          status: "partially_paid",
-          termsAndConditions: quotation.termsAndConditions,
-          notes: quotation.notes,
-        });
-
-        // 2. Record payment
-        await PaymentService.recordPayment({
-          paymentNumber: payNum,
-          invoiceId: newInv?.id,
-          invoiceNumber: newInv?.invoiceNumber,
-          clientId: quotation.clientId,
-          clientName: quotation.clientName,
-          amount: payableAmount,
-          currency: quotation.currency || "INR",
-          paymentMethod: paymentMethod === "upi" ? "upi" : "bank_transfer",
-          transactionReference: utrInput.trim() || `PORTAL-${Date.now().toString().slice(-4)}`,
-          notes: `Advance Deposit for Quote #${quotation.quotationNumber}`,
-        });
-
-        await QuotationService.updateQuotationStatus(
-          quotation.id,
-          "converted",
-          newInv?.id
-        );
-      } else {
-        // Invoice settlement flow
-        await PaymentService.recordPayment({
-          paymentNumber: payNum,
-          invoiceId: invoice!.id,
-          invoiceNumber: invoice!.invoiceNumber,
-          clientId: invoice!.clientId,
-          clientName: invoice!.clientName,
-          amount: payableAmount,
-          currency: invoice!.currency || "INR",
-          paymentMethod: paymentMethod === "upi" ? "upi" : "bank_transfer",
-          transactionReference: utrInput.trim() || `PORTAL-${Date.now().toString().slice(-4)}`,
-          notes: `Settlement for Invoice #${invoice!.invoiceNumber}`,
-        });
-      }
-
-      setIsSettled(true);
-    } catch (err) {
-      console.error("Payment confirmation error:", err);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col justify-center items-center p-4 sm:p-6 antialiased selection:bg-emerald-500/30 selection:text-emerald-200">
@@ -296,7 +231,7 @@ export default function ClientPayPortalPage({ params }: { params: Promise<{ id: 
         <div className="clay-card rounded-3xl bg-white text-slate-900 p-6 sm:p-7 shadow-2xl border border-slate-200/80 space-y-5">
           {isSettled ? (
             /* ======================================================== */
-            /* SETTLED CONFIRMATION VIEW (THANK YOU ONLY, NO DOWNLOAD)  */
+            /* SETTLED CONFIRMATION VIEW (THANK YOU ONLY)               */
             /* ======================================================== */
             <div className="text-center py-6 space-y-5 animate-in zoom-in-95 duration-300">
               <div className="h-16 w-16 mx-auto rounded-full bg-emerald-100 border-2 border-emerald-500 flex items-center justify-center text-emerald-600 shadow-md">
@@ -311,29 +246,27 @@ export default function ClientPayPortalPage({ params }: { params: Promise<{ id: 
                   Thank You, {targetDoc.clientName}!
                 </h3>
                 <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  Your payment of <strong>{formatCurrency(payableAmount || totalBillAmount, "INR")}</strong> for #{docNumber} has been received.
+                  Your payment for #{docNumber} has been verified and settled.
                 </p>
               </div>
 
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs text-left space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Transaction ID:</span>
-                  <span className="font-mono font-bold text-slate-900">
-                    {utrInput || `UPI-${Date.now().toString().slice(-6)}`}
-                  </span>
+                  <span className="text-slate-500">Document Ref:</span>
+                  <span className="font-bold text-slate-900">#{docNumber}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Status:</span>
-                  <span className="font-bold text-emerald-700">Settled & Verified</span>
+                  <span className="font-bold text-emerald-700">Settled & Confirmed</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Document Ref:</span>
-                  <span className="font-bold text-slate-900">#{docNumber}</span>
+                  <span className="text-slate-500">Beneficiary:</span>
+                  <span className="font-bold text-slate-900">{businessName}</span>
                 </div>
               </div>
 
               <p className="text-xs text-slate-400 font-medium">
-                Your official verified tax invoice & receipt will be sent directly to you by{" "}
+                Your official verified tax invoice & receipt will be delivered to you directly by{" "}
                 <strong>{businessName}</strong>.
               </p>
 
@@ -342,12 +275,12 @@ export default function ClientPayPortalPage({ params }: { params: Promise<{ id: 
                 onClick={handleExitSession}
                 className="w-full py-3 rounded-2xl font-bold text-xs bg-slate-900 hover:bg-slate-800 text-white shadow-md transition-all cursor-pointer"
               >
-                Close Session
+                Close Window
               </button>
             </div>
           ) : (
             /* ======================================================== */
-            /* ACTIVE PAYMENT FORM VIEW                                 */
+            /* PURE SCAN & PAY FORM VIEW (NO RISKY BUTTONS)             */
             /* ======================================================== */
             <>
               {/* Document Reference & Amount */}
@@ -412,7 +345,7 @@ export default function ClientPayPortalPage({ params }: { params: Promise<{ id: 
                   {/* Mobile Deep Links */}
                   <div className="space-y-2">
                     <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
-                      1-Click UPI Payment (Open App)
+                      1-Click UPI Payment (Tap to Open App)
                     </label>
                     <div className="grid grid-cols-3 gap-2">
                       <a
@@ -454,9 +387,9 @@ export default function ClientPayPortalPage({ params }: { params: Promise<{ id: 
                   </div>
 
                   {/* QR Code Card */}
-                  <div className="flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
-                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                      Or Scan Dynamic QR Code with Any UPI App
+                  <div className="flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-50 border-2 border-dashed border-teal-200 space-y-2">
+                    <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                      Or Scan QR Code with Any UPI App
                     </span>
                     <div className="p-2 bg-white rounded-2xl shadow-md border border-slate-200">
                       <img
@@ -465,7 +398,6 @@ export default function ClientPayPortalPage({ params }: { params: Promise<{ id: 
                         className="h-44 w-44 object-contain rounded-xl"
                       />
                     </div>
-
                     <div className="flex items-center gap-2 text-xs text-slate-600 font-medium">
                       <span>UPI ID:</span>
                       <strong className="font-mono text-slate-900">{upiId}</strong>
@@ -543,41 +475,24 @@ export default function ClientPayPortalPage({ params }: { params: Promise<{ id: 
                 </div>
               )}
 
-              {/* Confirmation Form (Enter UTR / Ref) */}
-              <form onSubmit={handleConfirmPayment} className="space-y-4 pt-2 border-t border-slate-100">
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700 flex items-center justify-between">
-                    <span>Transaction UTR / Ref Number</span>
-                    <span className="text-[10px] text-slate-400 font-normal lowercase">optional</span>
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 329482938492 or UPI Ref"
-                    value={utrInput}
-                    onChange={(e) => setUtrInput(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all font-mono"
-                  />
+              {/* Secure Direct Settlement Note & Exit */}
+              <div className="pt-3 border-t border-slate-100 space-y-3">
+                <div className="p-3 rounded-xl bg-emerald-50/60 border border-emerald-100 text-[11px] text-emerald-900 flex items-start gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <p className="leading-relaxed">
+                    Once you pay via UPI or Bank Transfer, funds are credited instantly to{" "}
+                    <strong>{businessName}</strong>. Your official receipt will be issued upon bank credit.
+                  </p>
                 </div>
 
-                <div className="flex items-center gap-2.5 pt-1">
-                  <button
-                    type="button"
-                    onClick={handleExitSession}
-                    className="flex-1 py-3 rounded-2xl font-bold text-xs text-slate-600 hover:bg-slate-100 transition-all cursor-pointer text-center"
-                  >
-                    Cancel
-                  </button>
-
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="flex-2 clay-btn-emerald py-3 rounded-2xl flex items-center justify-center gap-2 font-bold text-xs shadow-md cursor-pointer"
-                  >
-                    <CheckCircle2 className="h-4 w-4" />
-                    <span>{isSubmitting ? "Verifying..." : "I Have Paid / Confirm"}</span>
-                  </button>
-                </div>
-              </form>
+                <button
+                  type="button"
+                  onClick={handleExitSession}
+                  className="w-full py-2.5 rounded-xl font-bold text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all cursor-pointer text-center"
+                >
+                  Exit / Done
+                </button>
+              </div>
             </>
           )}
         </div>
@@ -585,7 +500,7 @@ export default function ClientPayPortalPage({ params }: { params: Promise<{ id: 
         {/* Security Badge */}
         <div className="flex items-center justify-center gap-2 text-[11px] text-slate-400 font-medium">
           <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-          <span>Secured Direct Settlement with {businessName}</span>
+          <span>Direct 0% Fee Encrypted Settlement with {businessName}</span>
         </div>
       </div>
     </div>
