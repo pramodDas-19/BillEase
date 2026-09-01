@@ -28,7 +28,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         {/* Top: Brand Header */}
         <div className="relative z-10">
           <Link href="/" className="inline-flex items-center group">
-            <div className="h-14 xl:h-16 px-4 py-2 rounded-2xl bg-white/95 border border-white/40 shadow-xl shadow-emerald-950/50 group-hover:scale-105 transition-all duration-200 flex items-center justify-center">
+            <div className="h-20 xl:h-24 px-4 py-2 rounded-2xl bg-white/95 border border-white/40 shadow-xl shadow-emerald-950/50 group-hover:scale-105 transition-all duration-200 flex items-center justify-center">
               <img
                 src="/assets/logo/LOGO.png"
                 alt="BillEase Logo"
@@ -45,7 +45,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 backdrop-blur-md">
               <Sparkles className="h-3.5 w-3.5" />
-              <span>Next-Gen Accounting & Invoicing</span>
+              <span>Next-Gen Billing & Payments</span>
             </div>
             <h1 className="text-3xl xl:text-4xl font-extrabold tracking-tight text-white leading-tight">
               Speed up your <br />
@@ -131,7 +131,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         {/* Mobile Header (Shown on mobile only) */}
         <div className="lg:hidden mb-8 text-center">
           <Link href="/" className="inline-flex items-center">
-            <div className="h-13 px-4 py-2 rounded-2xl bg-white/95 border border-white/40 shadow-md flex items-center justify-center">
+            <div className="h-16 px-4 py-2 rounded-2xl bg-white/95 border border-white/40 shadow-md flex items-center justify-center">
               <img
                 src="/assets/logo/LOGO.png"
                 alt="BillEase Logo"

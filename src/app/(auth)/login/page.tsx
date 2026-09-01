@@ -8,7 +8,6 @@ import {
   Mail,
   Lock,
   ArrowRight,
-  Sparkles,
   AlertCircle,
   ShieldCheck,
   CheckCircle2,
@@ -44,16 +43,6 @@ export default function LoginPage() {
     }
   };
 
-  const handleDemoLogin = () => {
-    setIsLoading(true);
-    setErrorMsg(null);
-    setEmail("contact@royalevents.com");
-    setPassword("password123");
-
-    setTimeout(() => {
-      router.push("/dashboard");
-    }, 350);
-  };
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-200">
@@ -142,25 +131,6 @@ export default function LoginPage() {
         </div>
       </form>
 
-      {/* Or Divider */}
-      <div className="relative flex items-center justify-center my-4">
-        <div className="border-t border-slate-800 w-full" />
-        <span className="bg-slate-950 px-3 text-[10px] uppercase font-bold text-slate-500 tracking-wider shrink-0">
-          Or instant demo access
-        </span>
-        <div className="border-t border-slate-800 w-full" />
-      </div>
-
-      {/* 1-Click Demo Button */}
-      <button
-        type="button"
-        onClick={handleDemoLogin}
-        disabled={isLoading}
-        className="w-full py-3 px-4 rounded-xl border border-slate-700/80 bg-slate-800/60 hover:bg-slate-800 hover:border-slate-600 text-slate-200 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
-      >
-        <Sparkles className="h-4 w-4 text-amber-400" />
-        <span>Launch 1-Click Demo (Royal Events Studio)</span>
-      </button>
 
       {/* Sign Up Link */}
       <div className="text-center text-xs text-slate-400 pt-2 font-medium">
