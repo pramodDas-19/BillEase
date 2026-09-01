@@ -1,47 +1,197 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Tenant, User } from "@/types";
-import { MOCK_TENANTS, MOCK_USERS } from "@/mock/tenants.mock";
+import { supabase } from "@/lib/supabase/client";
+import { AuthService } from "@/services/auth.service";
+
+const DEFAULT_TENANT: Tenant = {
+  id: "tenant-royal-events",
+  businessName: "My Business Studio",
+  slug: "my-business",
+  businessType: "event_planner",
+  ownerName: "Account Owner",
+  email: "owner@example.com",
+  phone: "+91 98765 43210",
+  address: {
+    street: "Main Street",
+    city: "Mumbai",
+    state: "Maharashtra",
+    postalCode: "400001",
+    country: "India",
+  },
+  bankDetails: {
+    accountName: "Business Account",
+    accountNumber: "919876543210",
+    bankName: "HDFC Bank",
+    ifscCode: "HDFC0001234",
+    upiId: "business@hdfcbank",
+  },
+  settings: {
+    defaultCurrency: "INR",
+    enableGstByDefault: true,
+    defaultTaxRate: 18,
+    quotationNumbering: { prefix: "QT-", nextNumber: 1001, digitLength: 4 },
+    invoiceNumbering: { prefix: "INV-", nextNumber: 1001, digitLength: 4 },
+    defaultQuotationValidityDays: 14,
+    defaultInvoiceDueDays: 14,
+    defaultTermsAndConditions: "1. 50% advance required to confirm booking.\n2. Balance due within 14 days of invoice.",
+    defaultInvoiceNotes: "Thank you for your business!",
+  },
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+};
+
+const DEFAULT_USER: User = {
+  id: "user-1",
+  tenantId: "tenant-royal-events",
+  name: "Account Owner",
+  email: "owner@example.com",
+  role: "owner",
+  avatarUrl: undefined,
+  createdAt: new Date().toISOString(),
+};
 
 interface TenantContextType {
   currentTenant: Tenant;
   currentUser: User;
   availableTenants: Tenant[];
+  isLoading: boolean;
   switchTenant: (tenantId: string) => void;
   updateTenantSettings: (newSettings: Partial<Tenant["settings"]>) => void;
   updateTenantProfile: (newProfile: Partial<Tenant>) => void;
+  refreshTenantData: () => Promise<void>;
 }
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
 
 export function TenantProvider({ children }: { children: ReactNode }) {
-  const [availableTenants] = useState<Tenant[]>(MOCK_TENANTS);
-  const [currentTenant, setCurrentTenant] = useState<Tenant>(MOCK_TENANTS[0]);
-  const [currentUser] = useState<User>(MOCK_USERS[0]);
+  const [currentTenant, setCurrentTenant] = useState<Tenant>(DEFAULT_TENANT);
+  const [currentUser, setCurrentUser] = useState<User>(DEFAULT_USER);
+  const [availableTenants, setAvailableTenants] = useState<Tenant[]>([DEFAULT_TENANT]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const switchTenant = (tenantId: string) => {
-    const found = availableTenants.find((t) => t.id === tenantId);
-    if (found) {
-      setCurrentTenant(found);
+  const loadTenantAndUser = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (user) {
+        const metadata = user.user_metadata || {};
+        const tenantId = metadata.tenant_id || `tenant-${user.id.slice(0, 8)}`;
+        AuthService.setActiveTenantId(tenantId);
+
+        // Fetch tenant from supabase database table
+        const { data: tenantRow } = await supabase
+          .from("tenants")
+          .select("*")
+          .eq("id", tenantId)
+          .single();
+
+        const businessName = tenantRow?.business_name || metadata.business_name || "My Business Studio";
+        const ownerName = tenantRow?.owner_name || metadata.owner_name || user.email?.split("@")[0] || "Owner";
+        const phone = tenantRow?.phone || metadata.phone || "";
+        const email = tenantRow?.email || user.email || "";
+
+        const loadedTenant: Tenant = {
+          id: tenantId,
+          businessName: businessName,
+          slug: businessName.toLowerCase().replace(/[^a-z0-9]/g, "-"),
+          businessType: tenantRow?.business_type || "event_planner",
+          ownerName: ownerName,
+          email: email,
+          phone: phone,
+          address: tenantRow?.address || DEFAULT_TENANT.address,
+          bankDetails: tenantRow?.bank_details || DEFAULT_TENANT.bankDetails,
+          settings: {
+            ...DEFAULT_TENANT.settings,
+            ...(tenantRow?.settings || {}),
+          },
+          createdAt: tenantRow?.created_at || new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        const loadedUser: User = {
+          id: user.id,
+          tenantId: tenantId,
+          name: ownerName,
+          email: email,
+          role: "owner",
+          createdAt: user.created_at || new Date().toISOString(),
+        };
+
+        setCurrentTenant(loadedTenant);
+        setCurrentUser(loadedUser);
+        setAvailableTenants([loadedTenant]);
+      }
+    } catch (err) {
+      console.warn("Could not load dynamic tenant session:", err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const updateTenantSettings = (newSettings: Partial<Tenant["settings"]>) => {
-    setCurrentTenant((prev) => ({
-      ...prev,
-      settings: {
-        ...prev.settings,
-        ...newSettings,
-      },
-    }));
+  useEffect(() => {
+    loadTenantAndUser();
+
+    // Listen for Supabase auth state changes (login, logout, signup)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        await loadTenantAndUser();
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const switchTenant = (tenantId: string) => {
+    AuthService.setActiveTenantId(tenantId);
+    setCurrentTenant((prev) => ({ ...prev, id: tenantId }));
   };
 
-  const updateTenantProfile = (newProfile: Partial<Tenant>) => {
+  const updateTenantSettings = async (newSettings: Partial<Tenant["settings"]>) => {
+    const updatedSettings = {
+      ...currentTenant.settings,
+      ...newSettings,
+    };
+
+    setCurrentTenant((prev) => ({
+      ...prev,
+      settings: updatedSettings,
+    }));
+
+    try {
+      await supabase
+        .from("tenants")
+        .update({ settings: updatedSettings })
+        .eq("id", currentTenant.id);
+    } catch (e) {
+      console.error("Failed to persist tenant settings:", e);
+    }
+  };
+
+  const updateTenantProfile = async (newProfile: Partial<Tenant>) => {
     setCurrentTenant((prev) => ({
       ...prev,
       ...newProfile,
     }));
+
+    try {
+      await supabase
+        .from("tenants")
+        .update({
+          business_name: newProfile.businessName,
+          owner_name: newProfile.ownerName,
+          phone: newProfile.phone,
+          email: newProfile.email,
+          address: newProfile.address,
+          bank_details: newProfile.bankDetails,
+        })
+        .eq("id", currentTenant.id);
+    } catch (e) {
+      console.error("Failed to persist tenant profile:", e);
+    }
   };
 
   return (
@@ -50,9 +200,11 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         currentTenant,
         currentUser,
         availableTenants,
+        isLoading,
         switchTenant,
         updateTenantSettings,
         updateTenantProfile,
+        refreshTenantData: loadTenantAndUser,
       }}
     >
       {children}

@@ -1,17 +1,17 @@
 import { supabase } from "@/lib/supabase/client";
 import { ProductOrService, ServiceItem } from "@/types";
 import { MOCK_SERVICES } from "@/mock/services.mock";
-
-const TENANT_ID = "tenant-royal-events";
+import { AuthService } from "./auth.service";
 
 export const CatalogService = {
-  // Fetch all services from Supabase
+  // Fetch all services for active tenant from Supabase
   async getServices(): Promise<ServiceItem[]> {
     try {
+      const tenantId = await AuthService.getActiveTenantId();
       const { data, error } = await supabase
         .from("services")
         .select("*")
-        .eq("tenant_id", TENANT_ID)
+        .eq("tenant_id", tenantId)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -20,8 +20,7 @@ export const CatalogService = {
       }
 
       if (!data || data.length === 0) {
-        await this.seedInitialServices();
-        return MOCK_SERVICES;
+        return [];
       }
 
       return data.map((s) => ({
@@ -40,17 +39,18 @@ export const CatalogService = {
       }));
     } catch (err) {
       console.error("CatalogService.getServices error:", err);
-      return MOCK_SERVICES;
+      return [];
     }
   },
 
   // Create a new service in Supabase
   async createService(item: Partial<ServiceItem>): Promise<ServiceItem | null> {
     try {
-      const srvId = `srv-${Date.now()}`;
+      const tenantId = await AuthService.getActiveTenantId();
+      const srvId = item.id || `srv-${Date.now()}`;
       const payload = {
         id: srvId,
-        tenant_id: TENANT_ID,
+        tenant_id: tenantId,
         name: item.name,
         category: item.category || "custom",
         description: item.description || null,
@@ -104,28 +104,6 @@ export const CatalogService = {
     } catch (err) {
       console.error("CatalogService.deleteService error:", err);
       return false;
-    }
-  },
-
-  // Seed helper
-  async seedInitialServices() {
-    try {
-      const rows = MOCK_SERVICES.map((s) => ({
-        id: s.id,
-        tenant_id: TENANT_ID,
-        name: s.name,
-        category: s.category,
-        description: s.description || null,
-        rate: s.rate || s.defaultRate || 0,
-        unit: s.unit || s.defaultUnit || "pcs",
-        hsn_sac: s.hsnSac || s.hsnSacCode || null,
-        gst_rate: s.gstRate || s.defaultTaxRate || 18,
-        is_active: s.isActive ?? true,
-      }));
-
-      await supabase.from("services").upsert(rows);
-    } catch (e) {
-      console.warn("Could not auto-seed services:", e);
     }
   },
 };

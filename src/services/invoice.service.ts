@@ -1,20 +1,20 @@
 import { supabase } from "@/lib/supabase/client";
 import { Invoice, InvoiceStatus } from "@/types";
 import { QuotationService } from "./quotation.service";
-
-const TENANT_ID = "tenant-royal-events";
+import { AuthService } from "./auth.service";
 
 export const InvoiceService = {
-  // Fetch all invoices with line items from Supabase
+  // Fetch all invoices with line items for active tenant from Supabase
   async getInvoices(): Promise<Invoice[]> {
     try {
+      const tenantId = await AuthService.getActiveTenantId();
       const { data, error } = await supabase
         .from("invoices")
         .select(`
           *,
           invoice_items (*)
         `)
-        .eq("tenant_id", TENANT_ID)
+        .eq("tenant_id", tenantId)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -127,16 +127,39 @@ export const InvoiceService = {
     }
   },
 
+  // Update Invoice Status
+  async updateInvoiceStatus(id: string, status: InvoiceStatus): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from("invoices")
+        .update({
+          status,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+
+      if (error) {
+        console.error("Supabase update invoice status error:", error);
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.error("InvoiceService.updateInvoiceStatus error:", err);
+      return false;
+    }
+  },
+
   // Create a new invoice with line items in Supabase
   async createInvoice(invoice: Partial<Invoice>): Promise<Invoice | null> {
     try {
-      const invoiceId = `inv-${Date.now()}`;
+      const tenantId = await AuthService.getActiveTenantId();
+      const invoiceId = invoice.id || `inv-${Date.now()}`;
       const invoiceNumber = invoice.invoiceNumber || `INV-${Date.now().toString().slice(-4)}`;
 
       // 1. Insert master invoice record
       const invoicePayload = {
         id: invoiceId,
-        tenant_id: TENANT_ID,
+        tenant_id: tenantId,
         invoice_number: invoiceNumber,
         quotation_id: invoice.quotationId || null,
         quotation_number: invoice.quotationNumber || null,
@@ -148,7 +171,7 @@ export const InvoiceService = {
         client_gstin: invoice.clientGstin || null,
         issue_date: invoice.issueDate || new Date().toISOString().split("T")[0],
         due_date: invoice.dueDate || new Date(Date.now() + 14 * 86400000).toISOString().split("T")[0],
-        status: invoice.status || "unpaid",
+        status: invoice.status || "due",
         currency: invoice.currency || "INR",
         subtotal: invoice.subtotal || 0,
         discount_type: invoice.discountType || null,
@@ -172,7 +195,7 @@ export const InvoiceService = {
       // 2. Insert line items
       if (invoice.items && invoice.items.length > 0) {
         const itemRows = invoice.items.map((item, idx) => ({
-          id: `ii-${Date.now()}-${idx}`,
+          id: item.id || `ii-${Date.now()}-${idx}`,
           invoice_id: invoiceId,
           description: item.description,
           detailed_notes: item.detailedNotes || null,
@@ -201,7 +224,7 @@ export const InvoiceService = {
         ...invoice,
         id: invoiceId,
         invoiceNumber,
-        tenantId: TENANT_ID,
+        tenantId: tenantId,
       } as Invoice;
 
     } catch (err) {

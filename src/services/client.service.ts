@@ -1,16 +1,16 @@
 import { supabase } from "@/lib/supabase/client";
 import { Client } from "@/types";
-
-const TENANT_ID = "tenant-royal-events";
+import { AuthService } from "./auth.service";
 
 export const ClientService = {
-  // Fetch all clients from Supabase
+  // Fetch all clients for active tenant from Supabase
   async getClients(): Promise<Client[]> {
     try {
+      const tenantId = await AuthService.getActiveTenantId();
       const { data, error } = await supabase
         .from("clients")
         .select("*")
-        .eq("tenant_id", TENANT_ID)
+        .eq("tenant_id", tenantId)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -77,10 +77,11 @@ export const ClientService = {
   // Create a new client in Supabase
   async createClient(client: Partial<Client>): Promise<Client | null> {
     try {
-      const clientId = `client-${Date.now()}`;
+      const tenantId = await AuthService.getActiveTenantId();
+      const clientId = client.id || `client-${Date.now()}`;
       const payload = {
         id: clientId,
-        tenant_id: TENANT_ID,
+        tenant_id: tenantId,
         name: client.name,
         company_name: client.companyName || null,
         email: client.email || null,

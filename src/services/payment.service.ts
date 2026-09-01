@@ -1,16 +1,16 @@
 import { supabase } from "@/lib/supabase/client";
 import { Payment } from "@/types";
-
-const TENANT_ID = "tenant-royal-events";
+import { AuthService } from "./auth.service";
 
 export const PaymentService = {
-  // Fetch all payment receipts from Supabase
+  // Fetch all payment receipts for active tenant from Supabase
   async getPayments(): Promise<Payment[]> {
     try {
+      const tenantId = await AuthService.getActiveTenantId();
       const { data, error } = await supabase
         .from("payments")
         .select("*")
-        .eq("tenant_id", TENANT_ID)
+        .eq("tenant_id", tenantId)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -51,15 +51,15 @@ export const PaymentService = {
 
   // Record a new payment in Supabase and update invoice balance
   async recordPayment(payment: Partial<Payment>): Promise<Payment | null> {
-
     try {
-      const paymentId = `pay-${Date.now()}`;
+      const tenantId = await AuthService.getActiveTenantId();
+      const paymentId = payment.id || `pay-${Date.now()}`;
       const paymentNumber = payment.paymentNumber || `PAY-${Date.now().toString().slice(-4)}`;
 
       // 1. Insert payment record
       const payload = {
         id: paymentId,
-        tenant_id: TENANT_ID,
+        tenant_id: tenantId,
         payment_number: paymentNumber,
         invoice_id: payment.invoiceId || null,
         invoice_number: payment.invoiceNumber || null,
@@ -111,7 +111,7 @@ export const PaymentService = {
         ...payment,
         id: paymentId,
         paymentNumber,
-        tenantId: TENANT_ID,
+        tenantId: tenantId,
       } as Payment;
     } catch (err) {
       console.error("PaymentService.recordPayment error:", err);

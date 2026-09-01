@@ -1,19 +1,19 @@
 import { supabase } from "@/lib/supabase/client";
 import { Quotation, QuotationStatus } from "@/types";
-
-const TENANT_ID = "tenant-royal-events";
+import { AuthService } from "./auth.service";
 
 export const QuotationService = {
-  // Fetch all quotations with line items from Supabase
+  // Fetch all quotations with line items for active tenant from Supabase
   async getQuotations(): Promise<Quotation[]> {
     try {
+      const tenantId = await AuthService.getActiveTenantId();
       const { data, error } = await supabase
         .from("quotations")
         .select(`
           *,
           quotation_items (*)
         `)
-        .eq("tenant_id", TENANT_ID)
+        .eq("tenant_id", tenantId)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -154,13 +154,14 @@ export const QuotationService = {
   // Create a new quotation with line items in Supabase
   async createQuotation(quotation: Partial<Quotation>): Promise<Quotation | null> {
     try {
-      const quoteId = `quote-${Date.now()}`;
+      const tenantId = await AuthService.getActiveTenantId();
+      const quoteId = quotation.id || `quote-${Date.now()}`;
       const quoteNumber = quotation.quotationNumber || `QT-${Date.now().toString().slice(-4)}`;
 
       // 1. Insert master quotation record
       const quotePayload = {
         id: quoteId,
-        tenant_id: TENANT_ID,
+        tenant_id: tenantId,
         quotation_number: quoteNumber,
         client_id: quotation.clientId || null,
         client_name: quotation.clientName,
@@ -192,7 +193,7 @@ export const QuotationService = {
       // 2. Insert line items
       if (quotation.items && quotation.items.length > 0) {
         const itemRows = quotation.items.map((item, idx) => ({
-          id: `qi-${Date.now()}-${idx}`,
+          id: item.id || `qi-${Date.now()}-${idx}`,
           quotation_id: quoteId,
           description: item.description,
           detailed_notes: item.detailedNotes || null,
@@ -212,7 +213,7 @@ export const QuotationService = {
         ...quotation,
         id: quoteId,
         quotationNumber: quoteNumber,
-        tenantId: TENANT_ID,
+        tenantId: tenantId,
       } as Quotation;
     } catch (err) {
       console.error("QuotationService.createQuotation error:", err);

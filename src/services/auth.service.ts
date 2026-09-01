@@ -19,6 +19,45 @@ export interface UserSession {
 
 export class AuthService {
   /**
+   * Returns the currently active tenant ID based on logged in user or storage.
+   */
+  static async getActiveTenantId(): Promise<string> {
+    try {
+      if (typeof window !== "undefined") {
+        const stored = localStorage.getItem("billease_active_tenant_id");
+        if (stored) return stored;
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.user_metadata?.tenant_id) {
+        const tId = user.user_metadata.tenant_id;
+        if (typeof window !== "undefined") {
+          localStorage.setItem("billease_active_tenant_id", tId);
+        }
+        return tId;
+      }
+    } catch (e) {
+      console.warn("Could not determine active tenant ID:", e);
+    }
+
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("billease_active_tenant_id");
+      if (stored) return stored;
+    }
+
+    return "tenant-royal-events";
+  }
+
+  /**
+   * Sets the active tenant ID explicitly.
+   */
+  static setActiveTenantId(tenantId: string): void {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("billease_active_tenant_id", tenantId);
+    }
+  }
+
+  /**
    * Signs in a user using Email & Password.
    */
   static async signIn(email: string, password: string): Promise<{ session: any; user: any }> {
@@ -29,6 +68,10 @@ export class AuthService {
 
     if (error) {
       throw new Error(error.message);
+    }
+
+    if (data.user?.user_metadata?.tenant_id) {
+      this.setActiveTenantId(data.user.user_metadata.tenant_id);
     }
 
     return data;
@@ -57,10 +100,12 @@ export class AuthService {
       throw new Error(error.message);
     }
 
+    this.setActiveTenantId(tenantId);
+
     // Auto-create tenant record in the database
     if (data.user) {
       try {
-        await supabase.from("tenants").insert([
+        await supabase.from("tenants").upsert([
           {
             id: tenantId,
             business_name: params.businessName,
@@ -73,7 +118,7 @@ export class AuthService {
           },
         ]);
       } catch (insertErr) {
-        console.warn("Could not insert initial tenant row (may already exist):", insertErr);
+        console.warn("Could not insert initial tenant row:", insertErr);
       }
     }
 
@@ -84,6 +129,9 @@ export class AuthService {
    * Signs out the current user session.
    */
   static async signOut(): Promise<void> {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("billease_active_tenant_id");
+    }
     const { error } = await supabase.auth.signOut();
     if (error) {
       console.error("Sign out error:", error);
@@ -97,24 +145,19 @@ export class AuthService {
     const { data: { user }, error } = await supabase.auth.getUser();
 
     if (error || !user) {
-      // Return default session for local development if not logged in
-      return {
-        id: "demo-user-1",
-        email: "contact@royalevents.com",
-        businessName: "Royal Events & Print Studio",
-        ownerName: "Pramod Das",
-        phone: "+91 98765 43210",
-        tenantId: "tenant-royal-events",
-      };
+      return null;
     }
+
+    const tenantId = user.user_metadata?.tenant_id || "tenant-royal-events";
+    this.setActiveTenantId(tenantId);
 
     return {
       id: user.id,
       email: user.email || "",
-      businessName: user.user_metadata?.business_name || "Business Account",
+      businessName: user.user_metadata?.business_name || "My Business",
       ownerName: user.user_metadata?.owner_name || "Account Owner",
       phone: user.user_metadata?.phone || "",
-      tenantId: user.user_metadata?.tenant_id || "tenant-royal-events",
+      tenantId,
     };
   }
 

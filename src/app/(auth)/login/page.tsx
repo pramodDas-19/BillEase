@@ -10,13 +10,12 @@ import {
   ArrowRight,
   AlertCircle,
   ShieldCheck,
-  CheckCircle2,
 } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("contact@royalevents.com");
-  const [password, setPassword] = useState("password123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -29,20 +28,11 @@ export default function LoginPage() {
       await AuthService.signIn(email, password);
       router.push("/dashboard");
     } catch (err: any) {
-      if (
-        err.message.includes("Invalid login credentials") ||
-        err.message.includes("Email not confirmed")
-      ) {
-        // Smooth demo fallback
-        router.push("/dashboard");
-      } else {
-        setErrorMsg(err.message || "Failed to sign in. Please verify your email & password.");
-      }
+      setErrorMsg(err.message || "Failed to sign in. Please verify your email & password.");
     } finally {
       setIsLoading(false);
     }
   };
-
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-200">
@@ -56,7 +46,7 @@ export default function LoginPage() {
           Sign In to Workspace
         </h2>
         <p className="text-xs sm:text-sm text-slate-400 font-medium">
-          Enter your registered studio credentials to access your billing hub.
+          Enter your registered business credentials to access your billing hub.
         </p>
       </div>
 
@@ -130,7 +120,6 @@ export default function LoginPage() {
           </button>
         </div>
       </form>
-
 
       {/* Sign Up Link */}
       <div className="text-center text-xs text-slate-400 pt-2 font-medium">

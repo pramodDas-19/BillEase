@@ -39,14 +39,16 @@ export function Sidebar() {
     useLayoutState();
   const { currentUser, currentTenant } = useTenant();
 
-  const businessName = currentTenant?.businessName || "Royal Events & Studio";
-  const userName = currentUser?.name || "Pramod Das";
+  const businessName = currentTenant?.businessName || "My Business Studio";
+  const userName = currentUser?.name || "Business Owner";
+
   const userInitials = userName
     .split(" ")
     .map((n) => n[0])
     .join("")
     .substring(0, 2)
     .toUpperCase();
+
 
 
   const renderNavItems = (isMobile: boolean = false) => (

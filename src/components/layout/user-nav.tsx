@@ -1,23 +1,16 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AuthService, UserSession } from "@/services/auth.service";
-import { User, Settings, LogOut, Shield, ChevronDown } from "lucide-react";
+import { AuthService } from "@/services/auth.service";
+import { useTenantContext } from "@/context/tenant-context";
+import { Settings, LogOut, Shield, ChevronDown } from "lucide-react";
 
 export function UserNav() {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
-  const [userSession, setUserSession] = useState<UserSession | null>(null);
-
-  useEffect(() => {
-    async function loadUser() {
-      const user = await AuthService.getCurrentUser();
-      setUserSession(user);
-    }
-    loadUser();
-  }, []);
+  const { currentTenant, currentUser } = useTenantContext();
 
   const handleSignOut = async () => {
     setIsOpen(false);
@@ -25,8 +18,8 @@ export function UserNav() {
     router.push("/login");
   };
 
-  const displayName = userSession?.ownerName || userSession?.businessName || "Pramod Das";
-  const displayEmail = userSession?.email || "contact@royalevents.com";
+  const displayName = currentUser?.name || currentTenant?.businessName || "My Account";
+  const displayEmail = currentUser?.email || currentTenant?.email || "";
   const initial = displayName.charAt(0).toUpperCase();
 
   return (
@@ -38,7 +31,7 @@ export function UserNav() {
         <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-slate-900 text-[11px] font-extrabold text-white shadow-xs">
           {initial}
         </div>
-        <span className="text-xs font-bold text-slate-800 hidden md:inline-block max-w-[120px] truncate">
+        <span className="text-xs font-bold text-slate-800 hidden md:inline-block max-w-[140px] truncate">
           {displayName}
         </span>
         <ChevronDown className="h-3 w-3 text-slate-400 mr-1 hidden md:inline-block" />
@@ -53,9 +46,10 @@ export function UserNav() {
               <p className="text-[11px] text-slate-400 truncate mt-0.5">{displayEmail}</p>
               <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200/70">
                 <Shield className="h-3 w-3" />
-                <span>Verified Business Account</span>
+                <span className="truncate">{currentTenant.businessName}</span>
               </div>
             </div>
+
 
             <div className="py-1.5 space-y-0.5">
               <Link
