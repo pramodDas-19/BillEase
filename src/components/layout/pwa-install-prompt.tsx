@@ -58,19 +58,19 @@ export function PwaInstallPrompt() {
 
   return (
     <div className="fixed bottom-4 right-4 z-50 max-w-sm w-[calc(100vw-2rem)] sm:w-auto animate-in slide-in-from-bottom-5 duration-300">
-      <div className="clay-card bg-slate-900 text-white p-4 rounded-2xl shadow-2xl border border-slate-700/80 flex items-center justify-between gap-3.5 backdrop-blur-md">
+      <div className="bg-white text-slate-900 p-4 rounded-2xl shadow-2xl border border-slate-200/90 flex items-center justify-between gap-3.5 backdrop-blur-md">
         <div className="flex items-center gap-3">
-          <div className="clay-icon-squircle h-10 w-10 shrink-0 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center">
-            <Download className="h-5 w-5 animate-bounce" />
+          <div className="h-10 w-10 shrink-0 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200/80 flex items-center justify-center shadow-xs">
+            <Download className="h-5 w-5 text-emerald-600 animate-bounce" />
           </div>
           <div>
-            <h5 className="text-xs font-black text-white flex items-center gap-1.5">
+            <h5 className="text-xs font-black text-slate-900 flex items-center gap-1.5">
               <span>Install BillEase App</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300/80">
                 PWA
               </span>
             </h5>
-            <p className="text-[11px] text-slate-300 font-medium">
+            <p className="text-[11px] text-slate-600 font-medium mt-0.5">
               Faster offline access & push notifications
             </p>
           </div>
@@ -79,19 +79,20 @@ export function PwaInstallPrompt() {
         <div className="flex items-center gap-1.5 shrink-0">
           <button
             onClick={handleInstallClick}
-            className="clay-btn-emerald px-3 py-1.5 rounded-xl text-xs font-bold text-white shadow-xs cursor-pointer"
+            className="clay-btn-emerald px-3.5 py-1.5 rounded-xl text-xs font-bold text-white shadow-xs cursor-pointer hover:opacity-95 transition-all"
           >
             Install
           </button>
           <button
             onClick={() => setIsVisible(false)}
             title="Dismiss"
-            className="p-1.5 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
       </div>
     </div>
+
   );
 }
