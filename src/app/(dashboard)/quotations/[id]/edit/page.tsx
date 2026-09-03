@@ -70,6 +70,7 @@ export default function EditQuotationPage({
                     id: i.id || `qi-${Date.now()}-${idx}`,
                     description: i.description || "",
                     detailedNotes: i.detailedNotes || "",
+                    hsnSacCode: i.hsnSacCode,
                     quantity: i.quantity,
                     unit: i.unit,
                     rate: i.rate,
@@ -85,10 +86,14 @@ export default function EditQuotationPage({
             discountType: quoteData.discountType,
             discountValue: quoteData.discountValue || 0,
             isTaxEnabled: quoteData.isTaxEnabled ?? true,
-            defaultTaxRate: 18,
+            gstType: quoteData.gstType || "intra_state",
+            defaultTaxRate: quoteData.taxBreakdown?.[0]?.rate
+              ? (quoteData.gstType === "inter_state" ? quoteData.taxBreakdown[0].rate : quoteData.taxBreakdown[0].rate * 2)
+              : 18,
             termsAndConditions: quoteData.termsAndConditions || "",
             notes: quoteData.notes || "",
           });
+
         }
       } catch (err) {
         console.error("Failed to load quotation for edit:", err);
@@ -138,12 +143,18 @@ export default function EditQuotationPage({
         items: state.items.map((it) => ({
           ...it,
           amount: it.amount || (it.quantity || 1) * (it.rate || 0),
+          hsnSacCode: it.hsnSacCode,
         })),
+        isTaxEnabled: state.isTaxEnabled,
+        gstType: state.gstType,
+        defaultTaxRate: state.defaultTaxRate,
+        taxBreakdown: totals.taxBreakdown,
         subtotal: totals.subtotal,
         totalTax: totals.totalTax,
         discountAmount: totals.discountAmount,
         totalAmount: totals.totalAmount,
       });
+
 
       router.push("/quotations");
     } catch (err) {
@@ -408,28 +419,98 @@ export default function EditQuotationPage({
                 )}
               </div>
 
-              {/* GST Toggle */}
-              <div className="pt-2 border-t border-slate-100">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={state.isTaxEnabled}
-                    onChange={(e) => setState((p) => ({ ...p, isTaxEnabled: e.target.checked }))}
-                    className="h-4 w-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                  />
-                  <span className="font-bold text-slate-800">
-                    Apply GST ({state.defaultTaxRate || 18}%)
-                  </span>
-                </label>
-                {state.isTaxEnabled && (
-                  <div className="flex justify-between items-center text-slate-600 mt-2 pl-6">
-                    <span>GST Amount</span>
-                    <span className="font-bold text-slate-900">
-                      {formatCurrency(totals.totalTax, state.currency)}
+              {/* GST Toggle & Smart Split Controls */}
+              <div className="pt-2 border-t border-slate-100 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={state.isTaxEnabled}
+                      onChange={(e) => setState((p) => ({ ...p, isTaxEnabled: e.target.checked }))}
+                      className="h-4 w-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                    />
+                    <span className="font-bold text-slate-800">
+                      Apply GST / Tax
                     </span>
+                  </label>
+                  {state.isTaxEnabled && (
+                    <span className="text-[11px] font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                      {state.defaultTaxRate}% Total
+                    </span>
+                  )}
+                </div>
+
+                {state.isTaxEnabled && (
+                  <div className="p-3 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-2.5 animate-in fade-in-50 duration-200">
+                    {/* GST Rate Quick Selection */}
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                        Tax Rate (%)
+                      </span>
+                      <div className="grid grid-cols-4 gap-1">
+                        {[5, 12, 18, 28].map((rate) => (
+                          <button
+                            key={rate}
+                            type="button"
+                            onClick={() => setState((p) => ({ ...p, defaultTaxRate: rate }))}
+                            className={`py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                              state.defaultTaxRate === rate
+                                ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs"
+                                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100"
+                            }`}
+                          >
+                            {rate}%
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Intra-State vs Inter-State Pill Toggle */}
+                    <div className="space-y-1 pt-1 border-t border-slate-200/60">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                        Tax Destination
+                      </span>
+                      <div className="grid grid-cols-2 gap-1 p-0.5 bg-slate-200/70 rounded-xl">
+                        <button
+                          type="button"
+                          onClick={() => setState((p) => ({ ...p, gstType: "intra_state" }))}
+                          className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all text-center cursor-pointer ${
+                            state.gstType === "intra_state"
+                              ? "bg-white text-emerald-800 shadow-xs"
+                              : "text-slate-600 hover:text-slate-900"
+                          }`}
+                        >
+                          Within State (CGST + SGST)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setState((p) => ({ ...p, gstType: "inter_state" }))}
+                          className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all text-center cursor-pointer ${
+                            state.gstType === "inter_state"
+                              ? "bg-white text-emerald-800 shadow-xs"
+                              : "text-slate-600 hover:text-slate-900"
+                          }`}
+                        >
+                          Out of State (IGST)
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Calculated Tax Breakdown Display */}
+                    <div className="pt-1.5 border-t border-slate-200/60 space-y-1">
+                      {totals.taxBreakdown.map((t, idx) => (
+                        <div key={idx} className="flex justify-between items-center text-xs">
+                          <span className="text-slate-600 font-medium">{t.name}:</span>
+                          <span className="font-bold text-slate-900">
+                            +{formatCurrency(t.amount, state.currency)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
+
 
               {/* Grand Total */}
               <div className="pt-3 border-t border-slate-100 flex justify-between items-center">

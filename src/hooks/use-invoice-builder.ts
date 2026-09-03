@@ -21,7 +21,9 @@ export interface InvoiceBuilderState {
   discountType?: "percentage" | "fixed";
   discountValue: number;
   isTaxEnabled: boolean;
+  gstType?: "intra_state" | "inter_state";
   defaultTaxRate: number;
+
   paidAmount: number;
   termsAndConditions: string;
   notes: string;
@@ -57,6 +59,7 @@ export function useInvoiceBuilder(initialState?: Partial<InvoiceBuilderState>) {
     discountType: initialState?.discountType,
     discountValue: initialState?.discountValue || 0,
     isTaxEnabled: initialState?.isTaxEnabled ?? false,
+    gstType: initialState?.gstType || "intra_state",
     defaultTaxRate: initialState?.defaultTaxRate ?? 18,
     paidAmount: initialState?.paidAmount || 0,
     termsAndConditions: initialState?.termsAndConditions || "",
@@ -70,6 +73,7 @@ export function useInvoiceBuilder(initialState?: Partial<InvoiceBuilderState>) {
       discountValue: state.discountValue,
       isTaxEnabled: state.isTaxEnabled,
       defaultTaxRate: state.defaultTaxRate,
+      gstType: state.gstType,
     });
 
     const balanceDue = Math.max(0, Math.round((calculated.totalAmount - (state.paidAmount || 0)) * 100) / 100);
@@ -79,7 +83,8 @@ export function useInvoiceBuilder(initialState?: Partial<InvoiceBuilderState>) {
       paidAmount: state.paidAmount || 0,
       balanceDue,
     };
-  }, [state.items, state.discountType, state.discountValue, state.isTaxEnabled, state.defaultTaxRate, state.paidAmount]);
+  }, [state.items, state.discountType, state.discountValue, state.isTaxEnabled, state.defaultTaxRate, state.gstType, state.paidAmount]);
+
 
   const addItem = () => {
     setState((prev) => ({

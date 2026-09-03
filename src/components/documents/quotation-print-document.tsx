@@ -12,13 +12,14 @@ interface QuotationPrintDocumentProps {
 
 export function QuotationPrintDocument({ quotation, tenant }: QuotationPrintDocumentProps) {
   const hasQtyOrRate = quotation.items.some((item) => item.quantity !== undefined || item.rate !== undefined);
+  const hasHsnSac = quotation.items.some((item) => Boolean(item.hsnSacCode));
 
   return (
     <div className="mx-auto max-w-4xl bg-white p-8 sm:p-12 text-slate-900 shadow-sm print:p-0 print:shadow-none print:max-w-none">
       {/* Header */}
       <DocumentHeader
         tenant={tenant}
-        documentTitle="QUOTATION"
+        documentTitle={quotation.isTaxEnabled ? "PRICE QUOTATION & GST ESTIMATE" : "QUOTATION"}
         documentNumber={quotation.quotationNumber}
         date={formatDate(quotation.date)}
         dueDateOrValidUntil={{
@@ -35,7 +36,7 @@ export function QuotationPrintDocument({ quotation, tenant }: QuotationPrintDocu
         <div className="flex gap-4 text-xs text-slate-600 mt-1">
           {quotation.clientPhone && <span>Phone: {quotation.clientPhone}</span>}
           {quotation.clientEmail && <span>Email: {quotation.clientEmail}</span>}
-          {quotation.clientGstin && <span className="font-medium">GSTIN: {quotation.clientGstin}</span>}
+          {quotation.clientGstin && <span className="font-semibold text-slate-800">GSTIN: {quotation.clientGstin}</span>}
         </div>
       </div>
 
@@ -45,6 +46,9 @@ export function QuotationPrintDocument({ quotation, tenant }: QuotationPrintDocu
           <tr className="border-b-2 border-slate-800 bg-slate-100">
             <th className="py-2.5 px-3 font-bold text-slate-800 w-10">#</th>
             <th className="py-2.5 px-3 font-bold text-slate-800">Description & Scope</th>
+            {hasHsnSac && (
+              <th className="py-2.5 px-3 font-bold text-slate-800 text-center w-20">HSN/SAC</th>
+            )}
             {hasQtyOrRate && (
               <>
                 <th className="py-2.5 px-3 font-bold text-slate-800 text-center w-20">Qty</th>
@@ -66,6 +70,12 @@ export function QuotationPrintDocument({ quotation, tenant }: QuotationPrintDocu
                   </p>
                 )}
               </td>
+              {hasHsnSac && (
+                <td className="py-3 px-3 text-center font-mono font-semibold text-[11px] text-slate-700">
+                  {item.hsnSacCode || "—"}
+                </td>
+              )}
+
               {hasQtyOrRate && (
                 <>
                   <td className="py-3 px-3 text-center text-slate-700">

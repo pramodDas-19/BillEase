@@ -32,7 +32,7 @@ export function QuotationItemRow({
   isRemovable,
   availableServices,
 }: QuotationItemRowProps) {
-  const [showDetails, setShowDetails] = useState(Boolean(item.detailedNotes));
+  const [showDetails, setShowDetails] = useState(Boolean(item.detailedNotes || item.hsnSacCode));
   const [catalog, setCatalog] = useState<ProductOrService[]>(availableServices || []);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -72,6 +72,7 @@ export function QuotationItemRow({
     const unit = service.unit || service.defaultUnit || "Unit";
     const qty = item.quantity !== undefined && item.quantity > 0 ? item.quantity : 1;
     const computedAmount = rate > 0 ? qty * rate : (item.amount || 0);
+    const hsn = service.hsnSacCode || service.hsnSac;
 
     onUpdate(item.id, {
       description: service.name,
@@ -80,10 +81,16 @@ export function QuotationItemRow({
       quantity: qty,
       amount: computedAmount,
       detailedNotes: service.description || item.detailedNotes || "",
+      hsnSacCode: hsn || item.hsnSacCode || undefined,
     });
+
+    if (hsn || service.description) {
+      setShowDetails(true);
+    }
 
     setIsDropdownOpen(false);
   };
+
 
   const handleQtyChange = (newQtyStr: string) => {
     const newQty = newQtyStr === "" ? undefined : Number(newQtyStr);
@@ -228,14 +235,31 @@ export function QuotationItemRow({
           )}
 
           {showDetails && (
-            <textarea
-              rows={2}
-              placeholder="Add detailed specifications, paper GSM, dimensions, deliverables..."
-              value={item.detailedNotes || ""}
-              onChange={(e) => onUpdate(item.id, { detailedNotes: e.target.value })}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 mt-2"
-            />
+            <div className="mt-2 grid grid-cols-1 sm:grid-cols-4 gap-2">
+              <div className="sm:col-span-3">
+                <textarea
+                  rows={2}
+                  placeholder="Add detailed specifications, paper GSM, dimensions, deliverables..."
+                  value={item.detailedNotes || ""}
+                  onChange={(e) => onUpdate(item.id, { detailedNotes: e.target.value })}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-inner"
+                />
+              </div>
+              <div className="sm:col-span-1 space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                  HSN / SAC <span className="text-slate-400 font-normal lowercase">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 9983"
+                  value={item.hsnSacCode || ""}
+                  onChange={(e) => onUpdate(item.id, { hsnSacCode: e.target.value.trim() })}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-mono font-bold text-slate-800 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-inner"
+                />
+              </div>
+            </div>
           )}
+
         </div>
 
         {/* Optional Quantity */}

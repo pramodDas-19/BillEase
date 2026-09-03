@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase/client";
-import { Quotation, QuotationStatus } from "@/types";
+import { Quotation, QuotationStatus, TaxBreakdown } from "@/types";
 import { AuthService } from "./auth.service";
 
 export const QuotationService = {
@@ -25,43 +25,81 @@ export const QuotationService = {
         return [];
       }
 
-      return data.map((q: any) => ({
-        id: q.id,
-        publicToken: q.public_token,
-        tenantId: q.tenant_id,
-        quotationNumber: q.quotation_number,
-        clientId: q.client_id,
-        clientName: q.client_name,
-        clientEmail: q.client_email,
-        clientPhone: q.client_phone,
-        clientAddress: q.client_address,
-        clientGstin: q.client_gstin,
-        date: q.date,
-        validUntil: q.valid_until,
-        status: q.status,
-        convertedToInvoiceId: q.converted_to_invoice_id || undefined,
-        currency: q.currency || "INR",
-        items: (q.quotation_items || []).map((item: any) => ({
-          id: item.id,
-          description: item.description,
-          detailedNotes: item.detailed_notes,
-          quantity: item.quantity !== null && item.quantity !== undefined ? parseFloat(item.quantity) : undefined,
-          unit: item.unit,
-          rate: item.rate !== null && item.rate !== undefined ? parseFloat(item.rate) : undefined,
-          amount: parseFloat(item.amount || "0"),
-        })),
-        subtotal: parseFloat(q.subtotal || "0"),
-        discountType: q.discount_type,
-        discountValue: parseFloat(q.discount_value || "0"),
-        discountAmount: parseFloat(q.discount_amount || "0"),
-        isTaxEnabled: q.is_tax_enabled ?? true,
-        totalTax: parseFloat(q.total_tax || "0"),
-        totalAmount: parseFloat(q.total_amount || "0"),
-        termsAndConditions: q.terms_and_conditions,
-        notes: q.notes,
-        createdAt: q.created_at,
-        updatedAt: q.updated_at,
-      }));
+      return data.map((q: any) => {
+        const isInterState = (q.notes || "").includes("[IGST]");
+        const cleanNotes = (q.notes || "").replace(/\[IGST\]\s*/g, "").trim() || undefined;
+        const isTaxEnabled = q.is_tax_enabled ?? true;
+        const totalTax = parseFloat(q.total_tax || "0");
+        const subtotal = parseFloat(q.subtotal || "0");
+        const discountAmount = parseFloat(q.discount_amount || "0");
+        const net = Math.max(1, subtotal - discountAmount);
+
+        let taxBreakdown: TaxBreakdown[] | undefined = undefined;
+        if (isTaxEnabled && totalTax > 0) {
+          const rate = Math.round((totalTax / net) * 100);
+          if (isInterState) {
+            taxBreakdown = [{ name: `IGST (${rate}%)`, rate, amount: totalTax }];
+          } else {
+            const halfRate = Math.round((rate / 2) * 100) / 100;
+            const cgst = Math.round((totalTax / 2) * 100) / 100;
+            taxBreakdown = [
+              { name: `CGST (${halfRate}%)`, rate: halfRate, amount: cgst },
+              { name: `SGST (${halfRate}%)`, rate: halfRate, amount: Math.round((totalTax - cgst) * 100) / 100 },
+            ];
+          }
+        }
+
+        const items = (q.quotation_items || []).map((item: any) => {
+          const rawNotes = item.detailed_notes || "";
+          const hsnMatch = rawNotes.match(/\[(?:SAC|HSN):\s*([^\]]+)\]/i);
+          const hsnSacCode = item.hsn_sac_code || (hsnMatch ? hsnMatch[1] : undefined);
+          const detailedNotes = hsnMatch ? rawNotes.replace(/\[(?:SAC|HSN):\s*[^\]]+\]\s*/i, "").trim() : (item.detailed_notes || undefined);
+
+          return {
+            id: item.id,
+            description: item.description,
+            detailedNotes,
+            hsnSacCode,
+            quantity: item.quantity !== null && item.quantity !== undefined ? parseFloat(item.quantity) : undefined,
+            unit: item.unit,
+            rate: item.rate !== null && item.rate !== undefined ? parseFloat(item.rate) : undefined,
+            amount: parseFloat(item.amount || "0"),
+          };
+        });
+
+        return {
+          id: q.id,
+          publicToken: q.public_token,
+          tenantId: q.tenant_id,
+          quotationNumber: q.quotation_number,
+          clientId: q.client_id,
+          clientName: q.client_name,
+          clientEmail: q.client_email,
+          clientPhone: q.client_phone,
+          clientAddress: q.client_address,
+          clientGstin: q.client_gstin,
+          date: q.date,
+          validUntil: q.valid_until,
+          status: q.status,
+          convertedToInvoiceId: q.converted_to_invoice_id || undefined,
+          currency: q.currency || "INR",
+          items,
+          subtotal,
+          discountType: q.discount_type,
+          discountValue: parseFloat(q.discount_value || "0"),
+          discountAmount,
+          isTaxEnabled,
+          gstType: isInterState ? ("inter_state" as const) : ("intra_state" as const),
+          taxBreakdown,
+          totalTax,
+          totalAmount: parseFloat(q.total_amount || "0"),
+          termsAndConditions: q.terms_and_conditions,
+          notes: cleanNotes,
+          createdAt: q.created_at,
+          updatedAt: q.updated_at,
+        };
+      });
+
     } catch (err) {
       console.error("QuotationService.getQuotations error:", err);
       return [];
@@ -82,6 +120,47 @@ export const QuotationService = {
 
       if (error || !data) return null;
 
+      const isInterState = (data.notes || "").includes("[IGST]");
+      const cleanNotes = (data.notes || "").replace(/\[IGST\]\s*/g, "").trim() || undefined;
+      const isTaxEnabled = data.is_tax_enabled ?? true;
+      const totalTax = parseFloat(data.total_tax || "0");
+      const subtotal = parseFloat(data.subtotal || "0");
+      const discountAmount = parseFloat(data.discount_amount || "0");
+      const net = Math.max(1, subtotal - discountAmount);
+
+      let taxBreakdown: TaxBreakdown[] | undefined = undefined;
+      if (isTaxEnabled && totalTax > 0) {
+        const rate = Math.round((totalTax / net) * 100);
+        if (isInterState) {
+          taxBreakdown = [{ name: `IGST (${rate}%)`, rate, amount: totalTax }];
+        } else {
+          const halfRate = Math.round((rate / 2) * 100) / 100;
+          const cgst = Math.round((totalTax / 2) * 100) / 100;
+          taxBreakdown = [
+            { name: `CGST (${halfRate}%)`, rate: halfRate, amount: cgst },
+            { name: `SGST (${halfRate}%)`, rate: halfRate, amount: Math.round((totalTax - cgst) * 100) / 100 },
+          ];
+        }
+      }
+
+      const items = (data.quotation_items || []).map((item: any) => {
+        const rawNotes = item.detailed_notes || "";
+        const hsnMatch = rawNotes.match(/\[(?:SAC|HSN):\s*([^\]]+)\]/i);
+        const hsnSacCode = item.hsn_sac_code || (hsnMatch ? hsnMatch[1] : undefined);
+        const detailedNotes = hsnMatch ? rawNotes.replace(/\[(?:SAC|HSN):\s*[^\]]+\]\s*/i, "").trim() : (item.detailed_notes || undefined);
+
+        return {
+          id: item.id,
+          description: item.description,
+          detailedNotes,
+          hsnSacCode,
+          quantity: item.quantity !== null && item.quantity !== undefined ? parseFloat(item.quantity) : undefined,
+          unit: item.unit,
+          rate: item.rate !== null && item.rate !== undefined ? parseFloat(item.rate) : undefined,
+          amount: parseFloat(item.amount || "0"),
+        };
+      });
+
       return {
         id: data.id,
         publicToken: data.public_token,
@@ -98,24 +177,18 @@ export const QuotationService = {
         status: data.status,
         convertedToInvoiceId: data.converted_to_invoice_id || undefined,
         currency: data.currency || "INR",
-        items: (data.quotation_items || []).map((item: any) => ({
-          id: item.id,
-          description: item.description,
-          detailedNotes: item.detailed_notes,
-          quantity: item.quantity !== null && item.quantity !== undefined ? parseFloat(item.quantity) : undefined,
-          unit: item.unit,
-          rate: item.rate !== null && item.rate !== undefined ? parseFloat(item.rate) : undefined,
-          amount: parseFloat(item.amount || "0"),
-        })),
-        subtotal: parseFloat(data.subtotal || "0"),
+        items,
+        subtotal,
         discountType: data.discount_type,
         discountValue: parseFloat(data.discount_value || "0"),
-        discountAmount: parseFloat(data.discount_amount || "0"),
-        isTaxEnabled: data.is_tax_enabled ?? true,
-        totalTax: parseFloat(data.total_tax || "0"),
+        discountAmount,
+        isTaxEnabled,
+        gstType: isInterState ? ("inter_state" as const) : ("intra_state" as const),
+        taxBreakdown,
+        totalTax,
         totalAmount: parseFloat(data.total_amount || "0"),
         termsAndConditions: data.terms_and_conditions,
-        notes: data.notes,
+        notes: cleanNotes,
         createdAt: data.created_at,
         updatedAt: data.updated_at,
       };
@@ -162,6 +235,12 @@ export const QuotationService = {
       const quoteId = quotation.id || `quote-${Date.now()}`;
       const quoteNumber = quotation.quotationNumber || `QT-${Date.now().toString().slice(-4)}`;
 
+      // Encode inter-state metadata into notes cleanly if IGST selected
+      let finalNotes = quotation.notes || null;
+      if (quotation.gstType === "inter_state") {
+        finalNotes = finalNotes ? `[IGST] ${finalNotes}` : "[IGST]";
+      }
+
       // 1. Insert master quotation record
       const quotePayload = {
         id: quoteId,
@@ -185,7 +264,7 @@ export const QuotationService = {
         total_tax: quotation.totalTax || 0,
         total_amount: quotation.totalAmount || 0,
         terms_and_conditions: quotation.termsAndConditions || null,
-        notes: quotation.notes || null,
+        notes: finalNotes,
       };
 
       const { error: quoteError } = await supabase.from("quotations").insert([quotePayload]);
@@ -194,24 +273,32 @@ export const QuotationService = {
         return null;
       }
 
-      // 2. Insert line items
+      // 2. Insert line items with HSN/SAC preserved
       if (quotation.items && quotation.items.length > 0) {
-        const itemRows = quotation.items.map((item, idx) => ({
-          id: item.id || `qi-${Date.now()}-${idx}`,
-          quotation_id: quoteId,
-          description: item.description,
-          detailed_notes: item.detailedNotes || null,
-          quantity: item.quantity || null,
-          unit: item.unit || null,
-          rate: item.rate || null,
-          amount: item.amount,
-        }));
+        const itemRows = quotation.items.map((item, idx) => {
+          let detailedNotes = item.detailedNotes || null;
+          if (item.hsnSacCode) {
+            detailedNotes = `[SAC: ${item.hsnSacCode}] ${detailedNotes || ""}`.trim();
+          }
+
+          return {
+            id: item.id || `qi-${Date.now()}-${idx}`,
+            quotation_id: quoteId,
+            description: item.description,
+            detailed_notes: detailedNotes,
+            quantity: item.quantity || null,
+            unit: item.unit || null,
+            rate: item.rate || null,
+            amount: item.amount,
+          };
+        });
 
         const { error: itemsError } = await supabase.from("quotation_items").insert(itemRows);
         if (itemsError) {
           console.error("Supabase insert quotation_items error:", itemsError);
         }
       }
+
 
       // 3. Dispatch Notification
       try {

@@ -13,6 +13,7 @@ export interface QuotationLineItem {
   productId?: string; // Optional reference to catalog product/service
   description: string; // Mandatory manual or catalog description
   detailedNotes?: string; // Optional extended scope/specs (e.g., 300 GSM paper, Matte Lamination)
+  hsnSacCode?: string; // Optional Indian HSN/SAC code (e.g. 9983 for Photography/Design)
   quantity?: number; // Optional
   unit?: string; // Optional: "pcs", "sqft", "copies", "sets", "days", "hours"
   rate?: number; // Optional unit price
@@ -20,6 +21,7 @@ export interface QuotationLineItem {
   taxRate?: number; // Optional line-level tax % (e.g. 18)
   taxAmount?: number; // Calculated tax amount
 }
+
 
 export interface Quotation {
   id: string;
@@ -48,8 +50,11 @@ export interface Quotation {
   
   // GST / Tax (OPTIONAL)
   isTaxEnabled: boolean;
+  gstType?: "intra_state" | "inter_state";
+  defaultTaxRate?: number;
   taxBreakdown?: TaxBreakdown[];
   totalTax: number;
+
 
   totalAmount: number;
 

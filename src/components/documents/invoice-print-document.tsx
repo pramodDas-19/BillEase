@@ -14,6 +14,7 @@ interface InvoicePrintDocumentProps {
 
 export function InvoicePrintDocument({ invoice, tenant }: InvoicePrintDocumentProps) {
   const hasQtyOrRate = invoice.items.some((item) => item.quantity !== undefined || item.rate !== undefined);
+  const hasHsnSac = invoice.items.some((item) => Boolean(item.hsnSacCode));
   const isFullyPaid = (invoice.balanceDue ?? 0) <= 0 || invoice.status === "paid";
 
   const bankDetails = tenant?.bankDetails || {
@@ -43,7 +44,14 @@ export function InvoicePrintDocument({ invoice, tenant }: InvoicePrintDocumentPr
       {/* Header */}
       <DocumentHeader
         tenant={tenant}
-        documentTitle={isFullyPaid ? "TAX INVOICE & RECEIPT" : "TAX INVOICE"}
+        documentTitle={
+          !invoice.isTaxEnabled
+            ? "INVOICE"
+            : isFullyPaid
+            ? "TAX INVOICE & RECEIPT"
+            : "TAX INVOICE"
+        }
+
         documentNumber={invoice.invoiceNumber}
         date={formatDate(invoice.issueDate)}
         dueDateOrValidUntil={{
@@ -146,6 +154,9 @@ export function InvoicePrintDocument({ invoice, tenant }: InvoicePrintDocumentPr
           <tr className="border-b-2 border-slate-800 bg-slate-100">
             <th className="py-2.5 px-3 font-bold text-slate-800 w-10">#</th>
             <th className="py-2.5 px-3 font-bold text-slate-800">Description</th>
+            {hasHsnSac && (
+              <th className="py-2.5 px-3 font-bold text-slate-800 text-center w-20">HSN/SAC</th>
+            )}
             {hasQtyOrRate && (
               <>
                 <th className="py-2.5 px-3 font-bold text-slate-800 text-center w-20">Qty</th>
@@ -167,6 +178,11 @@ export function InvoicePrintDocument({ invoice, tenant }: InvoicePrintDocumentPr
                   </p>
                 )}
               </td>
+              {hasHsnSac && (
+                <td className="py-3 px-3 text-center font-mono font-semibold text-[11px] text-slate-700">
+                  {item.hsnSacCode || "—"}
+                </td>
+              )}
               {hasQtyOrRate && (
                 <>
                   <td className="py-3 px-3 text-center text-slate-700">

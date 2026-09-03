@@ -11,6 +11,7 @@ export interface CalculationInput {
   discountValue?: number;
   isTaxEnabled?: boolean;
   defaultTaxRate?: number;
+  gstType?: "intra_state" | "inter_state";
 }
 
 export interface CalculationResult {
@@ -18,6 +19,7 @@ export interface CalculationResult {
   discountAmount: number;
   netAfterDiscount: number;
   isTaxEnabled: boolean;
+  gstType: "intra_state" | "inter_state";
   taxBreakdown: TaxBreakdown[];
   totalTax: number;
   totalAmount: number;
@@ -28,7 +30,7 @@ export interface CalculationResult {
  * Handles:
  * - Line item totals
  * - Discounts (Percentage or Fixed amount)
- * - Optional Tax/GST calculations (Aggregate or Per-Item)
+ * - Optional Indian Tax/GST calculations (CGST+SGST for Intra-State or IGST for Inter-State)
  * - Accurate decimal rounding
  */
 export function calculateDocumentTotals(input: CalculationInput): CalculationResult {
@@ -38,6 +40,7 @@ export function calculateDocumentTotals(input: CalculationInput): CalculationRes
     discountValue = 0,
     isTaxEnabled = false,
     defaultTaxRate = 18,
+    gstType = "intra_state",
   } = input;
 
   // 1. Calculate raw Subtotal
@@ -59,17 +62,35 @@ export function calculateDocumentTotals(input: CalculationInput): CalculationRes
   const taxBreakdown: TaxBreakdown[] = [];
 
   if (isTaxEnabled) {
-    // If items have individual tax rates, calculate proportionally or aggregate
     const taxRate = defaultTaxRate || 0;
     if (taxRate > 0) {
       totalTax = (netAfterDiscount * taxRate) / 100;
       totalTax = Math.round(totalTax * 100) / 100;
 
-      taxBreakdown.push({
-        name: `GST (${taxRate}%)`,
-        rate: taxRate,
-        amount: totalTax,
-      });
+      if (gstType === "inter_state") {
+        // Outside State: Single IGST line
+        taxBreakdown.push({
+          name: `IGST (${taxRate}%)`,
+          rate: taxRate,
+          amount: totalTax,
+        });
+      } else {
+        // Within State (Intra-State): Split equally into CGST + SGST
+        const halfRate = Math.round((taxRate / 2) * 100) / 100;
+        const cgstAmount = Math.round((totalTax / 2) * 100) / 100;
+        const sgstAmount = Math.round((totalTax - cgstAmount) * 100) / 100;
+
+        taxBreakdown.push({
+          name: `CGST (${halfRate}%)`,
+          rate: halfRate,
+          amount: cgstAmount,
+        });
+        taxBreakdown.push({
+          name: `SGST (${halfRate}%)`,
+          rate: halfRate,
+          amount: sgstAmount,
+        });
+      }
     }
   }
 
@@ -81,8 +102,10 @@ export function calculateDocumentTotals(input: CalculationInput): CalculationRes
     discountAmount,
     netAfterDiscount,
     isTaxEnabled,
+    gstType,
     taxBreakdown,
     totalTax,
     totalAmount,
   };
 }
+

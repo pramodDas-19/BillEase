@@ -19,7 +19,9 @@ export interface QuotationBuilderState {
   discountType?: "percentage" | "fixed";
   discountValue: number;
   isTaxEnabled: boolean;
+  gstType?: "intra_state" | "inter_state";
   defaultTaxRate: number;
+
   termsAndConditions: string;
   notes: string;
 }
@@ -52,6 +54,7 @@ export function useQuotationBuilder(initialState?: Partial<QuotationBuilderState
     discountType: initialState?.discountType,
     discountValue: initialState?.discountValue || 0,
     isTaxEnabled: initialState?.isTaxEnabled ?? false,
+    gstType: initialState?.gstType || "intra_state",
     defaultTaxRate: initialState?.defaultTaxRate ?? 18,
     termsAndConditions: initialState?.termsAndConditions || "",
     notes: initialState?.notes || "",
@@ -64,8 +67,10 @@ export function useQuotationBuilder(initialState?: Partial<QuotationBuilderState
       discountValue: state.discountValue,
       isTaxEnabled: state.isTaxEnabled,
       defaultTaxRate: state.defaultTaxRate,
+      gstType: state.gstType,
     });
-  }, [state.items, state.discountType, state.discountValue, state.isTaxEnabled, state.defaultTaxRate]);
+  }, [state.items, state.discountType, state.discountValue, state.isTaxEnabled, state.defaultTaxRate, state.gstType]);
+
 
   const addItem = () => {
     setState((prev) => ({
