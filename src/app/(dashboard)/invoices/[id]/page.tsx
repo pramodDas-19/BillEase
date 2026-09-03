@@ -76,6 +76,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     clientName: invoice.clientName,
     invoiceNumber: invoice.invoiceNumber,
     invoiceId: invoice.id,
+    publicToken: invoice.publicToken,
     totalAmount: invoice.totalAmount,
     balanceDue: invoice.balanceDue,
     currency: invoice.currency,

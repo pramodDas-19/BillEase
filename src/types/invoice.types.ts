@@ -17,6 +17,7 @@ export interface InvoiceLineItem {
 
 export interface Invoice {
   id: string;
+  publicToken?: string; // Secure unguessable UUID for client payment portal
   tenantId: string; // Multi-tenant isolation
   invoiceNumber: string; // e.g. "INV-2026-001"
   quotationId?: string; // Optional quotation origin ID

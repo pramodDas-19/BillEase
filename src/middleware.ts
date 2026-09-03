@@ -49,23 +49,13 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  // 4. Authenticate user from Supabase session
+  // 4. Authenticate user strictly from verified Supabase session
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Fallback session cookies
-  const hasAuthSessionCookie = request.cookies.get("billease_auth_session")?.value === "true";
-  const hasDemoAuth = request.cookies.get("billease_demo_auth")?.value === "true";
-  const hasSbCookie = request.cookies
-    .getAll()
-    .some(
-      (c) =>
-        (c.name.startsWith("sb-") && c.name.endsWith("-auth-token")) ||
-        c.name.includes("auth-token")
-    );
+  const isAuthenticated = !!user;
 
-  const isAuthenticated = !!user || hasAuthSessionCookie || hasDemoAuth || hasSbCookie;
 
 
   // Protected application routes

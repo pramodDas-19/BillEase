@@ -64,6 +64,7 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
         clientName: quote.clientName,
         quotationNumber: quote.quotationNumber,
         quotationId: quote.id,
+        publicToken: quote.publicToken,
         totalAmount: quote.totalAmount,
         validUntil: formatDate(quote.validUntil),
         currency: quote.currency,

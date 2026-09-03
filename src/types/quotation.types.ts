@@ -23,6 +23,7 @@ export interface QuotationLineItem {
 
 export interface Quotation {
   id: string;
+  publicToken?: string; // Secure unguessable UUID for client payment portal
   tenantId: string; // Multi-tenant isolation
   quotationNumber: string; // e.g. "QT-2026-001"
   clientId: string;

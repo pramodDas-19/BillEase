@@ -29,8 +29,8 @@ export class AuthService {
       }
 
       const { data: { user } } = await supabase.auth.getUser();
-      if (user?.user_metadata?.tenant_id) {
-        const tId = user.user_metadata.tenant_id;
+      const tId = user?.app_metadata?.tenant_id || user?.user_metadata?.tenant_id;
+      if (tId) {
         if (typeof window !== "undefined") {
           localStorage.setItem("billease_active_tenant_id", tId);
         }
@@ -81,24 +81,19 @@ export class AuthService {
       throw new Error(error.message);
     }
 
-    if (data.user?.user_metadata?.tenant_id) {
-      this.setActiveTenantId(data.user.user_metadata.tenant_id);
-    }
-
-    if (typeof document !== "undefined") {
-      document.cookie = "billease_auth_session=true; path=/; max-age=604800; SameSite=Lax";
+    const tId = data.user?.app_metadata?.tenant_id || data.user?.user_metadata?.tenant_id;
+    if (tId) {
+      this.setActiveTenantId(tId);
     }
 
     return data;
   }
 
-
   /**
-   * Registers a new tenant and business owner account.
+   * Registers a new business owner account and provisions tenant server-side.
    */
   static async signUp(params: SignUpParams): Promise<{ user: any; session: any }> {
-    const tenantId = `tenant-${params.businessName.toLowerCase().replace(/[^a-z0-9]/g, "-")}-${Date.now().toString().slice(-4)}`;
-
+    // 1. Register auth user without client-side tenant_id in user_metadata
     const { data, error } = await supabase.auth.signUp({
       email: params.email,
       password: params.password,
@@ -107,7 +102,6 @@ export class AuthService {
           business_name: params.businessName,
           owner_name: params.ownerName,
           phone: params.phone,
-          tenant_id: tenantId,
         },
       },
     });
@@ -116,51 +110,40 @@ export class AuthService {
       throw new Error(error.message);
     }
 
-    this.setActiveTenantId(tenantId);
-
-    if (typeof window !== "undefined") {
-      localStorage.setItem(
-        "billease_registered_user",
-        JSON.stringify({
-          tenantId,
+    // 2. Call server-only provision-tenant route (service-role writes app_metadata)
+    try {
+      const res = await fetch("/api/auth/provision-tenant", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
           businessName: params.businessName,
           ownerName: params.ownerName,
-          email: params.email,
           phone: params.phone,
-        })
-      );
-    }
+        }),
+      });
 
-    // Auto-create tenant record in the database
-    try {
-      await supabase.from("tenants").upsert([
-        {
-          id: tenantId,
-          business_name: params.businessName,
-          owner_name: params.ownerName,
-          email: params.email,
-          phone: params.phone,
-          address: { street: "", city: "", state: "", postalCode: "" },
-          bank_details: { bankName: "HDFC Bank", accountNumber: "", ifscCode: "", upiId: "" },
-          settings: {
-            defaultCurrency: "INR",
-            enableGstByDefault: true,
-            defaultTaxRate: 18,
-            quotationNumbering: { prefix: "QT-", nextNumber: 1001, digitLength: 4 },
-            invoiceNumbering: { prefix: "INV-", nextNumber: 1001, digitLength: 4 },
-            defaultQuotationValidityDays: 14,
-            defaultInvoiceDueDays: 14,
-            defaultTermsAndConditions: "1. 50% advance required to confirm booking.\n2. Balance due within 14 days of invoice.",
-            defaultInvoiceNotes: "Thank you for your business!",
-          },
-        },
-      ]);
-    } catch (insertErr) {
-      console.warn("Could not insert initial tenant row:", insertErr);
-    }
-
-    if (typeof document !== "undefined") {
-      document.cookie = "billease_auth_session=true; path=/; max-age=604800; SameSite=Lax";
+      if (res.ok) {
+        const json = await res.json();
+        if (json.tenantId) {
+          this.setActiveTenantId(json.tenantId);
+          if (typeof window !== "undefined") {
+            localStorage.setItem(
+              "billease_registered_user",
+              JSON.stringify({
+                tenantId: json.tenantId,
+                businessName: params.businessName,
+                ownerName: params.ownerName,
+                email: params.email,
+                phone: params.phone,
+              })
+            );
+          }
+        }
+      }
+    } catch (provisionErr) {
+      console.warn("Could not auto-provision tenant immediately:", provisionErr);
     }
 
     return data;
@@ -174,15 +157,12 @@ export class AuthService {
       localStorage.removeItem("billease_active_tenant_id");
       localStorage.removeItem("billease_registered_user");
     }
-    if (typeof document !== "undefined") {
-      document.cookie = "billease_auth_session=; path=/; max-age=0;";
-      document.cookie = "billease_demo_auth=; path=/; max-age=0;";
-    }
     const { error } = await supabase.auth.signOut();
     if (error) {
       console.error("Sign out error:", error);
     }
   }
+
 
 
   /**

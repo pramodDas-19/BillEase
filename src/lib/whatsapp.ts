@@ -6,6 +6,7 @@ export interface WhatsAppInvoiceShareParams {
   clientName: string;
   invoiceNumber: string;
   invoiceId: string;
+  publicToken?: string;
   totalAmount: number;
   balanceDue: number;
   currency?: CurrencyCode;
@@ -16,6 +17,7 @@ export interface WhatsAppQuotationShareParams {
   clientName: string;
   quotationNumber: string;
   quotationId: string;
+  publicToken?: string;
   totalAmount: number;
   advanceAmount?: number;
   validUntil?: string;
@@ -27,9 +29,11 @@ export interface WhatsAppReminderParams {
   clientName: string;
   invoiceNumber?: string;
   invoiceId?: string;
+  publicToken?: string;
   balanceDue: number;
   currency?: CurrencyCode;
 }
+
 
 export interface WhatsAppPaymentReceiptParams {
   clientPhone?: string;
@@ -52,6 +56,7 @@ export function getWhatsAppInvoiceShareUrl({
   clientName,
   invoiceNumber,
   invoiceId,
+  publicToken,
   totalAmount,
   balanceDue,
   currency = "INR",
@@ -60,7 +65,7 @@ export function getWhatsAppInvoiceShareUrl({
   const baseUrl = getBaseUrl();
   const totalFormatted = formatCurrency(totalAmount, currency);
   const balanceFormatted = formatCurrency(balanceDue, currency);
-  const payUrl = `${baseUrl}/pay/${invoiceId}`;
+  const payUrl = `${baseUrl}/pay/${publicToken || invoiceId}`;
 
   const message = [
     `Hello *${clientName.trim()}*,`,
@@ -83,6 +88,7 @@ export function getWhatsAppQuotationShareUrl({
   clientName,
   quotationNumber,
   quotationId,
+  publicToken,
   totalAmount,
   advanceAmount,
   validUntil,
@@ -93,7 +99,7 @@ export function getWhatsAppQuotationShareUrl({
   const totalFormatted = formatCurrency(totalAmount, currency);
   const advance = advanceAmount || Math.round(totalAmount * 0.5);
   const advanceFormatted = formatCurrency(advance, currency);
-  const payUrl = `${baseUrl}/pay/${quotationId}`;
+  const payUrl = `${baseUrl}/pay/${publicToken || quotationId}`;
 
   const lines = [
     `Hello *${clientName.trim()}*,`,
@@ -124,6 +130,7 @@ export function getWhatsAppReminderUrl({
   clientName,
   invoiceNumber,
   invoiceId,
+  publicToken,
   balanceDue,
   currency = "INR",
 }: WhatsAppReminderParams): string {
@@ -139,13 +146,14 @@ export function getWhatsAppReminderUrl({
       : `This is a friendly reminder regarding your outstanding ledger balance of *${balanceFormatted}*.`,
   ];
 
-  if (invoiceId) {
+  if (invoiceId || publicToken) {
     lines.push(
       ``,
       `*1-Click Instant Settlement:*`,
-      `${baseUrl}/pay/${invoiceId}`
+      `${baseUrl}/pay/${publicToken || invoiceId}`
     );
   }
+
 
   lines.push(
     ``,

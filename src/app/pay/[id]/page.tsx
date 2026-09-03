@@ -1,10 +1,6 @@
 "use client";
 
 import React, { useState, use, useEffect } from "react";
-import { InvoiceService } from "@/services/invoice.service";
-import { QuotationService } from "@/services/quotation.service";
-import { supabase } from "@/lib/supabase/client";
-import { Invoice, Quotation } from "@/types";
 import { formatCurrency } from "@/lib/utils";
 import { generateUpiIntentUrl, getUpiQrImageUrl } from "@/lib/upi";
 import {
@@ -17,115 +13,117 @@ import {
   Building2,
   QrCode,
   Sparkles,
-  ArrowLeft,
 } from "lucide-react";
 
-export default function ClientPayPortalPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
-  const [invoice, setInvoice] = useState<Invoice | null>(null);
-  const [quotation, setQuotation] = useState<Quotation | null>(null);
-  const [tenantInfo, setTenantInfo] = useState<{
-    businessName: string;
-    bankName?: string;
-    accountNumber?: string;
-    ifscCode?: string;
-    upiId?: string;
-    accountName?: string;
-  }>({
-    businessName: "Business Studio",
-    upiId: "payments@upi",
-  });
-  const [isLoading, setIsLoading] = useState(true);
+interface PublicPaymentPayload {
+  id: string;
+  invoiceNumber: string;
+  isQuotation: boolean;
+  clientName: string;
+  totalAmount: number;
+  balanceDue: number;
+  paidAmount: number;
+  status: string;
+  currency: string;
+  dueDate: string | null;
+  businessName: string;
+  bankDetails: {
+    bankName: string;
+    accountNumber: string;
+    ifscCode: string;
+    upiId: string;
+    accountName: string;
+  };
+}
 
+export default function ClientPayPortalPage({
+  params,
+}: {
+  params: Promise<{ id?: string; token?: string }>;
+}) {
+  const resolvedParams = use(params);
+  const token = resolvedParams.token || resolvedParams.id || "";
+
+  const [paymentData, setPaymentData] = useState<PublicPaymentPayload | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isError, setIsError] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"upi" | "bank_transfer">("upi");
   const [isSettled, setIsSettled] = useState(false);
 
-  // Load record and poll for live settlement updates
+  // 1. Initial Load: Fetch payment details from secure server endpoint
   useEffect(() => {
-    async function loadRecord() {
-      try {
-        let tenantIdToFetch = "";
+    if (!token) return;
 
-        const inv = await InvoiceService.getInvoiceById(id);
-        if (inv) {
-          setInvoice(inv);
-          tenantIdToFetch = inv.tenantId || "";
-          if (inv.balanceDue <= 0 || inv.status === "paid") {
-            setIsSettled(true);
-          }
-        } else {
-          const quote = await QuotationService.getQuotationById(id);
-          if (quote) {
-            setQuotation(quote);
-            tenantIdToFetch = quote.tenantId || "";
-            if (quote.status === "converted") {
+    let isMounted = true;
+
+    async function loadPaymentDetails() {
+      try {
+        const res = await fetch(`/api/public/invoice/${encodeURIComponent(token)}`);
+        if (!res.ok) {
+          if (isMounted) setIsError(true);
+          return;
+        }
+
+        const json = await res.json();
+        if (json.success && json.data) {
+          if (isMounted) {
+            setPaymentData(json.data);
+            if (
+              json.data.balanceDue <= 0 ||
+              json.data.status === "paid" ||
+              json.data.status === "converted"
+            ) {
               setIsSettled(true);
             }
           }
-        }
-
-        // Fetch actual tenant business profile & bank details from Supabase
-        if (tenantIdToFetch) {
-          const { data: tenantData } = await supabase
-            .from("tenants")
-            .select("*")
-            .eq("id", tenantIdToFetch)
-            .single();
-
-          if (tenantData) {
-            const bank = tenantData.bank_details || {};
-            setTenantInfo({
-              businessName: tenantData.business_name || tenantData.name || "Business Studio",
-              bankName: bank.bankName,
-              accountNumber: bank.accountNumber,
-              ifscCode: bank.ifscCode,
-              upiId: bank.upiId || "payments@upi",
-              accountName: bank.accountName || tenantData.business_name,
-            });
-          }
-        } else if (typeof window !== "undefined") {
-          const localStr = localStorage.getItem("billease_registered_user");
-          if (localStr) {
-            try {
-              const localParsed = JSON.parse(localStr);
-              if (localParsed.businessName) {
-                setTenantInfo((prev) => ({
-                  ...prev,
-                  businessName: localParsed.businessName,
-                }));
-              }
-            } catch {}
-          }
+        } else {
+          if (isMounted) setIsError(true);
         }
       } catch (err) {
-        console.error("Failed to load payment portal target:", err);
+        console.error("Failed to load invoice payment portal:", err);
+        if (isMounted) setIsError(true);
       } finally {
-        setIsLoading(false);
+        if (isMounted) setIsLoading(false);
       }
     }
 
-    loadRecord();
+    loadPaymentDetails();
 
-    // Auto-poll status every 4 seconds to detect settlement in real time
+    // 2. Real-time Settlement Auto-Polling: poll status route every 4 seconds
     const interval = setInterval(async () => {
       try {
-        const inv = await InvoiceService.getInvoiceById(id);
-        if (inv && (inv.balanceDue <= 0 || inv.status === "paid")) {
-          setIsSettled(true);
-          setInvoice(inv);
-        } else {
-          const quote = await QuotationService.getQuotationById(id);
-          if (quote && quote.status === "converted") {
-            setIsSettled(true);
-            setQuotation(quote);
+        const res = await fetch(`/api/public/invoice/${encodeURIComponent(token)}/status`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success) {
+            if (
+              json.balanceDue <= 0 ||
+              json.status === "paid" ||
+              json.status === "converted"
+            ) {
+              setIsSettled(true);
+            }
+            setPaymentData((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    balanceDue: json.balanceDue,
+                    paidAmount: json.paidAmount,
+                    status: json.status,
+                  }
+                : null
+            );
           }
         }
       } catch {}
     }, 4000);
 
-    return () => clearInterval(interval);
-  }, [id]);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [token]);
 
   const copyToClipboard = (text: string, label: string) => {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
@@ -150,9 +148,7 @@ export default function ClientPayPortalPage({ params }: { params: Promise<{ id: 
     );
   }
 
-  const targetDoc = invoice || quotation;
-
-  if (!targetDoc) {
+  if (isError || !paymentData) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-center space-y-4">
         <div className="h-16 w-16 mx-auto rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400">
@@ -160,44 +156,45 @@ export default function ClientPayPortalPage({ params }: { params: Promise<{ id: 
         </div>
         <h2 className="text-xl font-bold text-white">Bill Reference Not Found</h2>
         <p className="text-xs text-slate-400 max-w-sm">
-          This payment portal link is invalid or has expired. Please contact{" "}
-          <strong>{tenantInfo.businessName}</strong>.
+          This payment portal link is invalid or has expired. Please contact the business owner for an updated link.
         </p>
       </div>
     );
   }
 
-  const isQuoteFlow = !invoice && !!quotation;
-  const businessName = tenantInfo.businessName;
-  const upiId = tenantInfo.upiId || "payments@upi";
+  const {
+    invoiceNumber,
+    isQuotation,
+    clientName,
+    totalAmount,
+    balanceDue,
+    businessName,
+    bankDetails,
+  } = paymentData;
 
-  const totalBillAmount = isQuoteFlow ? quotation.totalAmount : invoice!.totalAmount;
-  const payableAmount = isQuoteFlow
-    ? Math.round(quotation.totalAmount * 0.5)
-    : invoice!.balanceDue;
+  const payableAmount = isQuotation ? Math.round(totalAmount * 0.5) : balanceDue;
+  const upiId = bankDetails?.upiId || "payments@upi";
 
-  const docNumber = isQuoteFlow ? quotation.quotationNumber : invoice!.invoiceNumber;
-
-  // Universal UPI Intent URI with real business details
+  // Universal UPI Intent URI
   const upiUri = generateUpiIntentUrl({
     upiId,
     businessName,
     amount: payableAmount,
-    transactionRef: docNumber,
-    note: isQuoteFlow ? `Advance for Quote #${docNumber}` : `Invoice #${docNumber}`,
+    transactionRef: invoiceNumber,
+    note: isQuotation ? `Advance for Quote #${invoiceNumber}` : `Invoice #${invoiceNumber}`,
   });
 
   const gpayUri = `gpay://upi/pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(
     businessName
-  )}&am=${payableAmount}&tr=${encodeURIComponent(docNumber)}&cu=INR`;
+  )}&am=${payableAmount}&tr=${encodeURIComponent(invoiceNumber)}&cu=INR`;
 
   const phonepeUri = `phonepe://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(
     businessName
-  )}&am=${payableAmount}&tr=${encodeURIComponent(docNumber)}&cu=INR`;
+  )}&am=${payableAmount}&tr=${encodeURIComponent(invoiceNumber)}&cu=INR`;
 
   const paytmUri = `paytmmp://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(
     businessName
-  )}&am=${payableAmount}&tr=${encodeURIComponent(docNumber)}&cu=INR`;
+  )}&am=${payableAmount}&tr=${encodeURIComponent(invoiceNumber)}&cu=INR`;
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col justify-center items-center p-4 sm:p-6 antialiased selection:bg-emerald-500/30 selection:text-emerald-200">
@@ -243,17 +240,17 @@ export default function ClientPayPortalPage({ params }: { params: Promise<{ id: 
                   Payment Successful
                 </span>
                 <h3 className="text-2xl font-black text-slate-900 mt-3">
-                  Thank You, {targetDoc.clientName}!
+                  Thank You, {clientName}!
                 </h3>
                 <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  Your payment for #{docNumber} has been verified and settled.
+                  Your payment for #{invoiceNumber} has been verified and settled.
                 </p>
               </div>
 
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs text-left space-y-2">
                 <div className="flex justify-between">
                   <span className="text-slate-500">Document Ref:</span>
-                  <span className="font-bold text-slate-900">#{docNumber}</span>
+                  <span className="font-bold text-slate-900">#{invoiceNumber}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Status:</span>
@@ -287,49 +284,45 @@ export default function ClientPayPortalPage({ params }: { params: Promise<{ id: 
               <div className="flex items-start justify-between border-b border-slate-100 pb-4">
                 <div>
                   <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
-                    {isQuoteFlow ? "Quotation Advance Deposit (50%)" : "Invoice Balance Due"}
+                    {isQuotation ? "Quotation Advance Deposit (50%)" : "Invoice Balance Due"}
                   </span>
                   <h2 className="text-3xl font-black text-slate-900 tracking-tight">
                     {formatCurrency(payableAmount, "INR")}
                   </h2>
                   <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    For {isQuoteFlow ? `Quote #${docNumber}` : `Invoice #${docNumber}`} ({targetDoc.clientName})
+                    For {isQuotation ? `Quote #${invoiceNumber}` : `Invoice #${invoiceNumber}`} ({clientName})
                   </p>
                 </div>
 
                 <div className="text-right">
-                  <span className="clay-tag inline-block px-2.5 py-1 text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                    {isQuoteFlow ? "50% Advance" : "Pending Due"}
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Billed</span>
+                  <span className="text-sm font-extrabold text-slate-600">
+                    {formatCurrency(totalAmount, "INR")}
                   </span>
-                  {isQuoteFlow && (
-                    <p className="text-[10px] text-slate-400 mt-1 font-medium">
-                      Total: {formatCurrency(totalBillAmount, "INR")}
-                    </p>
-                  )}
                 </div>
               </div>
 
-              {/* Payment Method Switcher: UPI vs Direct Bank Transfer */}
-              <div className="flex rounded-2xl bg-slate-100 p-1 border border-slate-200/80">
+              {/* Payment Mode Selector Tabs */}
+              <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-slate-100 border border-slate-200/60">
                 <button
                   type="button"
                   onClick={() => setPaymentMethod("upi")}
-                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     paymentMethod === "upi"
-                      ? "bg-white text-slate-900 shadow-xs"
-                      : "text-slate-500 hover:text-slate-900"
+                      ? "bg-white text-emerald-700 shadow-sm"
+                      : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
-                  <Smartphone className="h-3.5 w-3.5" />
-                  <span>UPI / QR Code</span>
+                  <QrCode className="h-3.5 w-3.5" />
+                  <span>Instant UPI QR</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setPaymentMethod("bank_transfer")}
-                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     paymentMethod === "bank_transfer"
-                      ? "bg-white text-slate-900 shadow-xs"
-                      : "text-slate-500 hover:text-slate-900"
+                      ? "bg-white text-emerald-700 shadow-sm"
+                      : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
                   <Building2 className="h-3.5 w-3.5" />
@@ -337,170 +330,162 @@ export default function ClientPayPortalPage({ params }: { params: Promise<{ id: 
                 </button>
               </div>
 
-              {paymentMethod === "upi" ? (
-                /* ---------------------------------------------------- */
-                /* UPI METHOD: Dynamic QR & Instant App Links           */
-                /* ---------------------------------------------------- */
+              {/* TAB 1: Instant UPI QR View */}
+              {paymentMethod === "upi" && (
                 <div className="space-y-4 animate-in fade-in-50 duration-200">
-                  {/* Mobile Deep Links */}
+                  {/* Dynamic High-Res QR Card */}
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col items-center justify-center space-y-3">
+                    <div className="p-3 bg-white rounded-2xl border-2 border-dashed border-emerald-500/40 shadow-md">
+                      <img
+                        src={getUpiQrImageUrl(upiUri)}
+                        alt="UPI QR Code"
+                        className="h-44 w-44 object-contain rounded-lg"
+                      />
+                    </div>
+                    <div className="text-center space-y-0.5">
+                      <p className="text-[11px] font-bold text-slate-800">
+                        Scan with Google Pay, PhonePe, Paytm, or BHIM
+                      </p>
+                      <p className="text-[10px] text-slate-400 font-mono">
+                        UPI ID: <span className="text-slate-700 font-semibold">{upiId}</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* 1-Click Mobile Apps Launch Links */}
                   <div className="space-y-2">
-                    <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
-                      1-Click UPI Payment (Tap to Open App)
-                    </label>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block text-center">
+                      Or Open Directly on Your Mobile App
+                    </span>
                     <div className="grid grid-cols-3 gap-2">
                       <a
                         href={gpayUri}
-                        className="clay-card p-3 rounded-2xl border border-slate-200/80 bg-slate-50 hover:bg-white hover:border-slate-300 flex flex-col items-center justify-center gap-1.5 transition-all group"
+                        className="py-2.5 px-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-emerald-50/50 hover:border-emerald-300 text-slate-800 font-bold text-xs flex flex-col items-center justify-center gap-1 transition-all shadow-xs"
                       >
-                        <div className="h-7 w-7 rounded-full bg-white shadow-2xs border border-slate-100 flex items-center justify-center font-black text-[10px] text-blue-600">
-                          G
-                        </div>
-                        <span className="text-[11px] font-bold text-slate-800 group-hover:text-blue-600">
-                          Google Pay
-                        </span>
+                        <Smartphone className="h-4 w-4 text-emerald-600" />
+                        <span>GPay</span>
                       </a>
-
                       <a
                         href={phonepeUri}
-                        className="clay-card p-3 rounded-2xl border border-slate-200/80 bg-slate-50 hover:bg-white hover:border-slate-300 flex flex-col items-center justify-center gap-1.5 transition-all group"
+                        className="py-2.5 px-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-emerald-50/50 hover:border-emerald-300 text-slate-800 font-bold text-xs flex flex-col items-center justify-center gap-1 transition-all shadow-xs"
                       >
-                        <div className="h-7 w-7 rounded-full bg-purple-600 text-white shadow-2xs flex items-center justify-center font-black text-[10px]">
-                          Pe
-                        </div>
-                        <span className="text-[11px] font-bold text-slate-800 group-hover:text-purple-600">
-                          PhonePe
-                        </span>
+                        <Smartphone className="h-4 w-4 text-purple-600" />
+                        <span>PhonePe</span>
                       </a>
-
                       <a
                         href={paytmUri}
-                        className="clay-card p-3 rounded-2xl border border-slate-200/80 bg-slate-50 hover:bg-white hover:border-slate-300 flex flex-col items-center justify-center gap-1.5 transition-all group"
+                        className="py-2.5 px-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-emerald-50/50 hover:border-emerald-300 text-slate-800 font-bold text-xs flex flex-col items-center justify-center gap-1 transition-all shadow-xs"
                       >
-                        <div className="h-7 w-7 rounded-full bg-cyan-600 text-white shadow-2xs flex items-center justify-center font-black text-[10px]">
-                          Py
-                        </div>
-                        <span className="text-[11px] font-bold text-slate-800 group-hover:text-cyan-600">
-                          Paytm
-                        </span>
+                        <Smartphone className="h-4 w-4 text-cyan-600" />
+                        <span>Paytm</span>
                       </a>
-                    </div>
-                  </div>
-
-                  {/* QR Code Card */}
-                  <div className="flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-50 border-2 border-dashed border-teal-200 space-y-2">
-                    <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-                      Or Scan QR Code with Any UPI App
-                    </span>
-                    <div className="p-2 bg-white rounded-2xl shadow-md border border-slate-200">
-                      <img
-                        src={getUpiQrImageUrl(upiUri)}
-                        alt="Dynamic UPI QR"
-                        className="h-44 w-44 object-contain rounded-xl"
-                      />
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-slate-600 font-medium">
-                      <span>UPI ID:</span>
-                      <strong className="font-mono text-slate-900">{upiId}</strong>
-                      <button
-                        type="button"
-                        onClick={() => copyToClipboard(upiId, "upi")}
-                        className="p-1 text-slate-400 hover:text-slate-900 cursor-pointer"
-                        title="Copy UPI ID"
-                      >
-                        <Copy className="h-3.5 w-3.5" />
-                      </button>
-                      {copied === "upi" && (
-                        <span className="text-[10px] text-emerald-600 font-bold">Copied!</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                /* ---------------------------------------------------- */
-                /* BANK TRANSFER: Real Bank Details from Settings       */
-                /* ---------------------------------------------------- */
-                <div className="space-y-3 p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs animate-in fade-in-50 duration-200">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
-                    Beneficiary Bank Details (NEFT / IMPS / RTGS)
-                  </span>
-
-                  <div className="space-y-2 pt-1">
-                    <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
-                      <span className="text-slate-500">Bank Name:</span>
-                      <span className="font-bold text-slate-900">{tenantInfo.bankName || "HDFC Bank"}</span>
-                    </div>
-                    <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
-                      <span className="text-slate-500">Account Number:</span>
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-mono font-bold text-slate-900">
-                          {tenantInfo.accountNumber || "919876543210"}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => copyToClipboard(tenantInfo.accountNumber || "", "acc")}
-                          className="text-slate-400 hover:text-slate-900 cursor-pointer"
-                        >
-                          <Copy className="h-3 w-3" />
-                        </button>
-                        {copied === "acc" && (
-                          <span className="text-[10px] text-emerald-600 font-bold">Copied!</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
-                      <span className="text-slate-500">IFSC Code:</span>
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-mono font-bold text-slate-900">
-                          {tenantInfo.ifscCode || "HDFC0001234"}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => copyToClipboard(tenantInfo.ifscCode || "", "ifsc")}
-                          className="text-slate-400 hover:text-slate-900 cursor-pointer"
-                        >
-                          <Copy className="h-3 w-3" />
-                        </button>
-                        {copied === "ifsc" && (
-                          <span className="text-[10px] text-emerald-600 font-bold">Copied!</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center py-1">
-                      <span className="text-slate-500">Account Holder:</span>
-                      <span className="font-bold text-slate-900">
-                        {tenantInfo.accountName || businessName}
-                      </span>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Secure Direct Settlement Note & Exit */}
-              <div className="pt-3 border-t border-slate-100 space-y-3">
-                <div className="p-3 rounded-xl bg-emerald-50/60 border border-emerald-100 text-[11px] text-emerald-900 flex items-start gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <p className="leading-relaxed">
-                    Once you pay via UPI or Bank Transfer, funds are credited instantly to{" "}
-                    <strong>{businessName}</strong>. Your official receipt will be issued upon bank credit.
-                  </p>
-                </div>
+              {/* TAB 2: Direct Bank Transfer Details */}
+              {paymentMethod === "bank_transfer" && (
+                <div className="space-y-3 p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs animate-in fade-in-50 duration-200">
+                  <div className="flex items-center justify-between border-b border-slate-200/80 pb-2">
+                    <span className="text-slate-500">Beneficiary Name</span>
+                    <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                      <span>{bankDetails?.accountName || businessName}</span>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(bankDetails?.accountName || businessName, "name")}
+                        className="text-slate-400 hover:text-emerald-600 cursor-pointer p-0.5"
+                      >
+                        <Copy className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
 
-                <button
-                  type="button"
-                  onClick={handleExitSession}
-                  className="w-full py-2.5 rounded-xl font-bold text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all cursor-pointer text-center"
-                >
-                  Exit / Done
-                </button>
+                  <div className="flex items-center justify-between border-b border-slate-200/80 pb-2">
+                    <span className="text-slate-500">Bank Name</span>
+                    <span className="font-bold text-slate-900">{bankDetails?.bankName || "HDFC Bank"}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between border-b border-slate-200/80 pb-2">
+                    <span className="text-slate-500">Account Number</span>
+                    <div className="flex items-center gap-1.5 font-mono font-bold text-slate-900">
+                      <span>{bankDetails?.accountNumber || "Not configured"}</span>
+                      {bankDetails?.accountNumber && (
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(bankDetails.accountNumber, "acc")}
+                          className="text-slate-400 hover:text-emerald-600 cursor-pointer p-0.5"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between border-b border-slate-200/80 pb-2">
+                    <span className="text-slate-500">IFSC Code</span>
+                    <div className="flex items-center gap-1.5 font-mono font-bold text-slate-900">
+                      <span>{bankDetails?.ifscCode || "Not configured"}</span>
+                      {bankDetails?.ifscCode && (
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(bankDetails.ifscCode, "ifsc")}
+                          className="text-slate-400 hover:text-emerald-600 cursor-pointer p-0.5"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-slate-500">UPI ID</span>
+                    <div className="flex items-center gap-1.5 font-mono font-bold text-emerald-700">
+                      <span>{upiId}</span>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(upiId, "upi")}
+                        className="text-slate-400 hover:text-emerald-600 cursor-pointer p-0.5"
+                      >
+                        <Copy className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {copied && (
+                    <div className="text-center pt-2">
+                      <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                        Copied to clipboard!
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Settlement Radar Status indicator */}
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                <div className="flex items-center gap-1.5">
+                  <span className="flex h-2 w-2 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                  </span>
+                  <span className="font-semibold text-slate-600">Waiting for transaction...</span>
+                </div>
+                <span className="text-[10px] font-medium text-slate-400">Auto-detects live</span>
               </div>
             </>
           )}
         </div>
 
-        {/* Security Badge */}
-        <div className="flex items-center justify-center gap-2 text-[11px] text-slate-400 font-medium">
-          <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-          <span>Direct 0% Fee Encrypted Settlement with {businessName}</span>
+        {/* Security & Verification Footer */}
+        <div className="text-center space-y-1">
+          <p className="text-[11px] text-slate-400 font-medium flex items-center justify-center gap-1.5">
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+            <span>Direct Payment to {businessName}</span>
+          </p>
+          <p className="text-[10px] text-slate-500">
+            Powered by BillEase Payment Infrastructure
+          </p>
         </div>
       </div>
     </div>

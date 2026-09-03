@@ -27,6 +27,7 @@ export const QuotationService = {
 
       return data.map((q: any) => ({
         id: q.id,
+        publicToken: q.public_token || q.id,
         tenantId: q.tenant_id,
         quotationNumber: q.quotation_number,
         clientId: q.client_id,
@@ -83,6 +84,7 @@ export const QuotationService = {
 
       return {
         id: data.id,
+        publicToken: data.public_token || data.id,
         tenantId: data.tenant_id,
         quotationNumber: data.quotation_number,
         clientId: data.client_id,

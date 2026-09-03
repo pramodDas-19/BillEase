@@ -44,6 +44,7 @@ export function PaymentAttention() {
         clientName: inv.clientName,
         invoiceNumber: inv.invoiceNumber,
         invoiceId: inv.id,
+        publicToken: inv.publicToken,
         totalAmount: inv.totalAmount,
         balanceDue: inv.balanceDue,
         currency: inv.currency,
