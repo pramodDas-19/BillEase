@@ -155,8 +155,9 @@ export function DashboardHeader() {
         </div>
       </div>
 
-      {/* + Create CTA */}
-      <div className="relative shrink-0 self-start lg:self-center" ref={menuRef}>
+      {/* + Create CTA (Desktop only, mobile uses bottom floating + button) */}
+      <div className="hidden sm:block relative shrink-0 self-start lg:self-center" ref={menuRef}>
+
         <button
           onClick={() => setIsCreateOpen((prev) => !prev)}
           className="clay-btn-primary inline-flex items-center gap-2 h-11 px-5 font-bold text-xs sm:text-sm rounded-2xl cursor-pointer"
