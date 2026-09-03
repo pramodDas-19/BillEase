@@ -30,7 +30,10 @@ import {
   BellRing,
   QrCode,
   Edit3,
+  Download,
 } from "lucide-react";
+import { exportInvoicesToCsv } from "@/lib/export-csv";
+
 
 export default function InvoicesPage() {
   const router = useRouter();
@@ -161,13 +164,27 @@ export default function InvoicesPage() {
           </p>
         </div>
 
-        <Link href="/invoices/new">
-          <button className="clay-btn-primary inline-flex items-center gap-2 h-11 px-5 font-bold text-xs sm:text-sm rounded-2xl cursor-pointer">
-            <Plus className="h-4 w-4 text-emerald-400" />
-            <span>Create New Invoice</span>
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => exportInvoicesToCsv(filteredInvoices)}
+            disabled={filteredInvoices.length === 0}
+            className="clay-icon-squircle flex items-center gap-1.5 h-11 px-4 rounded-2xl bg-white border border-slate-200/80 text-xs sm:text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer shadow-xs disabled:opacity-50"
+            title="Export Invoices as CSV"
+          >
+            <Download className="h-4 w-4 text-emerald-600" />
+            <span className="hidden sm:inline">Export CSV</span>
           </button>
-        </Link>
+
+          <Link href="/invoices/new">
+            <button className="clay-btn-primary inline-flex items-center gap-2 h-11 px-5 font-bold text-xs sm:text-sm rounded-2xl cursor-pointer">
+              <Plus className="h-4 w-4 text-emerald-400" />
+              <span>Create New Invoice</span>
+            </button>
+          </Link>
+        </div>
       </div>
+
 
       {/* 3 Quick Summary Metric Cards (Clean Counts) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5">

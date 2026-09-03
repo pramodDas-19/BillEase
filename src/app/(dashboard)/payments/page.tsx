@@ -21,7 +21,10 @@ import {
   Building2,
   Banknote,
   Smartphone,
+  Download,
 } from "lucide-react";
+import { exportPaymentsToCsv } from "@/lib/export-csv";
+
 
 export default function PaymentsPage() {
   const [paymentsList, setPaymentsList] = useState<Payment[]>([]);
@@ -153,13 +156,27 @@ export default function PaymentsPage() {
           </p>
         </div>
 
-        <Link href="/payments/record">
-          <button className="clay-btn-primary inline-flex items-center gap-2 h-11 px-5 font-bold text-xs sm:text-sm rounded-2xl cursor-pointer">
-            <Plus className="h-4 w-4 text-emerald-400" />
-            <span>Record Payment</span>
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => exportPaymentsToCsv(filteredPayments)}
+            disabled={filteredPayments.length === 0}
+            className="clay-icon-squircle flex items-center gap-1.5 h-11 px-4 rounded-2xl bg-white border border-slate-200/80 text-xs sm:text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer shadow-xs disabled:opacity-50"
+            title="Export Payments as CSV"
+          >
+            <Download className="h-4 w-4 text-emerald-600" />
+            <span className="hidden sm:inline">Export CSV</span>
           </button>
-        </Link>
+
+          <Link href="/payments/record">
+            <button className="clay-btn-primary inline-flex items-center gap-2 h-11 px-5 font-bold text-xs sm:text-sm rounded-2xl cursor-pointer">
+              <Plus className="h-4 w-4 text-emerald-400" />
+              <span>Record Payment</span>
+            </button>
+          </Link>
+        </div>
       </div>
+
 
       {/* 3 Quick Summary Metric Cards (Clean Counts) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5">

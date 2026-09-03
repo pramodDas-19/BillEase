@@ -17,7 +17,15 @@ import {
   ArrowUpRight,
   ReceiptText,
   Plus,
+  Download,
+  ChevronDown,
+  FileSpreadsheet,
 } from "lucide-react";
+import {
+  exportInvoicesToCsv,
+  exportPaymentsToCsv,
+  exportClientsToCsv,
+} from "@/lib/export-csv";
 
 export default function ReportsPage() {
   const [timeframe, setTimeframe] = useState<"month" | "quarter" | "year">("month");
@@ -26,6 +34,19 @@ export default function ReportsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const exportRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
+        setIsExportOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
 
   useEffect(() => {
     async function loadData() {
@@ -205,6 +226,69 @@ export default function ReportsPage() {
             </button>
           </div>
 
+          {/* Export Dropdown */}
+          <div className="relative" ref={exportRef}>
+            <button
+              onClick={() => setIsExportOpen(!isExportOpen)}
+              className="clay-icon-squircle flex items-center gap-1.5 h-9 px-3.5 rounded-xl bg-emerald-50 border border-emerald-200/80 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition-all cursor-pointer shadow-2xs"
+            >
+              <Download className="h-3.5 w-3.5 text-emerald-600" />
+              <span>Export CSV</span>
+              <ChevronDown className="h-3 w-3 text-emerald-600" />
+            </button>
+
+            {isExportOpen && (
+              <div className="absolute right-0 top-full mt-2 w-72 rounded-2xl bg-white p-2 border border-slate-200 shadow-2xl z-50 animate-in fade-in-50 zoom-in-95">
+                <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                  Download Excel / CSV
+                </div>
+                <div className="space-y-1 pt-1.5">
+                  <button
+                    onClick={() => {
+                      exportInvoicesToCsv(invoices, "BillEase_Sales_Register");
+                      setIsExportOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-emerald-800 transition-all cursor-pointer"
+                  >
+                    <FileSpreadsheet className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <div>
+                      <span className="block font-bold">Sales Register & GST</span>
+                      <span className="text-[10px] text-slate-400 font-normal">All invoices, CGST/SGST/IGST breakdown</span>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      exportPaymentsToCsv(payments, "BillEase_Collections_Log");
+                      setIsExportOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-emerald-800 transition-all cursor-pointer"
+                  >
+                    <FileSpreadsheet className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <div>
+                      <span className="block font-bold">Payments & Collections</span>
+                      <span className="text-[10px] text-slate-400 font-normal">Receipts, modes, references, amounts</span>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      exportClientsToCsv(clients, "BillEase_Client_Ledger");
+                      setIsExportOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-emerald-800 transition-all cursor-pointer"
+                  >
+                    <FileSpreadsheet className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <div>
+                      <span className="block font-bold">Client Receivables Ledger</span>
+                      <span className="text-[10px] text-slate-400 font-normal">Customer balances and total billed</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           <button
             onClick={() => window.print()}
             className="clay-icon-squircle flex items-center gap-1.5 h-9 px-3.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs font-bold text-slate-700 hover:bg-slate-100 transition-all cursor-pointer"
@@ -214,6 +298,7 @@ export default function ReportsPage() {
           </button>
         </div>
       </div>
+
 
       {/* 4 Top Executive Health Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
