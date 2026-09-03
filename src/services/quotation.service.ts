@@ -1,6 +1,8 @@
 import { supabase } from "@/lib/supabase/client";
 import { Quotation, QuotationStatus, TaxBreakdown } from "@/types";
 import { AuthService } from "./auth.service";
+import { getSafeSequentialQuotationNumber } from "@/lib/numbering-safety";
+
 
 export const QuotationService = {
   // Fetch all quotations for active tenant from Supabase
@@ -233,7 +235,9 @@ export const QuotationService = {
     try {
       const tenantId = await AuthService.getActiveTenantId();
       const quoteId = quotation.id || `quote-${Date.now()}`;
-      const quoteNumber = quotation.quotationNumber || `QT-${Date.now().toString().slice(-4)}`;
+      const preferredNumber = quotation.quotationNumber || `QT-${Date.now().toString().slice(-4)}`;
+      const quoteNumber = await getSafeSequentialQuotationNumber(tenantId, preferredNumber);
+
 
       // Encode inter-state metadata into notes cleanly if IGST selected
       let finalNotes = quotation.notes || null;

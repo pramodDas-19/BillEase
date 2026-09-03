@@ -3,6 +3,9 @@ import { calculateDocumentTotals } from "@/lib/calculation";
 import { generateUpiIntentUrl, getUpiQrImageUrl } from "@/lib/upi";
 import { generateCsvContent, CsvColumn } from "@/lib/export-csv";
 import { formatWhatsAppPhoneNumber, getWhatsAppInvoiceShareUrl } from "@/lib/whatsapp";
+import { validateInvoiceInput, validateQuotationInput, validateClientInput } from "@/lib/server-validations";
+import { urlBase64ToUint8Array, VAPID_PUBLIC_KEY } from "@/lib/web-push";
+
 
 
 describe("Financial Calculation Engine", () => {
@@ -203,4 +206,63 @@ describe("Professional WhatsApp Notification Engine", () => {
     expect(decodedMessage).toContain("Elite Media Works");
   });
 });
+
+describe("Server-Side Input Validation Suite", () => {
+  it("rejects invoices with missing client name or empty items", () => {
+    const invalidInvoice = {
+      clientName: "",
+      items: [],
+    };
+    const result = validateInvoiceInput(invalidInvoice);
+    expect(result.isValid).toBe(false);
+    expect(result.errors).toContain("Client name is required and cannot be empty.");
+    expect(result.errors).toContain("Invoice must contain at least one line item.");
+  });
+
+  it("rejects negative amounts on line items", () => {
+    const invalidItemInvoice = {
+      clientName: "Good Client",
+      items: [{ description: "Bad Item", amount: -500 }],
+    };
+    const result = validateInvoiceInput(invalidItemInvoice);
+    expect(result.isValid).toBe(false);
+    expect(result.errors).toContain("Line item #1 amount must be a positive number.");
+  });
+
+  it("accepts a fully valid invoice payload", () => {
+    const validInvoice = {
+      clientName: "Tech Corp India",
+      issueDate: "2026-09-03",
+      dueDate: "2026-09-17",
+      items: [{ description: "Annual SaaS License", amount: 45000 }],
+      subtotal: 45000,
+      totalAmount: 53100,
+    };
+    const result = validateInvoiceInput(validInvoice);
+    expect(result.isValid).toBe(true);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it("validates client GSTIN length if provided", () => {
+    const invalidGstinClient = {
+      name: "Acme Trader",
+      gstin: "12345", // too short (must be 15)
+    };
+    const res = validateClientInput(invalidGstinClient);
+    expect(res.isValid).toBe(false);
+    expect(res.errors).toContain("GSTIN must be exactly 15 characters.");
+  });
+});
+
+describe("Real Web Push (VAPID) Engine", () => {
+  it("provides a valid VAPID public key and decodes to Uint8Array for browser push manager", () => {
+    expect(VAPID_PUBLIC_KEY).toBeTruthy();
+    expect(VAPID_PUBLIC_KEY.length).toBeGreaterThan(30);
+
+    const uint8Arr = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+    expect(uint8Arr).toBeInstanceOf(Uint8Array);
+    expect(uint8Arr.length).toBeGreaterThan(0);
+  });
+});
+
 

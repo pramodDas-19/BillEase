@@ -2,6 +2,8 @@ import { supabase } from "@/lib/supabase/client";
 import { Invoice, InvoiceStatus, TaxBreakdown } from "@/types";
 import { QuotationService } from "./quotation.service";
 import { AuthService } from "./auth.service";
+import { getSafeSequentialInvoiceNumber } from "@/lib/numbering-safety";
+
 
 export const InvoiceService = {
   // Fetch all invoices with line items for active tenant from Supabase
@@ -224,7 +226,9 @@ export const InvoiceService = {
     try {
       const tenantId = await AuthService.getActiveTenantId();
       const invoiceId = invoice.id || `inv-${Date.now()}`;
-      const invoiceNumber = invoice.invoiceNumber || `INV-${Date.now().toString().slice(-4)}`;
+      const preferredNumber = invoice.invoiceNumber || `INV-${Date.now().toString().slice(-4)}`;
+      const invoiceNumber = await getSafeSequentialInvoiceNumber(tenantId, preferredNumber);
+
 
       // Encode inter-state metadata into notes cleanly if IGST selected
       let finalNotes = invoice.notes || null;
