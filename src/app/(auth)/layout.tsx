@@ -115,21 +115,21 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <div className="relative z-10 pt-6 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
           <div className="flex items-center gap-2 font-medium">
             <ShieldCheck className="h-4 w-4 text-emerald-400" />
-            <span>PostgreSQL Multi-Tenant Security</span>
+            <span>Secure Multi-Tenant Infrastructure</span>
           </div>
           <div className="flex items-center gap-1 text-[11px] font-bold text-slate-300">
-            <span>500+ Studios Active</span>
+            <span>Built for Growing Businesses</span>
           </div>
         </div>
       </div>
 
       {/* RIGHT AUTH CANVAS (Mobile full width, 7 cols on lg, 7 cols on xl) */}
-      <div className="col-span-1 lg:col-span-7 xl:col-span-7 flex flex-col justify-center items-center p-6 sm:p-12 lg:p-16 bg-slate-900/50 backdrop-blur-sm relative">
+      <div className="col-span-1 lg:col-span-7 xl:col-span-7 flex flex-col justify-between items-center p-6 sm:p-10 lg:p-12 bg-slate-900/50 backdrop-blur-sm relative min-h-screen">
         {/* Subtle background grid pattern */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-20 pointer-events-none" />
 
         {/* Mobile Header (Shown on mobile only) */}
-        <div className="lg:hidden mb-8 text-center">
+        <div className="lg:hidden mb-4 text-center">
           <Link href="/" className="inline-flex items-center">
             <div className="h-16 px-4 py-2 rounded-2xl bg-white/95 border border-white/40 shadow-md flex items-center justify-center">
               <img
@@ -141,13 +141,44 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           </Link>
         </div>
 
-
-
-        {/* Form Container */}
-        <div className="w-full max-w-md relative z-10">
+        {/* Form Container (Vertically centered) */}
+        <div className="w-full max-w-md relative z-10 my-auto py-6">
           {children}
         </div>
+
+        {/* Footer: Made in India & Copyright Notice */}
+        <div className="relative z-10 pt-4 pb-2 w-full flex flex-col items-center sm:items-end gap-1.5 text-center sm:text-right">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-800/70 hover:bg-slate-800/90 border border-slate-700/70 shadow-lg shadow-black/20 backdrop-blur-md transition-all duration-200 group select-none hover:border-slate-600">
+            {/* Crisp SVG Indian Tricolor Flag */}
+            <svg
+              className="w-4 h-3 rounded-xs shadow-2xs shrink-0 overflow-hidden"
+              viewBox="0 0 24 16"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <rect width="24" height="5.33" fill="#FF9933" />
+              <rect y="5.33" width="24" height="5.33" fill="#FFFFFF" />
+              <rect y="10.66" width="24" height="5.33" fill="#138808" />
+              <circle cx="12" cy="8" r="2.2" stroke="#000080" strokeWidth="0.6" fill="none" />
+            </svg>
+
+            <span className="text-xs font-extrabold tracking-wide text-slate-200 group-hover:text-white transition-colors">
+              Made in India
+            </span>
+
+            <span className="flex h-1.5 w-1.5 relative">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+            </span>
+          </div>
+
+          <p className="text-[11px] font-medium text-slate-500 tracking-wide">
+            BillEase v1.0.0 · © 2026 Pramod Das. All rights reserved.
+          </p>
+        </div>
       </div>
+
+
     </div>
   );
 }
