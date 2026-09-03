@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import { calculateDocumentTotals } from "@/lib/calculation";
 import { generateUpiIntentUrl, getUpiQrImageUrl } from "@/lib/upi";
 import { generateCsvContent, CsvColumn } from "@/lib/export-csv";
+import { formatWhatsAppPhoneNumber, getWhatsAppInvoiceShareUrl } from "@/lib/whatsapp";
+
 
 describe("Financial Calculation Engine", () => {
   it("computes standard Intra-State GST with exact CGST/SGST split", () => {
@@ -172,3 +174,33 @@ describe("CSV / Excel Data Export Utility", () => {
     expect(csv).toContain("25000");
   });
 });
+
+describe("Professional WhatsApp Notification Engine", () => {
+  it("auto-normalizes 10-digit Indian numbers with 91 country code", () => {
+    expect(formatWhatsAppPhoneNumber("9876543210")).toBe("919876543210");
+    expect(formatWhatsAppPhoneNumber("+91 98765 43210")).toBe("919876543210");
+    expect(formatWhatsAppPhoneNumber("09876543210")).toBe("919876543210");
+    expect(formatWhatsAppPhoneNumber("")).toBe("");
+  });
+
+  it("generates a professional WhatsApp bill share link with business branding and tokenized payment URL", () => {
+    const url = getWhatsAppInvoiceShareUrl({
+      clientPhone: "9876543210",
+      clientName: "Rohan Verma",
+      invoiceNumber: "INV-2026-88",
+      invoiceId: "inv-123",
+      publicToken: "550e8400-e29b-41d4-a716-446655440000",
+      totalAmount: 25000,
+      balanceDue: 25000,
+      businessName: "Elite Media Works",
+    });
+
+    expect(url).toContain("https://wa.me/919876543210?text=");
+    const decodedMessage = decodeURIComponent(url);
+    expect(decodedMessage).toContain("Hello *Rohan Verma*");
+    expect(decodedMessage).toContain("TAX INVOICE #INV-2026-88* from *Elite Media Works*");
+    expect(decodedMessage).toContain("/pay/550e8400-e29b-41d4-a716-446655440000");
+    expect(decodedMessage).toContain("Elite Media Works");
+  });
+});
+

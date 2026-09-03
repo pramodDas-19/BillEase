@@ -10,6 +10,7 @@ export interface WhatsAppInvoiceShareParams {
   totalAmount: number;
   balanceDue: number;
   currency?: CurrencyCode;
+  businessName?: string;
 }
 
 export interface WhatsAppQuotationShareParams {
@@ -22,6 +23,7 @@ export interface WhatsAppQuotationShareParams {
   advanceAmount?: number;
   validUntil?: string;
   currency?: CurrencyCode;
+  businessName?: string;
 }
 
 export interface WhatsAppReminderParams {
@@ -32,8 +34,8 @@ export interface WhatsAppReminderParams {
   publicToken?: string;
   balanceDue: number;
   currency?: CurrencyCode;
+  businessName?: string;
 }
-
 
 export interface WhatsAppPaymentReceiptParams {
   clientPhone?: string;
@@ -42,6 +44,31 @@ export interface WhatsAppPaymentReceiptParams {
   paymentNumber: string;
   amount: number;
   currency?: CurrencyCode;
+  businessName?: string;
+}
+
+/**
+ * Normalizes phone numbers to standard WhatsApp E.164 international format.
+ * In India, users frequently enter 10-digit mobile numbers (e.g. 9876543210 or 09876543210).
+ * This ensures they are prefixed with '91' so the wa.me link opens properly without invalid number errors.
+ */
+export function formatWhatsAppPhoneNumber(phone: string): string {
+  if (!phone) return "";
+  let clean = phone.replace(/[^0-9]/g, "");
+  if (!clean) return "";
+
+  // 10 digits starting with 6, 7, 8, or 9 -> Indian mobile number
+  if (clean.length === 10 && /^[6-9]/.test(clean)) {
+    return `91${clean}`;
+  }
+
+  // 11 digits starting with 0 (e.g. 09876543210) -> Strip leading 0 and add 91
+  if (clean.length === 11 && clean.startsWith("0") && /^[6-9]/.test(clean.substring(1))) {
+    return `91${clean.substring(1)}`;
+  }
+
+  // Otherwise return cleaned number
+  return clean;
 }
 
 const getBaseUrl = () => {
@@ -60,26 +87,44 @@ export function getWhatsAppInvoiceShareUrl({
   totalAmount,
   balanceDue,
   currency = "INR",
+  businessName,
 }: WhatsAppInvoiceShareParams): string {
-  const cleanPhone = clientPhone.replace(/[^0-9]/g, "");
+  const cleanPhone = formatWhatsAppPhoneNumber(clientPhone);
   const baseUrl = getBaseUrl();
   const totalFormatted = formatCurrency(totalAmount, currency);
   const balanceFormatted = formatCurrency(balanceDue, currency);
-  const payUrl = `${baseUrl}/pay/${publicToken}`;
+  const payUrl = publicToken ? `${baseUrl}/pay/${publicToken}` : "";
 
-  const message = [
+  const lines = [
     `Hello *${clientName.trim()}*,`,
     ``,
-    `Your tax invoice *#${invoiceNumber}* for *${totalFormatted}* is ready.`,
-    ``,
-    `*1-Click Instant Pay (UPI / GPay / Cards):*`,
-    payUrl,
-    ``,
-    `*Balance Due:* ${balanceFormatted}`,
-    `Thank you for your business!`,
-  ].join("\n");
+    businessName
+      ? `🧾 *TAX INVOICE #${invoiceNumber}* from *${businessName.trim()}*`
+      : `🧾 *TAX INVOICE #${invoiceNumber}*`,
+    `Total Amount: *${totalFormatted}*`,
+    `Balance Due: *${balanceFormatted}*`,
+  ];
 
-  return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+  if (payUrl) {
+    lines.push(
+      ``,
+      `💳 *Pay Online (UPI, GPay, PhonePe, Cards):*`,
+      payUrl,
+      ``,
+      `_Click the link above to view your bill and settle instantly._`
+    );
+  }
+
+  lines.push(
+    ``,
+    `Thank you for your business!`,
+    businessName ? `— *${businessName.trim()}*` : ""
+  );
+
+  const message = lines.filter((line) => line !== "").join("\n");
+  return cleanPhone
+    ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`
+    : `https://wa.me/?text=${encodeURIComponent(message)}`;
 }
 
 // 2. Quotation / Estimate Share
@@ -93,35 +138,48 @@ export function getWhatsAppQuotationShareUrl({
   advanceAmount,
   validUntil,
   currency = "INR",
+  businessName,
 }: WhatsAppQuotationShareParams): string {
-  const cleanPhone = clientPhone.replace(/[^0-9]/g, "");
+  const cleanPhone = formatWhatsAppPhoneNumber(clientPhone);
   const baseUrl = getBaseUrl();
   const totalFormatted = formatCurrency(totalAmount, currency);
   const advance = advanceAmount || Math.round(totalAmount * 0.5);
   const advanceFormatted = formatCurrency(advance, currency);
-  const payUrl = `${baseUrl}/pay/${publicToken}`;
+  const payUrl = publicToken ? `${baseUrl}/pay/${publicToken}` : "";
 
   const lines = [
     `Hello *${clientName.trim()}*,`,
     ``,
-    `Your price quotation *#${quotationNumber}* for *${totalFormatted}* is ready.`,
+    businessName
+      ? `📋 *PRICE QUOTATION #${quotationNumber}* from *${businessName.trim()}*`
+      : `📋 *PRICE QUOTATION #${quotationNumber}*`,
+    `Estimated Total: *${totalFormatted}*`,
   ];
 
   if (validUntil) {
-    lines.push(`*Valid Until:* ${validUntil}`);
+    lines.push(`Valid Until: *${validUntil}*`);
+  }
+
+  if (payUrl) {
+    lines.push(
+      ``,
+      `💳 *1-Click Advance Booking (${advanceFormatted}):*`,
+      payUrl,
+      ``,
+      `_Paying the advance will automatically issue your Tax Invoice & confirm your booking._`
+    );
   }
 
   lines.push(
     ``,
-    `*1-Click Advance Payment (${advanceFormatted}):*`,
-    payUrl,
-    ``,
-    `_Paying the advance will automatically issue your Tax Invoice & confirm the booking._`,
-    `Thank you!`
+    `Thank you!`,
+    businessName ? `— *${businessName.trim()}*` : ""
   );
 
-  const message = lines.join("\n");
-  return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+  const message = lines.filter((line) => line !== "").join("\n");
+  return cleanPhone
+    ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`
+    : `https://wa.me/?text=${encodeURIComponent(message)}`;
 }
 
 // 3. Balance Due & Overdue Reminder
@@ -133,36 +191,43 @@ export function getWhatsAppReminderUrl({
   publicToken,
   balanceDue,
   currency = "INR",
+  businessName,
 }: WhatsAppReminderParams): string {
-  const cleanPhone = clientPhone.replace(/[^0-9]/g, "");
+  const cleanPhone = formatWhatsAppPhoneNumber(clientPhone);
   const baseUrl = getBaseUrl();
   const balanceFormatted = formatCurrency(balanceDue, currency);
+  const payUrl = publicToken ? `${baseUrl}/pay/${publicToken}` : "";
 
   const lines = [
     `Hello *${clientName.trim()}*,`,
     ``,
+    businessName
+      ? `⏳ *Friendly Payment Reminder* from *${businessName.trim()}*`
+      : `⏳ *Friendly Payment Reminder*`,
     invoiceNumber
-      ? `This is a friendly reminder regarding your outstanding balance of *${balanceFormatted}* on invoice *#${invoiceNumber}*.`
-      : `This is a friendly reminder regarding your outstanding ledger balance of *${balanceFormatted}*.`,
+      ? `Regarding outstanding balance on invoice *#${invoiceNumber}*:`
+      : `Regarding your outstanding ledger balance:`,
+    `Balance Due: *${balanceFormatted}*`,
   ];
 
-  if (publicToken) {
+  if (payUrl) {
     lines.push(
       ``,
-      `*1-Click Instant Settlement:*`,
-      `${baseUrl}/pay/${publicToken}`
+      `💳 *1-Click Instant Settlement:*`,
+      payUrl
     );
   }
 
-
-
   lines.push(
     ``,
-    `Kindly arrange for settlement at your earliest convenience. Thank you!`
+    `Kindly arrange for settlement at your earliest convenience. Thank you!`,
+    businessName ? `— *${businessName.trim()}*` : ""
   );
 
-  const message = lines.join("\n");
-  return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+  const message = lines.filter((line) => line !== "").join("\n");
+  return cleanPhone
+    ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`
+    : `https://wa.me/?text=${encodeURIComponent(message)}`;
 }
 
 // 4. Payment Receipt Acknowledgment
@@ -173,21 +238,25 @@ export function getWhatsAppPaymentReceiptUrl({
   paymentNumber,
   amount,
   currency = "INR",
+  businessName,
 }: WhatsAppPaymentReceiptParams): string {
-  const cleanPhone = clientPhone ? clientPhone.replace(/[^0-9]/g, "") : "";
+  const cleanPhone = clientPhone ? formatWhatsAppPhoneNumber(clientPhone) : "";
   const amountFormatted = formatCurrency(amount, currency);
 
   const lines = [
     `Hello *${clientName.trim()}*,`,
     ``,
-    invoiceNumber
-      ? `Payment of *${amountFormatted}* for invoice *#${invoiceNumber}* (Receipt *#${paymentNumber}*) has been received with thanks.`
-      : `Payment of *${amountFormatted}* (Receipt *#${paymentNumber}*) has been recorded with thanks.`,
+    `✅ *PAYMENT RECEIVED WITH THANKS*`,
+    businessName ? `Received by: *${businessName.trim()}*` : "",
+    `Receipt Number: *#${paymentNumber}*`,
+    invoiceNumber ? `Invoice Reference: *#${invoiceNumber}*` : "",
+    `Amount Paid: *${amountFormatted}*`,
     ``,
     `Thank you for your business!`,
+    businessName ? `— *${businessName.trim()}*` : "",
   ];
 
-  const message = lines.join("\n");
+  const message = lines.filter((line) => line !== "").join("\n");
   return cleanPhone
     ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`
     : `https://wa.me/?text=${encodeURIComponent(message)}`;
