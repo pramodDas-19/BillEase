@@ -11,17 +11,18 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "BillEase - Modern Multi-Tenant Billing & Invoicing SaaS",
+  title: "BillEase — Smart Billing & Invoicing",
   description:
-    "Production-ready Quotation, Invoicing, Payment Tracking and Client Management platform for event planners, printing businesses, and creative studios.",
+    "Fast, compliant quotation, invoicing, payment tracking and GST billing platform for all Indian businesses.",
   manifest: "/manifest.json",
   icons: {
     icon: [
-      { url: "/icon.png", type: "image/png" },
+      { url: "/icon-192.png", type: "image/png", sizes: "192x192" },
+      { url: "/icon-512.png", type: "image/png", sizes: "512x512" },
       { url: "/favicon.ico" },
     ],
-    shortcut: ["/icon.png"],
-    apple: [{ url: "/icon.png" }],
+    shortcut: ["/icon-192.png"],
+    apple: [{ url: "/icon-192.png" }],
   },
   appleWebApp: {
     capable: true,
@@ -29,6 +30,7 @@ export const metadata: Metadata = {
     title: "BillEase",
   },
 };
+
 
 export default function RootLayout({
   children,

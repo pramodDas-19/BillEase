@@ -1,7 +1,7 @@
 {
-  "name": "BillEase - Smart Billing & Invoicing SaaS",
+  "name": "BillEase",
   "short_name": "BillEase",
-  "description": "Multi-Tenant SMB Invoicing, Quotations, and WhatsApp 1-Click Payments Platform",
+  "description": "Smart Billing, Quotations & Invoicing for all Indian Businesses",
   "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#ffffff",
@@ -9,16 +9,22 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/icon.png",
+      "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "/icon.png",
+      "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "shortcuts": [
@@ -27,14 +33,14 @@
       "short_name": "New Invoice",
       "description": "Generate a new tax invoice",
       "url": "/invoices/new",
-      "icons": [{ "src": "/icon.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Create Quotation",
       "short_name": "New Quote",
       "description": "Create a new price quotation",
       "url": "/quotations/new",
-      "icons": [{ "src": "/icon.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }
