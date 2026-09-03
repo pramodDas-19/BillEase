@@ -1,9 +1,14 @@
 import { TaxBreakdown } from "@/types";
 
 export interface LineItemCalculable {
+  id?: string;
+  description?: string;
   amount: number;
+  quantity?: number;
+  rate?: number;
   taxRate?: number;
 }
+
 
 export interface CalculationInput {
   items: LineItemCalculable[];
@@ -18,12 +23,14 @@ export interface CalculationResult {
   subtotal: number;
   discountAmount: number;
   netAfterDiscount: number;
+  taxableAmount: number;
   isTaxEnabled: boolean;
   gstType: "intra_state" | "inter_state";
   taxBreakdown: TaxBreakdown[];
   totalTax: number;
   totalAmount: number;
 }
+
 
 /**
  * Pure calculation engine for Quotations and Invoices.
@@ -101,6 +108,7 @@ export function calculateDocumentTotals(input: CalculationInput): CalculationRes
     subtotal: Math.round(subtotal * 100) / 100,
     discountAmount,
     netAfterDiscount,
+    taxableAmount: netAfterDiscount,
     isTaxEnabled,
     gstType,
     taxBreakdown,
@@ -108,4 +116,5 @@ export function calculateDocumentTotals(input: CalculationInput): CalculationRes
     totalAmount,
   };
 }
+
 

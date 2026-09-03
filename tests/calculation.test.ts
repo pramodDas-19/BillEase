@@ -1,0 +1,174 @@
+import { describe, it, expect } from "vitest";
+import { calculateDocumentTotals } from "@/lib/calculation";
+import { generateUpiIntentUrl, getUpiQrImageUrl } from "@/lib/upi";
+import { generateCsvContent, CsvColumn } from "@/lib/export-csv";
+
+describe("Financial Calculation Engine", () => {
+  it("computes standard Intra-State GST with exact CGST/SGST split", () => {
+    const result = calculateDocumentTotals({
+      items: [{ id: "1", description: "Wedding Photography", amount: 10000 }],
+      isTaxEnabled: true,
+      defaultTaxRate: 18,
+      gstType: "intra_state",
+    });
+
+    expect(result.subtotal).toBe(10000);
+    expect(result.taxableAmount).toBe(10000);
+    expect(result.totalTax).toBe(1800);
+    expect(result.totalAmount).toBe(11800);
+    expect(result.taxBreakdown).toHaveLength(2);
+    expect(result.taxBreakdown[0]).toEqual({ name: "CGST (9%)", rate: 9, amount: 900 });
+    expect(result.taxBreakdown[1]).toEqual({ name: "SGST (9%)", rate: 9, amount: 900 });
+  });
+
+  it("computes Inter-State GST with IGST", () => {
+    const result = calculateDocumentTotals({
+      items: [{ id: "1", description: "Video Editing Out of State", amount: 20000 }],
+      isTaxEnabled: true,
+      defaultTaxRate: 18,
+      gstType: "inter_state",
+    });
+
+    expect(result.subtotal).toBe(20000);
+    expect(result.taxableAmount).toBe(20000);
+    expect(result.totalTax).toBe(3600);
+    expect(result.totalAmount).toBe(23600);
+    expect(result.taxBreakdown).toHaveLength(1);
+    expect(result.taxBreakdown[0]).toEqual({ name: "IGST (18%)", rate: 18, amount: 3600 });
+  });
+
+  it("produces clean zero tax when isTaxEnabled is false (unregistered freelancers)", () => {
+    const result = calculateDocumentTotals({
+      items: [{ id: "1", description: "Logo Design", amount: 15000 }],
+      isTaxEnabled: false,
+      defaultTaxRate: 18,
+    });
+
+    expect(result.subtotal).toBe(15000);
+    expect(result.taxableAmount).toBe(15000);
+    expect(result.totalTax).toBe(0);
+    expect(result.totalAmount).toBe(15000);
+    expect(result.taxBreakdown).toEqual([]);
+  });
+
+  it("applies percentage discount before calculating tax", () => {
+    // 10,000 with 10% discount = 9,000 taxable. 18% tax on 9,000 = 1,620. Total = 10,620.
+    const result = calculateDocumentTotals({
+      items: [{ id: "1", description: "Event Stage Decor", amount: 10000 }],
+      discountType: "percentage",
+      discountValue: 10,
+      isTaxEnabled: true,
+      defaultTaxRate: 18,
+      gstType: "intra_state",
+    });
+
+    expect(result.subtotal).toBe(10000);
+    expect(result.discountAmount).toBe(1000);
+    expect(result.taxableAmount).toBe(9000);
+    expect(result.totalTax).toBe(1620);
+    expect(result.totalAmount).toBe(10620);
+    expect(result.taxBreakdown[0].amount).toBe(810); // CGST 9% of 9000
+    expect(result.taxBreakdown[1].amount).toBe(810); // SGST 9% of 9000
+  });
+
+  it("applies fixed discount before calculating tax", () => {
+    // 5,000 with 500 fixed discount = 4,500 taxable. 18% tax = 810. Total = 5,310.
+    const result = calculateDocumentTotals({
+      items: [{ id: "1", description: "Print 500 Brochures", amount: 5000 }],
+      discountType: "fixed",
+      discountValue: 500,
+      isTaxEnabled: true,
+      defaultTaxRate: 18,
+      gstType: "inter_state",
+    });
+
+    expect(result.subtotal).toBe(5000);
+    expect(result.discountAmount).toBe(500);
+    expect(result.taxableAmount).toBe(4500);
+    expect(result.totalTax).toBe(810);
+    expect(result.totalAmount).toBe(5310);
+  });
+
+  it("handles odd cent split rounding with mathematical parity", () => {
+    // 105 at 18% = 18.90 total tax.
+    // CGST = 9.45, SGST = 9.45.
+    const result = calculateDocumentTotals({
+      items: [{ id: "1", description: "Minor repair", amount: 105 }],
+      isTaxEnabled: true,
+      defaultTaxRate: 18,
+      gstType: "intra_state",
+    });
+
+    expect(result.totalTax).toBe(18.9);
+    expect(result.taxBreakdown[0].amount).toBe(9.45);
+    expect(result.taxBreakdown[1].amount).toBe(9.45);
+    expect(result.totalAmount).toBe(123.9);
+  });
+});
+
+describe("Local Offline UPI QR Code Generator", () => {
+  it("generates a valid UPI payment intent URI", () => {
+    const uri = generateUpiIntentUrl({
+      upiId: "studio@okaxis",
+      businessName: "Studio Royal",
+      amount: 15000,
+      transactionRef: "INV-2026-001",
+      note: "Wedding Photography Balance",
+    });
+
+    expect(uri).toContain("upi://pay?");
+    expect(uri).toContain("pa=studio%40okaxis");
+    expect(uri).toContain("pn=Studio%20Royal");
+    expect(uri).toContain("am=15000.00");
+    expect(uri).toContain("cu=INR");
+  });
+
+  it("renders a 100% local SVG QR data URI without third-party network calls", () => {
+    const uri = generateUpiIntentUrl({
+      upiId: "studio@okaxis",
+      businessName: "Studio Royal",
+      amount: 500,
+    });
+
+    const qrDataUri = getUpiQrImageUrl(uri, 300);
+
+    expect(qrDataUri).toContain("data:image/svg+xml;utf8,");
+    expect(qrDataUri).toContain("%3Csvg");
+    expect(qrDataUri).toContain("%3Cpath");
+    expect(qrDataUri).not.toContain("api.qrserver.com");
+  });
+});
+
+describe("CSV / Excel Data Export Utility", () => {
+  it("escapes commas, quotes, and newlines and prepends UTF-8 BOM", () => {
+    interface SampleData {
+      name: string;
+      notes: string;
+      amount: number;
+    }
+
+    const cols: CsvColumn<SampleData>[] = [
+      { label: "Customer Name", getValue: (d) => d.name },
+      { label: "Notes", getValue: (d) => d.notes },
+      { label: "Amount", getValue: (d) => d.amount },
+    ];
+
+    const data: SampleData[] = [
+      {
+        name: 'John "The Boss", Doe',
+        notes: "Advance paid: 50%\nPending on delivery",
+        amount: 25000,
+      },
+    ];
+
+    const csv = generateCsvContent(cols, data);
+
+    // Checks UTF-8 BOM (\uFEFF)
+    expect(csv.startsWith("\uFEFF")).toBe(true);
+    // Checks quote escaping
+    expect(csv).toContain('"John ""The Boss"", Doe"');
+    // Checks multiline wrapping
+    expect(csv).toContain('"Advance paid: 50%\nPending on delivery"');
+    expect(csv).toContain("25000");
+  });
+});

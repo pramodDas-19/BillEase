@@ -1,6 +1,30 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { supabase } from "@/lib/supabase/client";
+import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
+
+function getServiceRoleSupabase() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://butxutqhbhscbihunnwr.supabase.co";
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceRoleKey) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY is required for webhook processing.");
+  }
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+
+function safeCompareSignatures(known: string, received: string): boolean {
+  try {
+    const knownBuf = Buffer.from(known, "utf8");
+    const receivedBuf = Buffer.from(received, "utf8");
+    if (knownBuf.length !== receivedBuf.length) {
+      return false;
+    }
+    return crypto.timingSafeEqual(knownBuf, receivedBuf);
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Secure Webhook Listener for Payment Gateway & Bank Confirmations (Razorpay / Cashfree / Custom Webhooks)
@@ -17,21 +41,21 @@ export async function POST(request: NextRequest) {
 
     if (webhookSecret) {
       if (razorpaySignature) {
-        // Razorpay HMAC SHA256 Signature Verification
+        // Razorpay HMAC SHA256 Signature Verification (constant-time)
         const expectedSignature = crypto
           .createHmac("sha256", webhookSecret)
           .update(rawBody)
           .digest("hex");
 
-        if (expectedSignature !== razorpaySignature) {
+        if (!safeCompareSignatures(expectedSignature, razorpaySignature)) {
           return NextResponse.json(
             { error: "Invalid webhook signature. Unauthorized." },
             { status: 401 }
           );
         }
       } else if (customSecretHeader) {
-        // Custom Webhook Shared Secret Verification
-        if (customSecretHeader !== webhookSecret) {
+        // Custom Webhook Shared Secret Verification (constant-time)
+        if (!safeCompareSignatures(webhookSecret, customSecretHeader)) {
           return NextResponse.json(
             { error: "Invalid webhook secret token. Unauthorized." },
             { status: 401 }
@@ -44,7 +68,7 @@ export async function POST(request: NextRequest) {
         );
       }
     } else {
-      // In development or when secret not configured, warn and require at least a secret token header
+      // In development or when secret not configured, block in production
       const devSecret = request.headers.get("x-webhook-secret");
       if (!devSecret && process.env.NODE_ENV === "production") {
         return NextResponse.json(
@@ -53,6 +77,7 @@ export async function POST(request: NextRequest) {
         );
       }
     }
+
 
     const body = JSON.parse(rawBody);
 
@@ -80,8 +105,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const db = getServiceRoleSupabase();
+
     // 2. Idempotency Check: Prevent duplicate payment settlement
-    const { data: existingPayment } = await supabase
+    const { data: existingPayment } = await db
       .from("payments")
       .select("id, payment_number")
       .eq("transaction_reference", transactionRef)
@@ -96,7 +123,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Fetch Target Invoice from PostgreSQL
-    let query = supabase.from("invoices").select("*");
+    let query = db.from("invoices").select("*");
     if (invoiceId) {
       query = query.eq("id", invoiceId);
     } else {
@@ -119,7 +146,7 @@ export async function POST(request: NextRequest) {
 
     // 4. Insert Verified Payment Receipt in 'payments' table
     const paymentNum = `PAY-${Date.now().toString().slice(-4)}`;
-    const { error: payInsertErr } = await supabase.from("payments").insert([
+    const { error: payInsertErr } = await db.from("payments").insert([
       {
         id: `pay-${Date.now()}`,
         tenant_id: invoice.tenant_id,
@@ -147,7 +174,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 5. Auto-Update Invoice Balance & Status in PostgreSQL
-    const { error: updateErr } = await supabase
+    const { error: updateErr } = await db
       .from("invoices")
       .update({
         paid_amount: newPaidAmount,
@@ -156,6 +183,7 @@ export async function POST(request: NextRequest) {
         updated_at: new Date().toISOString(),
       })
       .eq("id", invoice.id);
+
 
     if (updateErr) {
       console.error("Failed to update invoice balance from webhook:", updateErr);
