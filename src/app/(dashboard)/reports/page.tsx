@@ -188,8 +188,16 @@ export default function ReportsPage() {
           </p>
         </div>
 
-        {/* Timeframe selector & Export buttons */}
-        <div className="flex items-center gap-2.5 flex-wrap">
+        {/* Print-Only Report Summary Badge */}
+        <div className="hidden print:flex items-center gap-3 text-xs font-bold text-slate-700 bg-slate-100 px-3.5 py-2 rounded-xl border border-slate-300">
+          <span>Period: {timeframe === "month" ? "This Month" : timeframe === "quarter" ? "This Quarter" : "FY 2026-27"}</span>
+          <span className="text-slate-400">•</span>
+          <span>Date: {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
+        </div>
+
+        {/* Timeframe selector & Export buttons (Interactive only, hidden in print) */}
+        <div className="flex items-center gap-2.5 flex-wrap print:hidden">
+
           <div className="flex items-center rounded-xl bg-slate-100 p-1 border border-slate-200/60 shadow-inner">
             <button
               onClick={() => setTimeframe("month")}
@@ -505,7 +513,7 @@ export default function ReportsPage() {
           </div>
           <Link
             href="/clients"
-            className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 hover:underline"
+            className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 hover:underline print:hidden"
           >
             <span>View All Clients</span>
             <ArrowUpRight className="h-3.5 w-3.5" />
@@ -520,11 +528,12 @@ export default function ReportsPage() {
             </p>
             <Link
               href="/clients/new"
-              className="clay-tag inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200"
+              className="clay-tag inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 print:hidden"
             >
               <Plus className="h-3.5 w-3.5" />
               <span>Add Client</span>
             </Link>
+
           </div>
         ) : (
           <div className="overflow-x-auto">

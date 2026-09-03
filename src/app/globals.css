@@ -166,11 +166,24 @@ body {
     width: 100% !important;
   }
 
-  /* Prevent awkward page break splitting */
-  tr, td, th, .avoid-break {
+  /* Prevent awkward page break splitting & clean print borders */
+  tr, td, th, .avoid-break, .clay-card {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }
+
+  .clay-card {
+    box-shadow: none !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 0.75rem !important;
+    margin-bottom: 1rem !important;
+  }
+
+  .clay-icon-squircle {
+    box-shadow: none !important;
+    border: 1px solid #e2e8f0 !important;
+  }
 }
+
 
 
