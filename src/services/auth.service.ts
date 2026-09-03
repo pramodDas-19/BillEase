@@ -85,8 +85,13 @@ export class AuthService {
       this.setActiveTenantId(data.user.user_metadata.tenant_id);
     }
 
+    if (typeof document !== "undefined") {
+      document.cookie = "billease_auth_session=true; path=/; max-age=604800; SameSite=Lax";
+    }
+
     return data;
   }
+
 
   /**
    * Registers a new tenant and business owner account.
@@ -154,6 +159,10 @@ export class AuthService {
       console.warn("Could not insert initial tenant row:", insertErr);
     }
 
+    if (typeof document !== "undefined") {
+      document.cookie = "billease_auth_session=true; path=/; max-age=604800; SameSite=Lax";
+    }
+
     return data;
   }
 
@@ -165,11 +174,16 @@ export class AuthService {
       localStorage.removeItem("billease_active_tenant_id");
       localStorage.removeItem("billease_registered_user");
     }
+    if (typeof document !== "undefined") {
+      document.cookie = "billease_auth_session=; path=/; max-age=0;";
+      document.cookie = "billease_demo_auth=; path=/; max-age=0;";
+    }
     const { error } = await supabase.auth.signOut();
     if (error) {
       console.error("Sign out error:", error);
     }
   }
+
 
   /**
    * Retrieves the currently authenticated user.

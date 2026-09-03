@@ -1,13 +1,60 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { supabase } from "@/lib/supabase/client";
+import crypto from "crypto";
 
 /**
- * Webhook Listener for Payment Gateway & Bank Confirmations (Razorpay / Cashfree / Custom Webhooks)
+ * Secure Webhook Listener for Payment Gateway & Bank Confirmations (Razorpay / Cashfree / Custom Webhooks)
  * POST /api/webhooks/payments
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const rawBody = await request.text();
+    const webhookSecret = process.env.PAYMENT_WEBHOOK_SECRET || process.env.RAZORPAY_WEBHOOK_SECRET;
+
+    // 1. Webhook Authentication & Signature Verification
+    const razorpaySignature = request.headers.get("x-razorpay-signature");
+    const customSecretHeader = request.headers.get("x-webhook-secret");
+
+    if (webhookSecret) {
+      if (razorpaySignature) {
+        // Razorpay HMAC SHA256 Signature Verification
+        const expectedSignature = crypto
+          .createHmac("sha256", webhookSecret)
+          .update(rawBody)
+          .digest("hex");
+
+        if (expectedSignature !== razorpaySignature) {
+          return NextResponse.json(
+            { error: "Invalid webhook signature. Unauthorized." },
+            { status: 401 }
+          );
+        }
+      } else if (customSecretHeader) {
+        // Custom Webhook Shared Secret Verification
+        if (customSecretHeader !== webhookSecret) {
+          return NextResponse.json(
+            { error: "Invalid webhook secret token. Unauthorized." },
+            { status: 401 }
+          );
+        }
+      } else {
+        return NextResponse.json(
+          { error: "Missing webhook authorization header or signature." },
+          { status: 401 }
+        );
+      }
+    } else {
+      // In development or when secret not configured, warn and require at least a secret token header
+      const devSecret = request.headers.get("x-webhook-secret");
+      if (!devSecret && process.env.NODE_ENV === "production") {
+        return NextResponse.json(
+          { error: "Payment webhook secret not configured. Requests blocked in production." },
+          { status: 403 }
+        );
+      }
+    }
+
+    const body = JSON.parse(rawBody);
 
     // Extract payment details from standard webhook payload
     const event = body.event || "payment.captured";
@@ -26,7 +73,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 1. Fetch Target Invoice from PostgreSQL
+    if (!amount || amount <= 0) {
+      return NextResponse.json(
+        { error: "Invalid settlement amount in webhook payload." },
+        { status: 400 }
+      );
+    }
+
+    // 2. Idempotency Check: Prevent duplicate payment settlement
+    const { data: existingPayment } = await supabase
+      .from("payments")
+      .select("id, payment_number")
+      .eq("transaction_reference", transactionRef)
+      .maybeSingle();
+
+    if (existingPayment) {
+      return NextResponse.json({
+        success: true,
+        message: "Payment already processed previously (idempotent).",
+        paymentNumber: existingPayment.payment_number,
+      });
+    }
+
+    // 3. Fetch Target Invoice from PostgreSQL
     let query = supabase.from("invoices").select("*");
     if (invoiceId) {
       query = query.eq("id", invoiceId);
@@ -48,12 +117,12 @@ export async function POST(request: NextRequest) {
     const newBalanceDue = Math.max(0, totalAmount - newPaidAmount);
     const newStatus = newBalanceDue <= 0 ? "paid" : "partially_paid";
 
-    // 2. Insert Verified Payment Receipt in 'payments' table
+    // 4. Insert Verified Payment Receipt in 'payments' table
     const paymentNum = `PAY-${Date.now().toString().slice(-4)}`;
     const { error: payInsertErr } = await supabase.from("payments").insert([
       {
         id: `pay-${Date.now()}`,
-        tenant_id: invoice.tenant_id || "tenant-royal-events",
+        tenant_id: invoice.tenant_id,
         payment_number: paymentNum,
         invoice_id: invoice.id,
         invoice_number: invoice.invoice_number,
@@ -64,15 +133,20 @@ export async function POST(request: NextRequest) {
         payment_date: new Date().toISOString().split("T")[0],
         payment_method: paymentMethod,
         transaction_reference: transactionRef,
-        notes: `Automated webhook settlement via ${event}`,
+        notes: `Verified webhook settlement via ${event}`,
+        status: "completed",
       },
     ]);
 
     if (payInsertErr) {
       console.error("Failed to insert webhook payment receipt:", payInsertErr);
+      return NextResponse.json(
+        { error: "Database error recording payment receipt." },
+        { status: 500 }
+      );
     }
 
-    // 3. Auto-Update Invoice Balance & Status in PostgreSQL
+    // 5. Auto-Update Invoice Balance & Status in PostgreSQL
     const { error: updateErr } = await supabase
       .from("invoices")
       .update({
@@ -85,29 +159,26 @@ export async function POST(request: NextRequest) {
 
     if (updateErr) {
       console.error("Failed to update invoice balance from webhook:", updateErr);
+      return NextResponse.json(
+        { error: "Database error updating invoice balance." },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
       success: true,
-      message: "Webhook processed successfully. Invoice auto-reconciled.",
+      message: "Verified webhook processed successfully. Invoice auto-reconciled.",
       invoiceNumber: invoice.invoice_number,
       amountSettled: amount,
       newBalanceDue,
       status: newStatus,
+      receiptNumber: paymentNum,
     });
   } catch (err: any) {
     console.error("Webhook processing error:", err);
     return NextResponse.json(
-      { error: "Internal server error processing payment webhook", details: err.message },
+      { error: "Internal server error processing webhook." },
       { status: 500 }
     );
   }
-}
-
-export async function GET() {
-  return NextResponse.json({
-    status: "active",
-    endpoint: "BillEase Payment Webhook Listener",
-    supportedEvents: ["payment.captured", "payment_link.paid", "order.paid"],
-  });
 }

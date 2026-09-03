@@ -49,6 +49,9 @@ export default function LoginPage() {
       }
 
       await AuthService.signIn(email, password);
+      if (typeof document !== "undefined") {
+        document.cookie = "billease_auth_session=true; path=/; max-age=604800; SameSite=Lax";
+      }
       router.push("/dashboard");
     } catch (err: any) {
       if (err.message && err.message.toLowerCase().includes("email not confirmed")) {
@@ -58,11 +61,15 @@ export default function LoginPage() {
             const parsed = JSON.parse(registered);
             if (parsed.email && parsed.email.toLowerCase() === email.toLowerCase()) {
               AuthService.setActiveTenantId(parsed.tenantId);
+              if (typeof document !== "undefined") {
+                document.cookie = "billease_auth_session=true; path=/; max-age=604800; SameSite=Lax";
+              }
               router.push("/dashboard");
               return;
             }
           } catch (e) {}
         }
+
         setErrorMsg(
           "Email confirmation is pending in Supabase. Please check your email inbox or disable 'Confirm email' in your Supabase Auth dashboard."
         );
