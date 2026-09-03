@@ -128,23 +128,24 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         {/* Subtle background grid pattern */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-20 pointer-events-none" />
 
-        {/* Mobile Header (Shown on mobile only) */}
-        <div className="lg:hidden mb-4 text-center">
-          <Link href="/" className="inline-flex items-center">
-            <div className="h-16 px-4 py-2 rounded-2xl bg-white/95 border border-white/40 shadow-md flex items-center justify-center">
-              <img
-                src="/assets/logo/LOGO.png"
-                alt="BillEase Logo"
-                className="h-full w-auto object-contain"
-              />
-            </div>
-          </Link>
-        </div>
+        {/* Form Container (Vertically centered on all viewports) */}
+        <div className="w-full max-w-md relative z-10 my-auto py-4 sm:py-6">
+          {/* Mobile Brand Header (Unified directly above the form) */}
+          <div className="lg:hidden mb-6 flex justify-center">
+            <Link href="/" className="inline-flex items-center group">
+              <div className="h-20 px-5 py-2.5 rounded-2xl bg-white/95 border border-white/40 shadow-xl shadow-emerald-950/40 group-hover:scale-105 transition-all duration-200 flex items-center justify-center">
+                <img
+                  src="/assets/logo/LOGO.png"
+                  alt="BillEase Logo"
+                  className="h-full w-auto object-contain"
+                />
+              </div>
+            </Link>
+          </div>
 
-        {/* Form Container (Vertically centered) */}
-        <div className="w-full max-w-md relative z-10 my-auto py-6">
           {children}
         </div>
+
 
         {/* Footer: Made in India & Copyright Notice */}
         <div className="relative z-10 pt-4 pb-2 w-full flex flex-col items-center sm:items-end gap-1.5 text-center sm:text-right">
