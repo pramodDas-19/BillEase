@@ -142,8 +142,8 @@ export default function SettingsPage() {
 
       {/* 2-Column Settings Layout */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-        {/* Left 1 Col: Settings Category Navigation Sidebar */}
-        <div className="clay-card p-3 space-y-1.5">
+        {/* Mobile Horizontal Pill Track (Hidden on desktop) */}
+        <div className="md:hidden flex overflow-x-auto no-scrollbar gap-1.5 p-1 rounded-2xl bg-slate-100/90 border border-slate-200/80 -mx-1 px-1">
           {navTabs.map((tab) => {
             const Icon = tab.Icon;
             const isActive = activeTab === tab.id;
@@ -151,6 +151,37 @@ export default function SettingsPage() {
             return (
               <button
                 key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id as any)}
+                className={cn(
+                  "shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap",
+                  isActive
+                    ? "clay-pill-active text-slate-900 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                )}
+              >
+                <Icon
+                  className={cn(
+                    "h-3.5 w-3.5",
+                    isActive ? "text-emerald-700" : "text-slate-400"
+                  )}
+                />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Desktop Left 1 Col: Settings Category Navigation Sidebar (Hidden on mobile) */}
+        <div className="hidden md:block clay-card p-3 space-y-1.5">
+          {navTabs.map((tab) => {
+            const Icon = tab.Icon;
+            const isActive = activeTab === tab.id;
+
+            return (
+              <button
+                key={tab.id}
+                type="button"
                 onClick={() => setActiveTab(tab.id as any)}
                 className={cn(
                   "w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-bold text-left transition-all cursor-pointer",
@@ -170,6 +201,7 @@ export default function SettingsPage() {
             );
           })}
         </div>
+
 
         {/* Right 2 Cols: Active Setting Configuration Card */}
         <div className="md:col-span-2">

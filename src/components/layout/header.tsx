@@ -88,26 +88,26 @@ export function Header() {
   return (
     <header className="sticky top-0 z-20 flex h-16 w-full items-center justify-between border-b border-slate-200/80 bg-white/95 px-4 sm:px-6 lg:px-8 backdrop-blur-md transition-all">
       {/* Left side: Mobile menu toggle + Dynamic Page Title */}
-      <div className="flex items-center gap-3.5">
+      <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 mr-2">
         <button
           onClick={() => setIsMobileNavOpen(true)}
-          className="clay-icon-squircle p-2 text-slate-600 hover:text-slate-900 lg:hidden focus:outline-none bg-slate-50 border border-slate-200/70 cursor-pointer"
+          className="clay-icon-squircle p-2 text-slate-600 hover:text-slate-900 lg:hidden focus:outline-none bg-slate-50 border border-slate-200/70 cursor-pointer shrink-0"
           aria-label="Open mobile navigation"
         >
           <Menu className="h-4 w-4" />
         </button>
 
-        <div className="flex items-center gap-2.5">
-          <div className="clay-icon-squircle hidden sm:flex h-8 w-8 items-center justify-center rounded-xl bg-slate-900 text-white shadow-xs">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="clay-icon-squircle hidden sm:flex h-8 w-8 items-center justify-center rounded-xl bg-slate-900 text-white shadow-xs shrink-0">
             <PageIcon className="h-3.5 w-3.5 text-emerald-400" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-sm font-extrabold text-slate-900 tracking-tight">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <h1 className="text-xs sm:text-sm font-extrabold text-slate-900 tracking-tight truncate">
                 {currentRoute.title}
               </h1>
               {currentRoute.badge && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/70 shadow-2xs">
+                <span className="hidden xs:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/70 shadow-2xs shrink-0">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                   {currentRoute.badge}
                 </span>
@@ -118,12 +118,14 @@ export function Header() {
       </div>
 
       {/* Right side: Header Search, Help, Notifications, User Profile */}
-      <div className="flex items-center gap-2 sm:gap-3">
-        {/* Inline Search Bar with Direct Dropdown (No Black Overlay) */}
+      <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+        {/* Inline Search Bar on Desktop, Compact Icon on Mobile */}
         <HeaderSearch />
 
-        {/* Interactive Help & Shortcuts Modal */}
-        <HelpModal />
+        {/* Interactive Help & Shortcuts Modal (Desktop only) */}
+        <div className="hidden sm:block">
+          <HelpModal />
+        </div>
 
         {/* Interactive Notification Center */}
         <NotificationDropdown />
@@ -133,6 +135,7 @@ export function Header() {
         {/* User Profile */}
         <UserNav />
       </div>
+
     </header>
   );
 }

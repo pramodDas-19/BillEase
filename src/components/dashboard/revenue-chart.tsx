@@ -141,7 +141,7 @@ export function RevenueChart() {
         </div>
 
         {/* Time range selector pills */}
-        <div className="flex items-center gap-1 rounded-2xl bg-slate-100/90 p-1 border border-slate-200/60 shadow-inner self-start sm:self-auto">
+        <div className="flex items-center gap-1 rounded-2xl bg-slate-100/90 p-1 border border-slate-200/60 shadow-inner self-start sm:self-auto overflow-x-auto max-w-full no-scrollbar">
           {ranges.map((range) => (
             <button
               key={range}
@@ -149,7 +149,7 @@ export function RevenueChart() {
                 setSelectedRange(range);
                 setHoveredIndex(null);
               }}
-              className={`rounded-xl px-3 py-1 text-xs font-bold transition-all duration-150 cursor-pointer ${
+              className={`rounded-xl px-2.5 sm:px-3 py-1 text-xs font-bold transition-all duration-150 cursor-pointer shrink-0 ${
                 selectedRange === range
                   ? "clay-pill-active font-extrabold text-slate-900"
                   : "text-slate-500 hover:text-slate-900"
@@ -162,7 +162,7 @@ export function RevenueChart() {
       </div>
 
       {/* Legend & Current Hover Snapshot */}
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 sm:gap-3 text-xs">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full bg-slate-800 shadow-xs" />
@@ -175,7 +175,7 @@ export function RevenueChart() {
         </div>
 
         {activePoint && (
-          <div className="clay-icon-container flex items-center gap-3 bg-slate-50/90 border border-slate-200/70 px-3.5 py-1.5 rounded-xl">
+          <div className="clay-icon-container flex items-center gap-2 sm:gap-3 bg-slate-50/90 border border-slate-200/70 px-2.5 sm:px-3.5 py-1.5 rounded-xl text-[11px] sm:text-xs">
             <span className="font-bold text-slate-500">{activePoint.label}:</span>
             <span className="text-slate-900 font-extrabold">
               Inv: {formatCurrency(activePoint.invoiced, "INR")}
@@ -191,8 +191,9 @@ export function RevenueChart() {
       <div className="relative mt-4 w-full overflow-hidden">
         <svg
           viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-          className="w-full h-auto overflow-visible select-none"
+          className="w-full h-auto select-none"
         >
+
           <defs>
             <linearGradient id="invoicedGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#334155" stopOpacity="0.14" />

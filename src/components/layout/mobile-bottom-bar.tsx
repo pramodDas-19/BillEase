@@ -109,24 +109,25 @@ export function MobileBottomBar() {
       )}
 
       {/* Floating Bottom Nav Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-30 lg:hidden bg-white/95 backdrop-blur-md border-t border-slate-200/80 px-3 py-1.5 shadow-lg print:hidden">
-        <div className="flex items-center justify-around">
+      <nav className="fixed bottom-0 left-0 right-0 z-30 lg:hidden bg-white/95 backdrop-blur-md border-t border-slate-200/80 px-2 pt-1.5 pb-safe shadow-lg print:hidden w-full max-w-[100vw]">
+        <div className="flex items-center justify-between w-full">
           {navItems.map((item, idx) => {
             if (item.isAction) {
               return (
-                <button
-                  key={idx}
-                  onClick={() => setIsMenuOpen(!isMenuOpen)}
-                  className="clay-btn-emerald -mt-5 h-12 w-12 rounded-2xl flex items-center justify-center text-white shadow-lg cursor-pointer focus:outline-none"
-                  aria-label="Create Action"
-                >
-                  <Plus
-                    className={cn(
-                      "h-6 w-6 transition-transform duration-200",
-                      isMenuOpen && "rotate-45"
-                    )}
-                  />
-                </button>
+                <div key={idx} className="flex-1 flex justify-center">
+                  <button
+                    onClick={() => setIsMenuOpen(!isMenuOpen)}
+                    className="clay-btn-emerald -mt-5 h-12 w-12 rounded-2xl flex items-center justify-center text-white shadow-lg cursor-pointer focus:outline-none"
+                    aria-label="Create Action"
+                  >
+                    <Plus
+                      className={cn(
+                        "h-6 w-6 transition-transform duration-200",
+                        isMenuOpen && "rotate-45"
+                      )}
+                    />
+                  </button>
+                </div>
               );
             }
 
@@ -138,7 +139,7 @@ export function MobileBottomBar() {
                 key={item.href}
                 href={item.href!}
                 className={cn(
-                  "flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl transition-all",
+                  "flex-1 flex flex-col items-center justify-center gap-0.5 py-1 rounded-xl transition-all",
                   isActive
                     ? "text-emerald-700 font-black"
                     : "text-slate-400 hover:text-slate-700 font-medium"
@@ -151,6 +152,7 @@ export function MobileBottomBar() {
           })}
         </div>
       </nav>
+
     </>
   );
 }

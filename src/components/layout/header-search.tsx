@@ -176,12 +176,24 @@ export function HeaderSearch() {
 
   return (
     <div className="relative" ref={searchContainerRef}>
-      {/* Search Input Bar in Header */}
+      {/* Mobile Search Icon Toggle (Compact 36px icon on mobile) */}
+      <button
+        onClick={() => {
+          setIsOpen(!isOpen);
+          if (!isOpen) setTimeout(() => inputRef.current?.focus(), 100);
+        }}
+        className="clay-icon-squircle p-2 text-slate-600 hover:text-slate-900 bg-slate-50 border border-slate-200/70 cursor-pointer sm:hidden flex items-center justify-center"
+        aria-label="Search"
+      >
+        <Search className="h-4 w-4" />
+      </button>
+
+      {/* Desktop Search Input Bar in Header */}
       <div
-        className={`flex items-center gap-2 rounded-2xl border px-3 py-1.5 transition-all duration-200 ${
+        className={`hidden sm:flex items-center gap-2 rounded-2xl border px-3 py-1.5 transition-all duration-200 ${
           isOpen
-            ? "w-60 sm:w-80 border-emerald-500 bg-white shadow-md ring-2 ring-emerald-500/20"
-            : "w-44 sm:w-64 border-slate-200/90 bg-slate-50/80 hover:bg-white hover:border-slate-300 shadow-2xs"
+            ? "w-72 lg:w-80 border-emerald-500 bg-white shadow-md ring-2 ring-emerald-500/20"
+            : "w-56 lg:w-64 border-slate-200/90 bg-slate-50/80 hover:bg-white hover:border-slate-300 shadow-2xs"
         }`}
       >
         <Search className="h-3.5 w-3.5 text-slate-400 shrink-0" />
@@ -206,16 +218,38 @@ export function HeaderSearch() {
             <X className="h-3 w-3" />
           </button>
         ) : (
-          <div className="hidden sm:flex items-center gap-0.5 rounded-lg border border-slate-200/90 bg-white px-1.5 py-0.5 text-[10px] font-extrabold text-slate-500 shadow-2xs shrink-0">
+          <div className="flex items-center gap-0.5 rounded-lg border border-slate-200/90 bg-white px-1.5 py-0.5 text-[10px] font-extrabold text-slate-500 shadow-2xs shrink-0">
             <Command className="h-2.5 w-2.5" />
             <span>K</span>
           </div>
         )}
       </div>
 
-      {/* Clean Dropdown Attached Underneath Header (NO BACKDROP / NO BLACK SCREEN) */}
+      {/* Clean Dropdown Attached Underneath Header */}
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 rounded-2xl border border-slate-200/90 bg-white p-3 shadow-2xl z-40 space-y-3 animate-in fade-in-50 zoom-in-95 duration-150">
+        <div className="fixed sm:absolute top-18 sm:top-full left-4 sm:left-auto right-4 sm:right-0 mt-1 sm:mt-2 w-[calc(100vw-2rem)] sm:w-96 rounded-2xl border border-slate-200/90 bg-white p-3 shadow-2xl z-50 space-y-3 animate-in fade-in-50 zoom-in-95 duration-150">
+          {/* Mobile Dedicated Search Input Field */}
+          <div className="sm:hidden flex items-center gap-2 p-2 rounded-xl bg-slate-50 border border-slate-200">
+            <Search className="h-4 w-4 text-emerald-600 shrink-0" />
+            <input
+              type="text"
+              placeholder="Type to search anything..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              autoFocus
+              className="w-full bg-transparent text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="text-slate-400 p-0.5"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
           {/* Quick Actions */}
           {matchingActions.length > 0 && (
             <div className="space-y-1">

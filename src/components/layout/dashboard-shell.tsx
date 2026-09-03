@@ -36,7 +36,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         setIsMobileNavOpen,
       }}
     >
-      <div className="min-h-screen bg-[#f8fafc] text-slate-900 antialiased font-sans print:bg-white print:min-h-0">
+      <div className="min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-[#f8fafc] text-slate-900 antialiased font-sans print:bg-white print:min-h-0">
         {/* Sidebar */}
         <div className="print:hidden">
           <Sidebar />
@@ -45,17 +45,18 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         {/* Main Content Wrapper */}
         <div
           className={cn(
-            "flex flex-col min-h-screen transition-all duration-300 ease-in-out print:min-h-0 print:pl-0 print:m-0",
+            "flex flex-col min-h-screen w-full max-w-[100vw] overflow-x-hidden transition-all duration-300 ease-in-out print:min-h-0 print:pl-0 print:m-0",
             isSidebarCollapsed ? "lg:pl-20" : "lg:pl-64"
           )}
         >
           <div className="print:hidden">
             <Header />
           </div>
-          <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-24 sm:pb-24 lg:pb-8 max-w-7xl w-full mx-auto print:p-0 print:m-0 print:max-w-none">
+          <main className="flex-1 p-3.5 sm:p-6 lg:p-8 pb-28 sm:pb-24 lg:pb-8 max-w-7xl w-full mx-auto print:p-0 print:m-0 print:max-w-none">
             {children}
           </main>
         </div>
+
 
         {/* Mobile Bottom Navigation Bar */}
         <MobileBottomBar />
