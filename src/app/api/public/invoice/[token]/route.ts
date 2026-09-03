@@ -60,49 +60,32 @@ export async function GET(
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    // 1. Query invoice by public_token (with graceful fallback to id if column not yet migrated)
+    // 1. Query invoice strictly by public_token (NO fallback to id)
     let invoice: any = null;
     let isQuotation = false;
 
-    let { data: invData, error: invErr } = await supabaseAdmin
+    const { data: invData } = await supabaseAdmin
       .from("invoices")
       .select("id, invoice_number, tenant_id, client_name, total_amount, balance_due, paid_amount, status, currency, due_date")
       .eq("public_token", token)
       .maybeSingle();
 
-    if (invErr && invErr.message?.includes("public_token")) {
-      const fallback = await supabaseAdmin
-        .from("invoices")
-        .select("id, invoice_number, tenant_id, client_name, total_amount, balance_due, paid_amount, status, currency, due_date")
-        .eq("id", token)
-        .maybeSingle();
-      invData = fallback.data;
-    }
-
     if (invData) {
       invoice = invData;
     } else {
-      // 2. Check if token matches a quotation
-      let { data: quoteData, error: quoteErr } = await supabaseAdmin
+      // 2. Check if token matches a quotation strictly by public_token (NO fallback to id)
+      const { data: quoteData } = await supabaseAdmin
         .from("quotations")
         .select("id, quotation_number, tenant_id, client_name, total_amount, status, currency, valid_until")
         .eq("public_token", token)
         .maybeSingle();
-
-      if (quoteErr && quoteErr.message?.includes("public_token")) {
-        const fallback = await supabaseAdmin
-          .from("quotations")
-          .select("id, quotation_number, tenant_id, client_name, total_amount, status, currency, valid_until")
-          .eq("id", token)
-          .maybeSingle();
-        quoteData = fallback.data;
-      }
 
       if (quoteData) {
         invoice = quoteData;
         isQuotation = true;
       }
     }
+
 
     // Generic 404 response — never leaks internal state
     if (!invoice) {

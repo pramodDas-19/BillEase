@@ -26,7 +26,7 @@ export const InvoiceService = {
 
       return data.map((inv) => ({
         id: inv.id,
-        publicToken: inv.public_token || inv.id,
+        publicToken: inv.public_token,
         tenantId: inv.tenant_id,
         invoiceNumber: inv.invoice_number,
         quotationId: inv.quotation_id,
@@ -86,7 +86,7 @@ export const InvoiceService = {
 
       return {
         id: data.id,
-        publicToken: data.public_token || data.id,
+        publicToken: data.public_token,
         tenantId: data.tenant_id,
         invoiceNumber: data.invoice_number,
         quotationId: data.quotation_id,

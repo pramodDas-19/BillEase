@@ -28,21 +28,12 @@ export async function GET(
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    // Query invoice status
-    let { data: invoice, error: invErr } = await supabaseAdmin
+    // Query invoice status strictly by public_token
+    const { data: invoice } = await supabaseAdmin
       .from("invoices")
       .select("status, balance_due, paid_amount")
       .eq("public_token", token)
       .maybeSingle();
-
-    if (invErr && invErr.message?.includes("public_token")) {
-      const fallback = await supabaseAdmin
-        .from("invoices")
-        .select("status, balance_due, paid_amount")
-        .eq("id", token)
-        .maybeSingle();
-      invoice = fallback.data;
-    }
 
     if (invoice) {
       return NextResponse.json({
@@ -53,21 +44,13 @@ export async function GET(
       });
     }
 
-    // Check quotations if not found in invoices
-    let { data: quote, error: quoteErr } = await supabaseAdmin
+    // Check quotations if not found in invoices strictly by public_token
+    const { data: quote } = await supabaseAdmin
       .from("quotations")
       .select("status, total_amount")
       .eq("public_token", token)
       .maybeSingle();
 
-    if (quoteErr && quoteErr.message?.includes("public_token")) {
-      const fallback = await supabaseAdmin
-        .from("quotations")
-        .select("status, total_amount")
-        .eq("id", token)
-        .maybeSingle();
-      quote = fallback.data;
-    }
 
     if (quote) {
       return NextResponse.json({

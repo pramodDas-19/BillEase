@@ -65,7 +65,7 @@ export function getWhatsAppInvoiceShareUrl({
   const baseUrl = getBaseUrl();
   const totalFormatted = formatCurrency(totalAmount, currency);
   const balanceFormatted = formatCurrency(balanceDue, currency);
-  const payUrl = `${baseUrl}/pay/${publicToken || invoiceId}`;
+  const payUrl = `${baseUrl}/pay/${publicToken}`;
 
   const message = [
     `Hello *${clientName.trim()}*,`,
@@ -99,7 +99,7 @@ export function getWhatsAppQuotationShareUrl({
   const totalFormatted = formatCurrency(totalAmount, currency);
   const advance = advanceAmount || Math.round(totalAmount * 0.5);
   const advanceFormatted = formatCurrency(advance, currency);
-  const payUrl = `${baseUrl}/pay/${publicToken || quotationId}`;
+  const payUrl = `${baseUrl}/pay/${publicToken}`;
 
   const lines = [
     `Hello *${clientName.trim()}*,`,
@@ -146,13 +146,14 @@ export function getWhatsAppReminderUrl({
       : `This is a friendly reminder regarding your outstanding ledger balance of *${balanceFormatted}*.`,
   ];
 
-  if (invoiceId || publicToken) {
+  if (publicToken) {
     lines.push(
       ``,
       `*1-Click Instant Settlement:*`,
-      `${baseUrl}/pay/${publicToken || invoiceId}`
+      `${baseUrl}/pay/${publicToken}`
     );
   }
+
 
 
   lines.push(
