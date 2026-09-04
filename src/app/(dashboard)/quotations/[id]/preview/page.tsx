@@ -3,6 +3,7 @@
 import React, { use, useState, useEffect } from "react";
 import Link from "next/link";
 import { QuotationService } from "@/services/quotation.service";
+import { ClientService } from "@/services/client.service";
 import { Quotation } from "@/types";
 import { useTenant } from "@/hooks/use-tenant";
 import { QuotationPrintDocument } from "@/components/documents";
@@ -16,14 +17,38 @@ export default function QuotationPreviewPage({ params }: { params: Promise<{ id:
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    QuotationService.getQuotationById(id).then((data) => {
+    QuotationService.getQuotationById(id).then(async (data) => {
+      if (data?.clientId) {
+        try {
+          const client = await ClientService.getClientById(data.clientId);
+          if (client) {
+            data.clientCompanyName = data.clientCompanyName || client.companyName;
+            data.clientAddress = data.clientAddress || client.address;
+            data.clientPhone = data.clientPhone || client.phone;
+            data.clientEmail = data.clientEmail || client.email;
+            data.clientGstin = data.clientGstin || client.gstin;
+            data.clientPan = data.clientPan || client.pan;
+          }
+        } catch (e) {
+          console.warn("Could not enrich quotation with client details:", e);
+        }
+      }
       setQuote(data);
       setIsLoading(false);
     });
   }, [id]);
 
   const handlePrint = () => {
-    window.print();
+    if (typeof window !== "undefined") {
+      const originalTitle = document.title;
+      if (quote?.quotationNumber) {
+        document.title = `Quotation_${quote.quotationNumber}`;
+      }
+      window.print();
+      setTimeout(() => {
+        document.title = originalTitle;
+      }, 1500);
+    }
   };
 
   if (isLoading) {

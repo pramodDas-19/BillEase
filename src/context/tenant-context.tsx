@@ -142,11 +142,15 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         email: email,
         phone: phone,
         gstin: tenantRow?.gstin || "",
+        logoUrl: tenantRow?.logo_url || tenantRow?.settings?.logoUrl || registeredInfo?.logoUrl || undefined,
+        signatureUrl: tenantRow?.signature_url || tenantRow?.settings?.signatureUrl || registeredInfo?.signatureUrl || undefined,
         address: tenantRow?.address || DEFAULT_TENANT.address,
         bankDetails: tenantRow?.bank_details || DEFAULT_TENANT.bankDetails,
         settings: {
           ...DEFAULT_TENANT.settings,
           ...(tenantRow?.settings || {}),
+          logoUrl: tenantRow?.logo_url || tenantRow?.settings?.logoUrl || registeredInfo?.logoUrl || undefined,
+          signatureUrl: tenantRow?.signature_url || tenantRow?.settings?.signatureUrl || registeredInfo?.signatureUrl || undefined,
         },
         createdAt: tenantRow?.created_at || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -224,6 +228,12 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         ...currentTenant.bankDetails,
         ...(newProfile.bankDetails || {}),
       },
+      settings: {
+        ...currentTenant.settings,
+        ...(newProfile.settings || {}),
+        logoUrl: newProfile.logoUrl !== undefined ? newProfile.logoUrl : currentTenant.logoUrl,
+        signatureUrl: newProfile.signatureUrl !== undefined ? newProfile.signatureUrl : currentTenant.signatureUrl,
+      },
     };
 
     setCurrentTenant(updated);
@@ -237,6 +247,8 @@ export function TenantProvider({ children }: { children: ReactNode }) {
           ownerName: updated.ownerName,
           email: updated.email,
           phone: updated.phone,
+          logoUrl: updated.logoUrl,
+          signatureUrl: updated.signatureUrl,
         })
       );
     }

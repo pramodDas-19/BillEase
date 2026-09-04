@@ -8,10 +8,12 @@ export interface QuotationBuilderState {
   quotationNumber: string;
   clientId: string;
   clientName: string;
+  clientCompanyName?: string;
   clientEmail: string;
   clientPhone: string;
   clientAddress: string;
   clientGstin: string;
+  clientPan?: string;
   date: string;
   validUntil: string;
   currency: CurrencyCode;
@@ -21,6 +23,7 @@ export interface QuotationBuilderState {
   isTaxEnabled: boolean;
   gstType?: "intra_state" | "inter_state";
   defaultTaxRate: number;
+  isRoundOffEnabled?: boolean;
 
   termsAndConditions: string;
   notes: string;
@@ -36,10 +39,12 @@ export function useQuotationBuilder(initialState?: Partial<QuotationBuilderState
     quotationNumber: initialState?.quotationNumber || "",
     clientId: initialState?.clientId || "",
     clientName: initialState?.clientName || "",
+    clientCompanyName: initialState?.clientCompanyName || "",
     clientEmail: initialState?.clientEmail || "",
     clientPhone: initialState?.clientPhone || "",
     clientAddress: initialState?.clientAddress || "",
     clientGstin: initialState?.clientGstin || "",
+    clientPan: initialState?.clientPan || "",
     date: initialState?.date || today,
     validUntil: initialState?.validUntil || defaultValidDate,
     currency: initialState?.currency || "INR",
@@ -49,6 +54,7 @@ export function useQuotationBuilder(initialState?: Partial<QuotationBuilderState
         description: "",
         detailedNotes: "",
         amount: 0,
+        taxRate: initialState?.defaultTaxRate ?? 18,
       },
     ],
     discountType: initialState?.discountType,
@@ -56,6 +62,7 @@ export function useQuotationBuilder(initialState?: Partial<QuotationBuilderState
     isTaxEnabled: initialState?.isTaxEnabled ?? false,
     gstType: initialState?.gstType || "intra_state",
     defaultTaxRate: initialState?.defaultTaxRate ?? 18,
+    isRoundOffEnabled: initialState?.isRoundOffEnabled ?? false,
     termsAndConditions: initialState?.termsAndConditions || "",
     notes: initialState?.notes || "",
   });
@@ -68,8 +75,9 @@ export function useQuotationBuilder(initialState?: Partial<QuotationBuilderState
       isTaxEnabled: state.isTaxEnabled,
       defaultTaxRate: state.defaultTaxRate,
       gstType: state.gstType,
+      isRoundOffEnabled: state.isRoundOffEnabled,
     });
-  }, [state.items, state.discountType, state.discountValue, state.isTaxEnabled, state.defaultTaxRate, state.gstType]);
+  }, [state.items, state.discountType, state.discountValue, state.isTaxEnabled, state.defaultTaxRate, state.gstType, state.isRoundOffEnabled]);
 
 
   const addItem = () => {
@@ -81,6 +89,7 @@ export function useQuotationBuilder(initialState?: Partial<QuotationBuilderState
           id: `item-${Date.now()}`,
           description: "",
           amount: 0,
+          taxRate: prev.defaultTaxRate ?? 18,
         },
       ],
     }));

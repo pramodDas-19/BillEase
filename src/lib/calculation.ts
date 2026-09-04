@@ -17,6 +17,7 @@ export interface CalculationInput {
   isTaxEnabled?: boolean;
   defaultTaxRate?: number;
   gstType?: "intra_state" | "inter_state";
+  isRoundOffEnabled?: boolean;
 }
 
 export interface CalculationResult {
@@ -28,6 +29,8 @@ export interface CalculationResult {
   gstType: "intra_state" | "inter_state";
   taxBreakdown: TaxBreakdown[];
   totalTax: number;
+  isRoundOffEnabled?: boolean;
+  roundOffAmount?: number;
   totalAmount: number;
 }
 
@@ -48,6 +51,7 @@ export function calculateDocumentTotals(input: CalculationInput): CalculationRes
     isTaxEnabled = false,
     defaultTaxRate = 18,
     gstType = "intra_state",
+    isRoundOffEnabled = false,
   } = input;
 
   // 1. Calculate raw Subtotal
@@ -64,45 +68,105 @@ export function calculateDocumentTotals(input: CalculationInput): CalculationRes
 
   const netAfterDiscount = Math.max(0, subtotal - discountAmount);
 
-  // 3. Tax / GST Calculation (Optional)
+  // 3. Tax / GST Calculation (Optional & Multi-Rate Item-Wise Support)
   let totalTax = 0;
   const taxBreakdown: TaxBreakdown[] = [];
 
   if (isTaxEnabled) {
-    const taxRate = defaultTaxRate || 0;
-    if (taxRate > 0) {
-      totalTax = (netAfterDiscount * taxRate) / 100;
+    const hasItemTaxRates = items.some((it) => it.taxRate !== undefined && it.taxRate !== null);
+
+    if (hasItemTaxRates) {
+      // Multi-rate GST: Calculate tax per line item
+      const discountRatio = subtotal > 0 ? netAfterDiscount / subtotal : 1;
+      const slabMap = new Map<number, number>();
+
+      for (const it of items) {
+        const rate = it.taxRate !== undefined && it.taxRate !== null ? Number(it.taxRate) : (defaultTaxRate || 0);
+        if (rate > 0) {
+          const itemTaxable = (Number(it.amount) || 0) * discountRatio;
+          const itemTax = (itemTaxable * rate) / 100;
+          slabMap.set(rate, (slabMap.get(rate) || 0) + itemTax);
+        }
+      }
+
+      // Sort slabs ascending (5%, 12%, 18%, 28%)
+      const sortedSlabs = Array.from(slabMap.keys()).sort((a, b) => a - b);
+
+      for (const rate of sortedSlabs) {
+        const rawSlabTax = slabMap.get(rate) || 0;
+        const slabTax = Math.round(rawSlabTax * 100) / 100;
+        if (slabTax <= 0) continue;
+
+        totalTax += slabTax;
+
+        if (gstType === "inter_state") {
+          taxBreakdown.push({
+            name: `IGST (${rate}%)`,
+            rate,
+            amount: slabTax,
+          });
+        } else {
+          const halfRate = Math.round((rate / 2) * 100) / 100;
+          const cgstAmount = Math.round((slabTax / 2) * 100) / 100;
+          const sgstAmount = Math.round((slabTax - cgstAmount) * 100) / 100;
+
+          taxBreakdown.push({
+            name: `CGST (${halfRate}%)`,
+            rate: halfRate,
+            amount: cgstAmount,
+          });
+          taxBreakdown.push({
+            name: `SGST (${halfRate}%)`,
+            rate: halfRate,
+            amount: sgstAmount,
+          });
+        }
+      }
+
       totalTax = Math.round(totalTax * 100) / 100;
+    } else {
+      // Single-rate GST: Standard fallback for uniform documents
+      const taxRate = defaultTaxRate || 0;
+      if (taxRate > 0) {
+        totalTax = (netAfterDiscount * taxRate) / 100;
+        totalTax = Math.round(totalTax * 100) / 100;
 
-      if (gstType === "inter_state") {
-        // Outside State: Single IGST line
-        taxBreakdown.push({
-          name: `IGST (${taxRate}%)`,
-          rate: taxRate,
-          amount: totalTax,
-        });
-      } else {
-        // Within State (Intra-State): Split equally into CGST + SGST
-        const halfRate = Math.round((taxRate / 2) * 100) / 100;
-        const cgstAmount = Math.round((totalTax / 2) * 100) / 100;
-        const sgstAmount = Math.round((totalTax - cgstAmount) * 100) / 100;
+        if (gstType === "inter_state") {
+          taxBreakdown.push({
+            name: `IGST (${taxRate}%)`,
+            rate: taxRate,
+            amount: totalTax,
+          });
+        } else {
+          const halfRate = Math.round((taxRate / 2) * 100) / 100;
+          const cgstAmount = Math.round((totalTax / 2) * 100) / 100;
+          const sgstAmount = Math.round((totalTax - cgstAmount) * 100) / 100;
 
-        taxBreakdown.push({
-          name: `CGST (${halfRate}%)`,
-          rate: halfRate,
-          amount: cgstAmount,
-        });
-        taxBreakdown.push({
-          name: `SGST (${halfRate}%)`,
-          rate: halfRate,
-          amount: sgstAmount,
-        });
+          taxBreakdown.push({
+            name: `CGST (${halfRate}%)`,
+            rate: halfRate,
+            amount: cgstAmount,
+          });
+          taxBreakdown.push({
+            name: `SGST (${halfRate}%)`,
+            rate: halfRate,
+            amount: sgstAmount,
+          });
+        }
       }
     }
   }
 
-  // 4. Grand Total
-  const totalAmount = Math.round((netAfterDiscount + totalTax) * 100) / 100;
+  // 4. Grand Total & Optional Round-off
+  const rawTotal = netAfterDiscount + totalTax;
+  let totalAmount = Math.round(rawTotal * 100) / 100;
+  let roundOffAmount = 0;
+
+  if (isRoundOffEnabled) {
+    const rounded = Math.round(rawTotal);
+    roundOffAmount = Math.round((rounded - rawTotal) * 100) / 100;
+    totalAmount = rounded;
+  }
 
   return {
     subtotal: Math.round(subtotal * 100) / 100,
@@ -113,6 +177,8 @@ export function calculateDocumentTotals(input: CalculationInput): CalculationRes
     gstType,
     taxBreakdown,
     totalTax,
+    isRoundOffEnabled,
+    roundOffAmount,
     totalAmount,
   };
 }

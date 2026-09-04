@@ -18,6 +18,9 @@ export interface QuotationLineItem {
   unit?: string; // Optional: "pcs", "sqft", "copies", "sets", "days", "hours"
   rate?: number; // Optional unit price
   amount: number; // Mandatory line total
+  discountType?: "percentage" | "fixed"; // Optional line discount
+  discountValue?: number; // e.g. 6 (%) or 500 (₹)
+  discountAmount?: number; // Calculated currency discount
   taxRate?: number; // Optional line-level tax % (e.g. 18)
   taxAmount?: number; // Calculated tax amount
 }
@@ -30,10 +33,12 @@ export interface Quotation {
   quotationNumber: string; // e.g. "QT-2026-001"
   clientId: string;
   clientName: string; // Denormalized for display speed
+  clientCompanyName?: string;
   clientEmail?: string;
   clientPhone?: string;
   clientAddress?: string;
   clientGstin?: string;
+  clientPan?: string;
 
   date: string; // YYYY-MM-DD
   validUntil: string; // YYYY-MM-DD

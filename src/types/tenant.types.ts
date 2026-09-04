@@ -20,6 +20,8 @@ export interface BusinessSettings {
   defaultTermsAndConditions?: string;
   defaultQuotationNotes?: string;
   defaultInvoiceNotes?: string;
+  logoUrl?: string;
+  signatureUrl?: string;
   paymentReminderSettings?: {
     enableAutoReminders: boolean;
     beforeDueDateDays: number[];
@@ -38,6 +40,7 @@ export interface Tenant {
   phone: string;
   website?: string;
   logoUrl?: string;
+  signatureUrl?: string;
   address?: Address;
   gstin?: string; // OPTIONAL - business can operate without GSTIN
   pan?: string;

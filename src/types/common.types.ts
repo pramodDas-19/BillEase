@@ -1,4 +1,4 @@
-export type CurrencyCode = "INR" | "USD" | "EUR" | "GBP" | "AED";
+export type CurrencyCode = "INR" | "USD" | "EUR" | "GBP" | "AED" | "CAD" | "AUD" | "SGD";
 
 export type PaymentMethod = "bank_transfer" | "cash" | "upi" | "cheque" | "card" | "online" | "other";
 

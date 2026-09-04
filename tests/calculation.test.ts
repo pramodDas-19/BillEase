@@ -109,6 +109,45 @@ describe("Financial Calculation Engine", () => {
     expect(result.taxBreakdown[1].amount).toBe(9.45);
     expect(result.totalAmount).toBe(123.9);
   });
+
+  it("calculates accurate Multi-Rate GST with mixed 5%, 12%, 18%, 28% slabs under Rule 46", () => {
+    // 4 items: ₹1000 each with 5%, 12%, 18%, 28%
+    const result = calculateDocumentTotals({
+      items: [
+        { id: "1", description: "Cloth", amount: 1000, taxRate: 5 },
+        { id: "2", description: "Books", amount: 1000, taxRate: 12 },
+        { id: "3", description: "Web Design", amount: 1000, taxRate: 18 },
+        { id: "4", description: "AC Spare Parts", amount: 1000, taxRate: 28 },
+      ],
+      isTaxEnabled: true,
+      gstType: "intra_state",
+    });
+
+    expect(result.subtotal).toBe(4000);
+    // 5% of 1000 = 50 (CGST 25 + SGST 25)
+    // 12% of 1000 = 120 (CGST 60 + SGST 60)
+    // 18% of 1000 = 180 (CGST 90 + SGST 90)
+    // 28% of 1000 = 280 (CGST 140 + SGST 140)
+    // Total Tax = 50 + 120 + 180 + 280 = 630
+    expect(result.totalTax).toBe(630);
+    expect(result.totalAmount).toBe(4630);
+    expect(result.taxBreakdown).toHaveLength(8); // 4 slabs * 2 (CGST + SGST)
+  });
+
+  it("handles auto round-off adjustment correctly for clean rupee totals", () => {
+    const result = calculateDocumentTotals({
+      items: [{ id: "1", description: "Design", amount: 1000.35 }],
+      isTaxEnabled: true,
+      defaultTaxRate: 18,
+      isRoundOffEnabled: true,
+    });
+
+    // 1000.35 + 18% (180.063 -> 180.06) = 1180.41
+    // Rounded = 1180.00, roundOff = -0.41
+    expect(result.isRoundOffEnabled).toBe(true);
+    expect(result.totalAmount).toBe(1180);
+    expect(result.roundOffAmount).toBe(-0.41);
+  });
 });
 
 describe("Local Offline UPI QR Code Generator", () => {

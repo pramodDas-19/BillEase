@@ -3,6 +3,7 @@
 import React, { use, useState, useEffect } from "react";
 import Link from "next/link";
 import { InvoiceService } from "@/services/invoice.service";
+import { ClientService } from "@/services/client.service";
 import { Invoice } from "@/types";
 import { useTenant } from "@/hooks/use-tenant";
 import { InvoicePrintDocument } from "@/components/documents";
@@ -16,14 +17,38 @@ export default function InvoicePreviewPage({ params }: { params: Promise<{ id: s
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    InvoiceService.getInvoiceById(id).then((data) => {
+    InvoiceService.getInvoiceById(id).then(async (data) => {
+      if (data?.clientId) {
+        try {
+          const client = await ClientService.getClientById(data.clientId);
+          if (client) {
+            data.clientCompanyName = data.clientCompanyName || client.companyName;
+            data.clientAddress = data.clientAddress || client.address;
+            data.clientPhone = data.clientPhone || client.phone;
+            data.clientEmail = data.clientEmail || client.email;
+            data.clientGstin = data.clientGstin || client.gstin;
+            data.clientPan = data.clientPan || client.pan;
+          }
+        } catch (e) {
+          console.warn("Could not enrich invoice with client details:", e);
+        }
+      }
       setInvoice(data);
       setIsLoading(false);
     });
   }, [id]);
 
   const handlePrint = () => {
-    window.print();
+    if (typeof window !== "undefined") {
+      const originalTitle = document.title;
+      if (invoice?.invoiceNumber) {
+        document.title = `Invoice_${invoice.invoiceNumber}`;
+      }
+      window.print();
+      setTimeout(() => {
+        document.title = originalTitle;
+      }, 1500);
+    }
   };
 
   if (isLoading) {

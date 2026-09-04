@@ -10,10 +10,12 @@ export interface InvoiceBuilderState {
   quotationNumber?: string;
   clientId: string;
   clientName: string;
+  clientCompanyName?: string;
   clientEmail: string;
   clientPhone: string;
   clientAddress: string;
   clientGstin: string;
+  clientPan?: string;
   issueDate: string;
   dueDate: string;
   currency: CurrencyCode;
@@ -27,6 +29,7 @@ export interface InvoiceBuilderState {
   paidAmount: number;
   termsAndConditions: string;
   notes: string;
+  isRoundOffEnabled?: boolean;
 }
 
 export function useInvoiceBuilder(initialState?: Partial<InvoiceBuilderState>) {
@@ -41,10 +44,12 @@ export function useInvoiceBuilder(initialState?: Partial<InvoiceBuilderState>) {
     quotationNumber: initialState?.quotationNumber,
     clientId: initialState?.clientId || "",
     clientName: initialState?.clientName || "",
+    clientCompanyName: initialState?.clientCompanyName || "",
     clientEmail: initialState?.clientEmail || "",
     clientPhone: initialState?.clientPhone || "",
     clientAddress: initialState?.clientAddress || "",
     clientGstin: initialState?.clientGstin || "",
+    clientPan: initialState?.clientPan || "",
     issueDate: initialState?.issueDate || today,
     dueDate: initialState?.dueDate || defaultDueDate,
     currency: initialState?.currency || "INR",
@@ -54,6 +59,7 @@ export function useInvoiceBuilder(initialState?: Partial<InvoiceBuilderState>) {
         description: "",
         detailedNotes: "",
         amount: 0,
+        taxRate: initialState?.defaultTaxRate ?? 18,
       },
     ],
     discountType: initialState?.discountType,
@@ -64,6 +70,7 @@ export function useInvoiceBuilder(initialState?: Partial<InvoiceBuilderState>) {
     paidAmount: initialState?.paidAmount || 0,
     termsAndConditions: initialState?.termsAndConditions || "",
     notes: initialState?.notes || "",
+    isRoundOffEnabled: initialState?.isRoundOffEnabled ?? false,
   });
 
   const totals = useMemo(() => {
@@ -74,6 +81,7 @@ export function useInvoiceBuilder(initialState?: Partial<InvoiceBuilderState>) {
       isTaxEnabled: state.isTaxEnabled,
       defaultTaxRate: state.defaultTaxRate,
       gstType: state.gstType,
+      isRoundOffEnabled: state.isRoundOffEnabled,
     });
 
     const balanceDue = Math.max(0, Math.round((calculated.totalAmount - (state.paidAmount || 0)) * 100) / 100);
@@ -83,7 +91,7 @@ export function useInvoiceBuilder(initialState?: Partial<InvoiceBuilderState>) {
       paidAmount: state.paidAmount || 0,
       balanceDue,
     };
-  }, [state.items, state.discountType, state.discountValue, state.isTaxEnabled, state.defaultTaxRate, state.gstType, state.paidAmount]);
+  }, [state.items, state.discountType, state.discountValue, state.isTaxEnabled, state.defaultTaxRate, state.gstType, state.paidAmount, state.isRoundOffEnabled]);
 
 
   const addItem = () => {
@@ -95,6 +103,7 @@ export function useInvoiceBuilder(initialState?: Partial<InvoiceBuilderState>) {
           id: `item-${Date.now()}`,
           description: "",
           amount: 0,
+          taxRate: prev.defaultTaxRate ?? 18,
         },
       ],
     }));

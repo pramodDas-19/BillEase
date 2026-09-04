@@ -17,6 +17,10 @@ import {
   CreditCard,
   Sparkles,
   Info,
+  Upload,
+  Trash2,
+  Image as ImageIcon,
+  FileSignature,
 } from "lucide-react";
 
 export default function SettingsPage() {
@@ -34,6 +38,8 @@ export default function SettingsPage() {
   const [email, setEmail] = useState(currentTenant?.email || "");
   const [gstin, setGstin] = useState(currentTenant?.gstin || "");
   const [address, setAddress] = useState(currentTenant?.address?.street || "");
+  const [logoUrl, setLogoUrl] = useState(currentTenant?.logoUrl || currentTenant?.settings?.logoUrl || "");
+  const [signatureUrl, setSignatureUrl] = useState(currentTenant?.signatureUrl || currentTenant?.settings?.signatureUrl || "");
 
   // Numbering states
   const [quotePrefix, setQuotePrefix] = useState(currentTenant?.settings?.quotationNumbering?.prefix || "QT-");
@@ -51,7 +57,6 @@ export default function SettingsPage() {
   );
 
   // Sync form inputs when currentTenant loads or updates
-
   React.useEffect(() => {
     if (currentTenant) {
       setBusinessName(currentTenant.businessName || "");
@@ -60,6 +65,8 @@ export default function SettingsPage() {
       setEmail(currentTenant.email || "");
       setGstin(currentTenant.gstin || "");
       setAddress(currentTenant.address?.street || "");
+      setLogoUrl(currentTenant.logoUrl || currentTenant.settings?.logoUrl || "");
+      setSignatureUrl(currentTenant.signatureUrl || currentTenant.settings?.signatureUrl || "");
       setQuotePrefix(currentTenant.settings?.quotationNumbering?.prefix || "QT-");
       setQuoteNext(currentTenant.settings?.quotationNumbering?.nextNumber || 1001);
       setInvPrefix(currentTenant.settings?.invoiceNumbering?.prefix || "INV-");
@@ -71,6 +78,38 @@ export default function SettingsPage() {
     }
   }, [currentTenant]);
 
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      alert("Logo image size must be under 2MB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      if (evt.target?.result) {
+        setLogoUrl(evt.target.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      alert("Signature image size must be under 2MB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      if (evt.target?.result) {
+        setSignatureUrl(evt.target.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     await updateTenantProfile({
@@ -79,6 +118,8 @@ export default function SettingsPage() {
       phone,
       email,
       gstin,
+      logoUrl,
+      signatureUrl,
       address: {
         ...currentTenant.address,
         street: address,
@@ -216,6 +257,136 @@ export default function SettingsPage() {
                   <p className="text-xs text-slate-400 font-medium mt-0.5">
                     Official business details printed on top of all quotations, invoices, and receipts.
                   </p>
+                </div>
+
+                {/* Brand Assets: Logo & Authorized Signature */}
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-4">
+                  <div className="flex items-center gap-2 border-b border-slate-200/60 pb-2">
+                    <span className="clay-tag px-2 py-0.5 text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                      Document Branding
+                    </span>
+                    <span className="text-xs font-bold text-slate-800">
+                      Business Logo & Authorized Digital Signature
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Business Logo Dropzone */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                          <ImageIcon className="h-3.5 w-3.5 text-slate-500" />
+                          <span>Business Logo</span>
+                        </label>
+                        <span className="text-[10px] text-slate-400 font-medium">PNG, JPG, SVG</span>
+                      </div>
+
+                      {logoUrl ? (
+                        <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200">
+                          <div className="h-16 w-20 shrink-0 bg-slate-50 rounded-lg border border-slate-100 p-1 flex items-center justify-center overflow-hidden">
+                            <img
+                              src={logoUrl}
+                              alt="Business Logo"
+                              className="max-h-full max-w-full object-contain"
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0 space-y-1">
+                            <p className="text-xs font-bold text-slate-800 truncate">Logo Uploaded</p>
+                            <div className="flex items-center gap-2">
+                              <label className="cursor-pointer text-[11px] font-bold text-emerald-700 hover:text-emerald-800 underline">
+                                <span>Change</span>
+                                <input
+                                  type="file"
+                                  accept="image/png, image/jpeg, image/webp, image/svg+xml"
+                                  onChange={handleLogoUpload}
+                                  className="hidden"
+                                />
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => setLogoUrl("")}
+                                className="text-[11px] font-bold text-rose-600 hover:text-rose-700 underline cursor-pointer"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <label className="flex flex-col items-center justify-center p-4 rounded-xl border-2 border-dashed border-slate-300 hover:border-emerald-500 bg-white cursor-pointer transition-colors group text-center">
+                          <Upload className="h-5 w-5 text-slate-400 group-hover:text-emerald-600 mb-1" />
+                          <span className="text-xs font-bold text-slate-700 group-hover:text-emerald-700">
+                            Upload Business Logo
+                          </span>
+                          <span className="text-[10px] text-slate-400 mt-0.5">Recommended max height 60px</span>
+                          <input
+                            type="file"
+                            accept="image/png, image/jpeg, image/webp, image/svg+xml"
+                            onChange={handleLogoUpload}
+                            className="hidden"
+                          />
+                        </label>
+                      )}
+                    </div>
+
+                    {/* Authorized Signature Dropzone */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                          <FileSignature className="h-3.5 w-3.5 text-slate-500" />
+                          <span>Authorized Signature</span>
+                        </label>
+                        <span className="text-[10px] text-slate-400 font-medium">Transparent PNG</span>
+                      </div>
+
+                      {signatureUrl ? (
+                        <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200">
+                          <div className="h-16 w-24 shrink-0 bg-slate-50 rounded-lg border border-slate-100 p-1 flex items-center justify-center overflow-hidden">
+                            <img
+                              src={signatureUrl}
+                              alt="Authorized Signature"
+                              className="max-h-full max-w-full object-contain"
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0 space-y-1">
+                            <p className="text-xs font-bold text-slate-800 truncate">Signature Uploaded</p>
+                            <div className="flex items-center gap-2">
+                              <label className="cursor-pointer text-[11px] font-bold text-emerald-700 hover:text-emerald-800 underline">
+                                <span>Change</span>
+                                <input
+                                  type="file"
+                                  accept="image/png, image/jpeg, image/webp"
+                                  onChange={handleSignatureUpload}
+                                  className="hidden"
+                                />
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => setSignatureUrl("")}
+                                className="text-[11px] font-bold text-rose-600 hover:text-rose-700 underline cursor-pointer"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <label className="flex flex-col items-center justify-center p-4 rounded-xl border-2 border-dashed border-slate-300 hover:border-emerald-500 bg-white cursor-pointer transition-colors group text-center">
+                          <FileSignature className="h-5 w-5 text-slate-400 group-hover:text-emerald-600 mb-1" />
+                          <span className="text-xs font-bold text-slate-700 group-hover:text-emerald-700">
+                            Upload Signature / Stamp
+                          </span>
+                          <span className="text-[10px] text-slate-400 mt-0.5">Appears above Authorized Signatory</span>
+                          <input
+                            type="file"
+                            accept="image/png, image/jpeg, image/webp"
+                            onChange={handleSignatureUpload}
+                            className="hidden"
+                          />
+                        </label>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">

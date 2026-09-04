@@ -12,6 +12,9 @@ export interface InvoiceLineItem {
   unit?: string;
   rate?: number;
   amount: number;
+  discountType?: "percentage" | "fixed";
+  discountValue?: number;
+  discountAmount?: number;
   taxRate?: number;
   taxAmount?: number;
 }
@@ -27,10 +30,12 @@ export interface Invoice {
 
   clientId: string;
   clientName: string;
+  clientCompanyName?: string;
   clientEmail?: string;
   clientPhone?: string;
   clientAddress?: string;
   clientGstin?: string;
+  clientPan?: string;
 
   issueDate: string; // YYYY-MM-DD
   dueDate: string; // YYYY-MM-DD
@@ -56,6 +61,9 @@ export interface Invoice {
   totalAmount: number;
   paidAmount: number;
   balanceDue: number;
+
+  isRoundOffEnabled?: boolean;
+  roundOffAmount?: number;
 
   termsAndConditions?: string;
   notes?: string;

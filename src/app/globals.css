@@ -158,7 +158,7 @@ html, body {
 @media print {
   @page {
     size: A4 portrait;
-    margin: 6mm 8mm;
+    margin: 6mm 8mm 6mm 8mm;
   }
 
   html, body {
@@ -197,7 +197,7 @@ html, body {
     box-shadow: none !important;
     border: 1px solid #cbd5e1 !important;
     border-radius: 0.75rem !important;
-    margin-bottom: 1rem !important;
+    margin-bottom: 0.5rem !important;
   }
 
   .clay-icon-squircle {
