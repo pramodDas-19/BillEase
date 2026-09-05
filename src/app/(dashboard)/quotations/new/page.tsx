@@ -383,33 +383,6 @@ function NewQuotationContent() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => navigateWithGuard("/quotations")}
-            className="rounded-xl text-xs font-bold cursor-pointer"
-          >
-            Cancel
-          </Button>
-          <button
-            type="button"
-            onClick={() => setIsPreviewOpen(true)}
-            className="inline-flex items-center gap-1.5 h-10 px-4 font-bold text-xs sm:text-sm rounded-2xl cursor-pointer bg-white border border-slate-200/90 text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-all shadow-2xs hover:border-slate-300"
-          >
-            <Eye className="h-4 w-4 text-emerald-600" />
-            <span>Preview</span>
-          </button>
-          <button
-            type="submit"
-            disabled={isSubmitting || state.items.length === 0}
-            className="clay-btn-emerald inline-flex items-center gap-2 h-10 px-5 font-bold text-xs sm:text-sm rounded-2xl cursor-pointer"
-          >
-            <Save className="h-4 w-4" />
-            <span>{isSubmitting ? "Saving..." : "Save Quotation"}</span>
-          </button>
-        </div>
       </div>
 
       {/* 2-Column Split Layout: Same as Invoices */}
@@ -975,6 +948,38 @@ function NewQuotationContent() {
                     </span>
                   </div>
                 )}
+              </div>
+
+              {/* Action Buttons Block inside Card */}
+              <div className="pt-4 border-t border-slate-200/80 space-y-2.5">
+                <button
+                  type="submit"
+                  disabled={isSubmitting || state.items.length === 0}
+                  className="clay-btn-emerald w-full flex items-center justify-center gap-2 h-11 px-5 font-bold text-sm rounded-2xl cursor-pointer shadow-md hover:shadow-lg transition-all"
+                >
+                  <Save className="h-4 w-4" />
+                  <span>{isSubmitting ? "Saving Quotation..." : "Save Quotation"}</span>
+                </button>
+
+                <div className="grid grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsPreviewOpen(true)}
+                    className="w-full inline-flex items-center justify-center gap-1.5 h-10 px-3 font-bold text-xs rounded-xl cursor-pointer bg-white border border-slate-200/90 text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-all shadow-2xs hover:border-slate-300"
+                  >
+                    <Eye className="h-4 w-4 text-emerald-600" />
+                    <span>Preview</span>
+                  </button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigateWithGuard("/quotations")}
+                    className="w-full rounded-xl text-xs font-bold cursor-pointer h-10 border-slate-200 hover:bg-slate-50"
+                  >
+                    Cancel
+                  </Button>
+                </div>
               </div>
             </div>
           </Card>

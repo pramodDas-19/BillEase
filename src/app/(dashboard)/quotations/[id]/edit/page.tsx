@@ -213,25 +213,6 @@ export default function EditQuotationPage({
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => router.push("/quotations")}
-            className="rounded-xl text-xs font-bold cursor-pointer"
-          >
-            Cancel
-          </Button>
-          <button
-            type="submit"
-            disabled={isSubmitting || state.items.length === 0}
-            className="clay-btn-emerald inline-flex items-center gap-2 h-10 px-5 font-bold text-xs sm:text-sm rounded-2xl cursor-pointer"
-          >
-            <Save className="h-4 w-4" />
-            <span>{isSubmitting ? "Updating..." : "Save Changes"}</span>
-          </button>
-        </div>
       </div>
 
       {/* 2-Column Split Layout */}
@@ -632,6 +613,28 @@ export default function EditQuotationPage({
                     </span>
                   </div>
                 )}
+              </div>
+
+              {/* Action Buttons Block inside Card */}
+              <div className="pt-4 border-t border-slate-200/80 space-y-2.5">
+                <button
+                  type="submit"
+                  disabled={isSubmitting || state.items.length === 0}
+                  className="clay-btn-emerald w-full flex items-center justify-center gap-2 h-11 px-5 font-bold text-sm rounded-2xl cursor-pointer shadow-md hover:shadow-lg transition-all"
+                >
+                  <Save className="h-4 w-4" />
+                  <span>{isSubmitting ? "Updating Quotation..." : "Save Changes"}</span>
+                </button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push("/quotations")}
+                  className="w-full rounded-xl text-xs font-bold cursor-pointer h-10 border-slate-200 hover:bg-slate-50"
+                >
+                  Cancel
+                </Button>
               </div>
             </div>
           </Card>
