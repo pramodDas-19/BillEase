@@ -294,6 +294,10 @@ function NewInvoiceContent() {
                       unit: item.unit,
                       rate: item.rate,
                       amount: item.amount || 0,
+                      discountType: item.discountType,
+                      discountValue: item.discountValue,
+                      discountAmount: item.discountAmount,
+                      taxRate: item.taxRate,
                     }))
                   : prev.items,
               discountType: quote.discountType,
@@ -406,6 +410,7 @@ function NewInvoiceContent() {
             : "due",
         currency: state.currency,
         items: state.items.map((i) => ({
+          ...i,
           id: i.id,
           description: i.description,
           detailedNotes: i.detailedNotes,
@@ -414,6 +419,10 @@ function NewInvoiceContent() {
           unit: i.unit,
           rate: i.rate,
           amount: i.amount,
+          discountType: i.discountType,
+          discountValue: i.discountValue,
+          discountAmount: i.discountAmount,
+          taxRate: i.taxRate,
         })),
         subtotal: totals.subtotal,
         discountType: state.discountType,
@@ -596,28 +605,24 @@ function NewInvoiceContent() {
 
             {/* Client Section */}
             <div className="pt-4 border-t border-slate-100">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Client Selection
-                </span>
-                {detectedStateInfo && (
-                  <span
-                    className={cn(
-                      "text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border shadow-2xs animate-in fade-in-50",
-                      detectedStateInfo.isSameState
-                        ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                        : "bg-blue-50 text-blue-800 border-blue-200"
-                    )}
-                  >
-                    📍 {detectedStateInfo.stateName} ({detectedStateInfo.code}) •{" "}
-                    {detectedStateInfo.isSameState ? "CGST + SGST" : "IGST"}
-                  </span>
-                )}
-              </div>
-
               <ClientSearchCombobox
                 clients={clients}
                 selectedClientId={state.clientId}
+                badge={
+                  detectedStateInfo ? (
+                    <span
+                      className={cn(
+                        "text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border shadow-2xs animate-in fade-in-50",
+                        detectedStateInfo.isSameState
+                          ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                          : "bg-blue-50 text-blue-800 border-blue-200"
+                      )}
+                    >
+                      📍 {detectedStateInfo.stateName} ({detectedStateInfo.code}) •{" "}
+                      {detectedStateInfo.isSameState ? "CGST + SGST" : "IGST"}
+                    </span>
+                  ) : undefined
+                }
                 onSelectClient={(client) => handleClientSelect(client.id)}
                 onClear={() => {
                   setState((prev) => ({

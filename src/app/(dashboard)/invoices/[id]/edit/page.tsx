@@ -77,6 +77,10 @@ export default function EditInvoicePage({
                     unit: i.unit,
                     rate: i.rate,
                     amount: i.amount || 0,
+                    discountType: i.discountType,
+                    discountValue: i.discountValue,
+                    discountAmount: i.discountAmount,
+                    taxRate: i.taxRate,
                   }))
                 : [
                     {
@@ -150,6 +154,7 @@ export default function EditInvoicePage({
             ? "partially_paid"
             : "due",
         items: state.items.map((i) => ({
+          ...i,
           id: i.id,
           description: i.description,
           detailedNotes: i.detailedNotes,
@@ -158,6 +163,10 @@ export default function EditInvoicePage({
           unit: i.unit,
           rate: i.rate,
           amount: i.amount,
+          discountType: i.discountType,
+          discountValue: i.discountValue,
+          discountAmount: i.discountAmount,
+          taxRate: i.taxRate,
         })),
         subtotal: totals.subtotal,
         discountType: state.discountType,

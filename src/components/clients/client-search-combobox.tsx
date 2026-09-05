@@ -11,6 +11,7 @@ interface ClientSearchComboboxProps {
   onClear?: () => void;
   placeholder?: string;
   label?: string;
+  badge?: React.ReactNode;
 }
 
 export function ClientSearchCombobox({
@@ -20,6 +21,7 @@ export function ClientSearchCombobox({
   onClear,
   placeholder = "-- Search or Choose Existing Client --",
   label = "Client Selection",
+  badge,
 }: ClientSearchComboboxProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -121,9 +123,12 @@ export function ClientSearchCombobox({
     <div ref={containerRef} className="space-y-2 relative">
       {label && (
         <div className="flex items-center justify-between">
-          <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
-            {label}
-          </label>
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
+              {label}
+            </label>
+            {badge}
+          </div>
           {selectedClient && onClear && (
             <button
               type="button"
