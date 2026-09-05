@@ -76,7 +76,7 @@ export async function GET(
       // 2. Check if token matches a quotation strictly by public_token (NO fallback to id)
       const { data: quoteData } = await supabaseAdmin
         .from("quotations")
-        .select("id, quotation_number, tenant_id, client_name, total_amount, status, currency, valid_until")
+        .select("id, quotation_number, tenant_id, client_name, total_amount, status, currency, valid_until, notes")
         .eq("public_token", token)
         .maybeSingle();
 
@@ -127,6 +127,17 @@ export async function GET(
     }
 
     // 4. Return strictly scoped public payment payload
+    let advanceAmount: number | undefined = undefined;
+    let advanceType: string | undefined = undefined;
+
+    if (isQuotation && invoice.notes) {
+      const advMatch = invoice.notes.match(/\[ADVANCE:([a-z]+):([0-9.]+):([0-9.]+)\]/i);
+      if (advMatch) {
+        advanceType = advMatch[1];
+        advanceAmount = parseFloat(advMatch[3]);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       data: {
@@ -135,6 +146,8 @@ export async function GET(
         isQuotation,
         clientName: invoice.client_name || "Valued Client",
         totalAmount: Number(invoice.total_amount) || 0,
+        advanceAmount,
+        advanceType,
         balanceDue: isQuotation ? Number(invoice.total_amount) : Number(invoice.balance_due ?? invoice.total_amount),
         paidAmount: isQuotation ? 0 : Number(invoice.paid_amount || 0),
         status: invoice.status,

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { InvoiceStatusBadge, PaymentRecordModal } from "@/components/invoices";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { getWhatsAppInvoiceShareUrl } from "@/lib/whatsapp";
+import { useTenant } from "@/hooks/use-tenant";
 import {
   ArrowLeft,
   Share2,
@@ -23,6 +24,7 @@ import {
 
 export default function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const { currentTenant } = useTenant();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [invoicePayments, setInvoicePayments] = useState<Payment[]>([]);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -80,6 +82,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     totalAmount: invoice.totalAmount,
     balanceDue: invoice.balanceDue,
     currency: invoice.currency,
+    businessName: currentTenant?.businessName,
   });
 
   return (

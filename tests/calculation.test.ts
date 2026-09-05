@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { calculateDocumentTotals } from "@/lib/calculation";
 import { generateUpiIntentUrl, getUpiQrImageUrl } from "@/lib/upi";
 import { generateCsvContent, CsvColumn } from "@/lib/export-csv";
-import { formatWhatsAppPhoneNumber, getWhatsAppInvoiceShareUrl } from "@/lib/whatsapp";
+import { formatWhatsAppPhoneNumber, getWhatsAppInvoiceShareUrl, getWhatsAppQuotationShareUrl, getWhatsAppPaymentReceiptUrl } from "@/lib/whatsapp";
 import { validateInvoiceInput, validateQuotationInput, validateClientInput } from "@/lib/server-validations";
 import { urlBase64ToUint8Array, VAPID_PUBLIC_KEY } from "@/lib/web-push";
 
@@ -243,6 +243,54 @@ describe("Professional WhatsApp Notification Engine", () => {
     expect(decodedMessage).toContain("TAX INVOICE #INV-2026-88* from *Elite Media Works*");
     expect(decodedMessage).toContain("/pay/550e8400-e29b-41d4-a716-446655440000");
     expect(decodedMessage).toContain("Elite Media Works");
+  });
+
+  it("generates a clean quotation WhatsApp share link with dynamic advance booking and business branding", () => {
+    const url = getWhatsAppQuotationShareUrl({
+      clientPhone: "9876543210",
+      clientName: "Atul Naik",
+      quotationNumber: "QT-1003",
+      quotationId: "q-1003",
+      publicToken: "beb1daf9-ab3b-4397-926e-56e3b43e9ed8",
+      totalAmount: 63768.38,
+      advanceAmount: 12753.68,
+      advancePercentage: 20,
+      advanceType: "percentage",
+      validUntil: "19 Sept 2026",
+      businessName: "Pramod Enterprises",
+    });
+
+    const decoded = decodeURIComponent(url);
+    expect(decoded).toContain("Hello *Atul Naik*");
+    expect(decoded).toContain("PRICE QUOTATION #QT-1003* from *Pramod Enterprises*");
+    expect(decoded).toContain("Estimated Total: *₹ 63,768.38*");
+    expect(decoded).toContain("Booking Advance (20%): *₹ 12,753.68*");
+    expect(decoded).toContain("Valid Until: *19 Sept 2026*");
+    expect(decoded).toContain("/pay/beb1daf9-ab3b-4397-926e-56e3b43e9ed8");
+    expect(decoded).toContain("confirm your order");
+    // Verifies that tax invoice jargon is removed
+    expect(decoded).not.toContain("issue your Tax Invoice");
+    expect(decoded).toContain("— *Pramod Enterprises*");
+  });
+
+  it("generates WhatsApp payment receipt with business name and clean spacing", () => {
+    const url = getWhatsAppPaymentReceiptUrl({
+      clientPhone: "9876543210",
+      clientName: "Atul Naik",
+      invoiceNumber: "INV-1002",
+      paymentNumber: "PAY-0098",
+      amount: 36240,
+      businessName: "Pramod Enterprises",
+    });
+
+    const decoded = decodeURIComponent(url);
+    expect(decoded).toContain("Hello *Atul Naik*");
+    expect(decoded).toContain("PAYMENT RECEIVED WITH THANKS");
+    expect(decoded).toContain("Received by: *Pramod Enterprises*");
+    expect(decoded).toContain("Receipt Number: *#PAY-0098*");
+    expect(decoded).toContain("Invoice Reference: *#INV-1002*");
+    expect(decoded).toContain("Amount Paid: *₹ 36,240.00*");
+    expect(decoded).toContain("— *Pramod Enterprises*");
   });
 });
 

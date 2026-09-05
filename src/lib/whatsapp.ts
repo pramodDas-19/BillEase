@@ -21,6 +21,8 @@ export interface WhatsAppQuotationShareParams {
   publicToken?: string;
   totalAmount: number;
   advanceAmount?: number;
+  advancePercentage?: number;
+  advanceType?: "percentage" | "fixed" | "none";
   validUntil?: string;
   currency?: CurrencyCode;
   businessName?: string;
@@ -95,34 +97,35 @@ export function getWhatsAppInvoiceShareUrl({
   const totalFormatted = formatCurrency(totalAmount, currency);
   const balanceFormatted = formatCurrency(balanceDue, currency);
   const payUrl = publicToken ? `${baseUrl}/pay/${publicToken}` : "";
+  const senderBrand = businessName?.trim() ? businessName.trim() : "Our Team";
 
-  const lines = [
+  const blocks: string[] = [
     `Hello *${clientName.trim()}*,`,
-    ``,
-    businessName
-      ? `🧾 *TAX INVOICE #${invoiceNumber}* from *${businessName.trim()}*`
-      : `🧾 *TAX INVOICE #${invoiceNumber}*`,
-    `Total Amount: *${totalFormatted}*`,
-    `Balance Due: *${balanceFormatted}*`,
+    [
+      `🧾 *TAX INVOICE #${invoiceNumber}* from *${senderBrand}*`,
+      `Total Amount: *${totalFormatted}*`,
+      `Balance Due: *${balanceFormatted}*`,
+    ].join("\n"),
   ];
 
   if (payUrl) {
-    lines.push(
-      ``,
-      `💳 *Pay Online (UPI, GPay, PhonePe, Cards):*`,
-      payUrl,
-      ``,
-      `_Click the link above to view your bill and settle instantly._`
+    blocks.push(
+      [
+        `💳 *Pay Online (UPI, GPay, PhonePe, Cards):*`,
+        payUrl,
+        `_Click the link above to view your bill and settle instantly._`,
+      ].join("\n")
     );
   }
 
-  lines.push(
-    ``,
-    `Thank you for your business!`,
-    businessName ? `— *${businessName.trim()}*` : ""
+  blocks.push(
+    [
+      `Thank you for your business!`,
+      `— *${senderBrand}*`,
+    ].join("\n")
   );
 
-  const message = lines.filter((line) => line !== "").join("\n");
+  const message = blocks.join("\n\n");
   return cleanPhone
     ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`
     : `https://wa.me/?text=${encodeURIComponent(message)}`;
@@ -137,6 +140,8 @@ export function getWhatsAppQuotationShareUrl({
   publicToken,
   totalAmount,
   advanceAmount,
+  advancePercentage,
+  advanceType,
   validUntil,
   currency = "INR",
   businessName,
@@ -144,40 +149,66 @@ export function getWhatsAppQuotationShareUrl({
   const cleanPhone = formatWhatsAppPhoneNumber(clientPhone);
   const baseUrl = getBaseUrl();
   const totalFormatted = formatCurrency(totalAmount, currency);
-  const advance = advanceAmount || Math.round(totalAmount * 0.5);
-  const advanceFormatted = formatCurrency(advance, currency);
   const payUrl = publicToken ? `${baseUrl}/pay/${publicToken}` : "";
+  const senderBrand = businessName?.trim() ? businessName.trim() : "Our Team";
 
-  const lines = [
-    `Hello *${clientName.trim()}*,`,
-    ``,
-    businessName
-      ? `📋 *PRICE QUOTATION #${quotationNumber}* from *${businessName.trim()}*`
-      : `📋 *PRICE QUOTATION #${quotationNumber}*`,
+  // Advance determination
+  const hasAdvance = advanceType !== "none" && (advanceAmount !== undefined ? advanceAmount > 0 : true);
+  const calculatedAdvance = advanceAmount !== undefined
+    ? advanceAmount
+    : Math.round(totalAmount * 0.5);
+  const advanceFormatted = formatCurrency(calculatedAdvance, currency);
+
+  let percentLabel = "";
+  if (advancePercentage !== undefined && advancePercentage > 0) {
+    percentLabel = `${advancePercentage}%`;
+  } else if (advanceType === "percentage" || advanceAmount === undefined) {
+    const calcPct = Math.round((calculatedAdvance / (totalAmount || 1)) * 100);
+    percentLabel = `${calcPct}%`;
+  }
+
+  const detailsLines = [
+    `📋 *PRICE QUOTATION #${quotationNumber}* from *${senderBrand}*`,
     `Estimated Total: *${totalFormatted}*`,
   ];
 
-  if (validUntil) {
-    lines.push(`Valid Until: *${validUntil}*`);
-  }
-
-  if (payUrl) {
-    lines.push(
-      ``,
-      `💳 *1-Click Advance Booking (${advanceFormatted}):*`,
-      payUrl,
-      ``,
-      `_Paying the advance will automatically issue your Tax Invoice & confirm your booking._`
+  if (hasAdvance && calculatedAdvance > 0) {
+    detailsLines.push(
+      percentLabel
+        ? `Booking Advance (${percentLabel}): *${advanceFormatted}*`
+        : `Booking Advance: *${advanceFormatted}*`
     );
   }
 
-  lines.push(
-    ``,
-    `Thank you!`,
-    businessName ? `— *${businessName.trim()}*` : ""
+  if (validUntil) {
+    detailsLines.push(`Valid Until: *${validUntil}*`);
+  }
+
+  const blocks: string[] = [
+    `Hello *${clientName.trim()}*,`,
+    detailsLines.join("\n"),
+  ];
+
+  if (payUrl) {
+    blocks.push(
+      [
+        `💳 *View Quotation & Confirm Booking:*`,
+        payUrl,
+        hasAdvance && calculatedAdvance > 0
+          ? `_Click the link above to review quotation & pay the ${advanceFormatted} advance to confirm your order._`
+          : `_Click the link above to review your quotation and confirm your order._`,
+      ].join("\n")
+    );
+  }
+
+  blocks.push(
+    [
+      `Thank you!`,
+      `— *${senderBrand}*`,
+    ].join("\n")
   );
 
-  const message = lines.filter((line) => line !== "").join("\n");
+  const message = blocks.join("\n\n");
   return cleanPhone
     ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`
     : `https://wa.me/?text=${encodeURIComponent(message)}`;
@@ -199,48 +230,49 @@ export function getWhatsAppReminderUrl({
   const baseUrl = getBaseUrl();
   const balanceFormatted = formatCurrency(balanceDue, currency);
   const payUrl = publicToken ? `${baseUrl}/pay/${publicToken}` : "";
+  const senderBrand = businessName?.trim() ? businessName.trim() : "Our Team";
 
   let message = "";
   if (customTemplate && customTemplate.trim()) {
     message = customTemplate
       .replace(/\{client_name\}/gi, clientName.trim())
-      .replace(/\{business_name\}/gi, businessName?.trim() || "Our Team")
+      .replace(/\{business_name\}/gi, senderBrand)
       .replace(/\{invoice_num\}/gi, invoiceNumber ? `${invoiceNumber}` : "")
       .replace(/\{balance_due\}/gi, balanceFormatted)
       .replace(/\{pay_link\}/gi, payUrl || "");
 
-    // If template didn't include pay link placeholder and payUrl is present, append cleanly
     if (payUrl && !customTemplate.includes("{pay_link}")) {
       message += `\n\n💳 1-Click Pay: ${payUrl}`;
     }
   } else {
-    const lines = [
+    const blocks: string[] = [
       `Hello *${clientName.trim()}*,`,
-      ``,
-      businessName
-        ? `⏳ *Friendly Payment Reminder* from *${businessName.trim()}*`
-        : `⏳ *Friendly Payment Reminder*`,
-      invoiceNumber
-        ? `Regarding outstanding balance on invoice *#${invoiceNumber}*:`
-        : `Regarding your outstanding ledger balance:`,
-      `Balance Due: *${balanceFormatted}*`,
+      [
+        `⏳ *Friendly Payment Reminder* from *${senderBrand}*`,
+        invoiceNumber
+          ? `Regarding outstanding balance on invoice *#${invoiceNumber}*:`
+          : `Regarding your outstanding ledger balance:`,
+        `Balance Due: *${balanceFormatted}*`,
+      ].join("\n"),
     ];
 
     if (payUrl) {
-      lines.push(
-        ``,
-        `💳 *1-Click Instant Settlement:*`,
-        payUrl
+      blocks.push(
+        [
+          `💳 *1-Click Instant Settlement:*`,
+          payUrl,
+        ].join("\n")
       );
     }
 
-    lines.push(
-      ``,
-      `Kindly arrange for settlement at your earliest convenience. Thank you!`,
-      businessName ? `— *${businessName.trim()}*` : ""
+    blocks.push(
+      [
+        `Kindly arrange for settlement at your earliest convenience. Thank you!`,
+        `— *${senderBrand}*`,
+      ].join("\n")
     );
 
-    message = lines.filter((line) => line !== "").join("\n");
+    message = blocks.join("\n\n");
   }
 
   return cleanPhone
@@ -260,21 +292,30 @@ export function getWhatsAppPaymentReceiptUrl({
 }: WhatsAppPaymentReceiptParams): string {
   const cleanPhone = clientPhone ? formatWhatsAppPhoneNumber(clientPhone) : "";
   const amountFormatted = formatCurrency(amount, currency);
+  const senderBrand = businessName?.trim() ? businessName.trim() : "Our Team";
 
-  const lines = [
-    `Hello *${clientName.trim()}*,`,
-    ``,
+  const detailsLines = [
     `✅ *PAYMENT RECEIVED WITH THANKS*`,
-    businessName ? `Received by: *${businessName.trim()}*` : "",
+    `Received by: *${senderBrand}*`,
     `Receipt Number: *#${paymentNumber}*`,
-    invoiceNumber ? `Invoice Reference: *#${invoiceNumber}*` : "",
-    `Amount Paid: *${amountFormatted}*`,
-    ``,
-    `Thank you for your business!`,
-    businessName ? `— *${businessName.trim()}*` : "",
   ];
 
-  const message = lines.filter((line) => line !== "").join("\n");
+  if (invoiceNumber) {
+    detailsLines.push(`Invoice Reference: *#${invoiceNumber}*`);
+  }
+
+  detailsLines.push(`Amount Paid: *${amountFormatted}*`);
+
+  const blocks: string[] = [
+    `Hello *${clientName.trim()}*,`,
+    detailsLines.join("\n"),
+    [
+      `Thank you for your business!`,
+      `— *${senderBrand}*`,
+    ].join("\n"),
+  ];
+
+  const message = blocks.join("\n\n");
   return cleanPhone
     ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`
     : `https://wa.me/?text=${encodeURIComponent(message)}`;

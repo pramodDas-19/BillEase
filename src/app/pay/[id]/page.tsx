@@ -21,6 +21,8 @@ interface PublicPaymentPayload {
   isQuotation: boolean;
   clientName: string;
   totalAmount: number;
+  advanceAmount?: number;
+  advanceType?: string;
   balanceDue: number;
   paidAmount: number;
   status: string;
@@ -172,7 +174,11 @@ export default function ClientPayPortalPage({
     bankDetails,
   } = paymentData;
 
-  const payableAmount = isQuotation ? Math.round(totalAmount * 0.5) : balanceDue;
+  const payableAmount = isQuotation
+    ? (paymentData.advanceAmount !== undefined
+        ? (paymentData.advanceAmount === 0 || paymentData.advanceType === "none" ? totalAmount : paymentData.advanceAmount)
+        : Math.round(totalAmount * 0.5))
+    : balanceDue;
   const upiId = bankDetails?.upiId || "payments@upi";
 
   // Universal UPI Intent URI
@@ -284,7 +290,15 @@ export default function ClientPayPortalPage({
               <div className="flex items-start justify-between border-b border-slate-100 pb-4">
                 <div>
                   <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
-                    {isQuotation ? "Quotation Advance Deposit (50%)" : "Invoice Balance Due"}
+                    {isQuotation
+                      ? (paymentData.advanceAmount === 0 || paymentData.advanceType === "none"
+                          ? "Quotation Settlement"
+                          : `Quotation Booking Advance (${
+                              paymentData.advanceAmount && totalAmount > 0
+                                ? `${Math.round((paymentData.advanceAmount / totalAmount) * 100)}%`
+                                : "50%"
+                            })`)
+                      : "Invoice Balance Due"}
                   </span>
                   <h2 className="text-3xl font-black text-slate-900 tracking-tight">
                     {formatCurrency(payableAmount, "INR")}

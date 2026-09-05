@@ -26,13 +26,19 @@ export function QuotationPrintDocument({ quotation, tenant }: QuotationPrintDocu
   const upiId = bankDetails.upiId || "";
   const signature = tenant.signatureUrl || tenant.settings?.signatureUrl;
 
+  const payableAmount = quotation.advanceAmount !== undefined && quotation.advanceAmount > 0
+    ? quotation.advanceAmount
+    : quotation.totalAmount;
+
   // Generate dynamic QR code URL for quotation advance payment
   const upiUri = generateUpiIntentUrl({
     upiId: upiId || "business@upi",
     businessName: tenant?.businessName || "Business",
-    amount: quotation.totalAmount,
+    amount: payableAmount,
     transactionRef: quotation.quotationNumber,
-    note: `Quote ${quotation.quotationNumber}`,
+    note: quotation.advanceAmount !== undefined && quotation.advanceAmount > 0
+      ? `Advance Quote ${quotation.quotationNumber}`
+      : `Quote ${quotation.quotationNumber}`,
   });
 
   const qrImageUrl = getUpiQrImageUrl(upiUri, 200);
@@ -193,6 +199,27 @@ export function QuotationPrintDocument({ quotation, tenant }: QuotationPrintDocu
             <span>TOTAL</span>
             <span className="font-mono">{formatCurrency(quotation.totalAmount, quotation.currency)}</span>
           </div>
+
+          {quotation.advanceAmount !== undefined && quotation.advanceAmount > 0 && (
+            <div className="pt-1 mt-1 border-t border-dashed border-slate-300 space-y-0.5">
+              <div className="flex justify-between text-[10px] text-emerald-800 font-bold">
+                <span>
+                  Booking Advance (
+                  {quotation.advanceType === "percentage" && quotation.advanceValue
+                    ? `${quotation.advanceValue}%`
+                    : `${Math.round((quotation.advanceAmount / (quotation.totalAmount || 1)) * 100)}%`}
+                  ):
+                </span>
+                <span className="font-mono">{formatCurrency(quotation.advanceAmount, quotation.currency)}</span>
+              </div>
+              <div className="flex justify-between text-[10px] text-slate-500 font-medium">
+                <span>Balance on Delivery:</span>
+                <span className="font-mono text-slate-700">
+                  {formatCurrency(Math.max(0, quotation.totalAmount - quotation.advanceAmount), quotation.currency)}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

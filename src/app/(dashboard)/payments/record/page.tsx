@@ -7,6 +7,8 @@ import { InvoiceService } from "@/services/invoice.service";
 import { PaymentService } from "@/services/payment.service";
 import { Invoice } from "@/types";
 import { formatCurrency, cn } from "@/lib/utils";
+import { CURRENCIES } from "@/constants/currencies";
+import { CurrencyCode } from "@/types";
 import {
   ArrowLeft,
   CreditCard,
@@ -24,6 +26,7 @@ import {
   Clock,
   Sparkles,
   Receipt,
+  Percent,
 } from "lucide-react";
 
 function RecordPaymentForm() {
@@ -38,10 +41,16 @@ function RecordPaymentForm() {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const [amount, setAmount] = useState("");
+  const [amountMode, setAmountMode] = useState<"fixed" | "percentage">("fixed");
+  const [percentValue, setPercentValue] = useState("");
+  const [isCustomPercentOpen, setIsCustomPercentOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"upi" | "bank_transfer" | "cash" | "cheque">("upi");
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0]);
   const [transactionRef, setTransactionRef] = useState("");
   const [notes, setNotes] = useState("");
+  const [activeQuickFill, setActiveQuickFill] = useState<
+    "full" | "50" | "20" | "10" | "custom" | null
+  >("full");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -102,6 +111,12 @@ function RecordPaymentForm() {
   const handleSelectInvoice = (inv: Invoice) => {
     setSelectedInvoiceId(inv.id);
     setAmount(inv.balanceDue.toString());
+    const pct =
+      inv.totalAmount > 0
+        ? ((inv.balanceDue / inv.totalAmount) * 100).toFixed(1)
+        : "100";
+    setPercentValue(pct);
+    setActiveQuickFill("full");
     setIsInvoiceDropdownOpen(false);
     setInvoiceSearchQuery("");
   };
@@ -110,17 +125,86 @@ function RecordPaymentForm() {
     if (!selectedInvoice) return;
     const calculated = Math.round((selectedInvoice.totalAmount * percent) / 100);
     setAmount(calculated.toString());
+    setPercentValue(percent.toString());
+    setIsCustomPercentOpen(false);
+    setActiveQuickFill(
+      percent === 50 ? "50" : percent === 20 ? "20" : percent === 10 ? "10" : "custom"
+    );
   };
 
   const handleFullBalance = () => {
     if (!selectedInvoice) return;
     setAmount(selectedInvoice.balanceDue.toString());
+    const pct =
+      selectedInvoice.totalAmount > 0
+        ? ((selectedInvoice.balanceDue / selectedInvoice.totalAmount) * 100).toFixed(1)
+        : "100";
+    setPercentValue(pct);
+    setIsCustomPercentOpen(false);
+    setActiveQuickFill("full");
+  };
+
+  const handleModeSwitch = (mode: "fixed" | "percentage") => {
+    setAmountMode(mode);
+    if (mode === "percentage") {
+      if (selectedInvoice && parsedAmount > 0 && selectedInvoice.totalAmount > 0) {
+        setPercentValue(((parsedAmount / selectedInvoice.totalAmount) * 100).toFixed(1));
+      }
+    }
+  };
+
+  const handleAmountChange = (val: string) => {
+    setAmount(val);
+    setActiveQuickFill(null);
+    setIsCustomPercentOpen(false);
+    const num = parseFloat(val);
+    if (!isNaN(num) && selectedInvoice && selectedInvoice.totalAmount > 0) {
+      setPercentValue(((num / selectedInvoice.totalAmount) * 100).toFixed(1));
+    }
+  };
+
+  const handlePercentInputChange = (val: string) => {
+    setPercentValue(val);
+    setActiveQuickFill("custom");
+    const num = parseFloat(val);
+    if (!isNaN(num) && selectedInvoice && num >= 0) {
+      const calculated = Math.round((selectedInvoice.totalAmount * num) / 100);
+      setAmount(calculated.toString());
+    } else if (!val) {
+      setAmount("");
+    }
   };
 
   // Live settlement calculation
+  const currencyCode = (selectedInvoice?.currency || "INR") as CurrencyCode;
+  const currencySymbol = CURRENCIES[currencyCode]?.symbol || "₹";
   const parsedAmount = parseFloat(amount) || 0;
   const currentBalance = selectedInvoice ? selectedInvoice.balanceDue : 0;
+  const halfAdvance = selectedInvoice ? Math.round((selectedInvoice.totalAmount * 50) / 100) : 0;
+  const tokenAdvance = selectedInvoice ? Math.round((selectedInvoice.totalAmount * 20) / 100) : 0;
+  const tenToken = selectedInvoice ? Math.round((selectedInvoice.totalAmount * 10) / 100) : 0;
   const remainingBalanceAfter = Math.max(0, currentBalance - parsedAmount);
+
+  // Derive which quick fill button is active
+  const isFullDueActive =
+    activeQuickFill === "full" ||
+    (parsedAmount > 0 && Math.abs(parsedAmount - currentBalance) < 0.01);
+  const is50Active =
+    !isFullDueActive &&
+    (activeQuickFill === "50" ||
+      (parsedAmount > 0 && halfAdvance > 0 && Math.abs(parsedAmount - halfAdvance) < 1));
+  const is20Active =
+    !isFullDueActive &&
+    !is50Active &&
+    (activeQuickFill === "20" ||
+      (parsedAmount > 0 && tokenAdvance > 0 && Math.abs(parsedAmount - tokenAdvance) < 1));
+  const is10Active =
+    !isFullDueActive &&
+    !is50Active &&
+    !is20Active &&
+    (activeQuickFill === "10" ||
+      (parsedAmount > 0 && tenToken > 0 && Math.abs(parsedAmount - tenToken) < 1));
+  const isCustomPercentActive = activeQuickFill === "custom";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -374,24 +458,97 @@ function RecordPaymentForm() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-start">
             {/* Left: Amount Input & Quick Fill */}
             <div className="space-y-3">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                Amount Received (₹) <span className="text-rose-500">*</span>
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                  Amount Received <span className="text-rose-500">*</span>
+                </label>
 
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-base font-extrabold text-slate-400">
-                  ₹
-                </span>
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  placeholder="0.00"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-white pl-9 pr-4 py-3 text-lg font-black text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 shadow-xs transition-all"
-                />
+                {/* Currency vs Percentage Segmented Mode Switch */}
+                <div className="inline-flex p-0.5 rounded-xl bg-slate-100 border border-slate-200/80 text-[11px] font-bold">
+                  <button
+                    type="button"
+                    onClick={() => handleModeSwitch("fixed")}
+                    className={cn(
+                      "px-2.5 py-1 rounded-lg transition-all cursor-pointer",
+                      amountMode === "fixed"
+                        ? "bg-white text-slate-900 shadow-2xs font-extrabold"
+                        : "text-slate-500 hover:text-slate-900"
+                    )}
+                  >
+                    {currencySymbol} Amount
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleModeSwitch("percentage")}
+                    className={cn(
+                      "px-2.5 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1",
+                      amountMode === "percentage"
+                        ? "bg-emerald-600 text-white shadow-2xs font-extrabold"
+                        : "text-slate-500 hover:text-slate-900"
+                    )}
+                  >
+                    <Percent className="h-3 w-3" />
+                    <span>Percent (%)</span>
+                  </button>
+                </div>
               </div>
+
+              {amountMode === "fixed" ? (
+                <div className="space-y-1.5">
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-base font-extrabold text-slate-400">
+                      {currencySymbol}
+                    </span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      placeholder="0.00"
+                      value={amount}
+                      onChange={(e) => handleAmountChange(e.target.value)}
+                      className="w-full rounded-2xl border border-slate-200 bg-white pl-9 pr-4 py-3 text-lg font-black text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 shadow-xs transition-all"
+                    />
+                  </div>
+                  {selectedInvoice && parsedAmount > 0 && selectedInvoice.totalAmount > 0 && (
+                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium px-1">
+                      <span>Equates to:</span>
+                      <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/70">
+                        {((parsedAmount / selectedInvoice.totalAmount) * 100).toFixed(1)}% of total bill ({formatCurrency(selectedInvoice.totalAmount, currencyCode)})
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="100"
+                      required
+                      placeholder="e.g. 13 for 13%"
+                      value={percentValue}
+                      onChange={(e) => handlePercentInputChange(e.target.value)}
+                      className="w-full rounded-2xl border border-slate-200 bg-white pl-4 pr-10 py-3 text-lg font-black text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 shadow-xs transition-all"
+                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-base font-extrabold text-emerald-600">
+                      %
+                    </span>
+                  </div>
+                  {selectedInvoice && parsedAmount > 0 && (
+                    <div className="flex items-center gap-1.5 text-xs text-emerald-800 font-bold bg-emerald-50/90 border border-emerald-200/80 rounded-xl px-3 py-1.5 animate-in fade-in-50">
+                      <span>Calculated Payment:</span>
+                      <span className="font-black text-slate-900 text-sm">
+                        {formatCurrency(parsedAmount, currencyCode)}
+                      </span>
+                      <span className="text-[11px] text-slate-500 font-medium">
+                        ({percentValue}% of {formatCurrency(selectedInvoice.totalAmount, currencyCode)})
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Quick Fill Chips */}
               <div className="flex items-center gap-2 flex-wrap pt-1">
@@ -399,24 +556,94 @@ function RecordPaymentForm() {
                 <button
                   type="button"
                   onClick={handleFullBalance}
-                  className="clay-tag px-3 py-1 text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition-colors cursor-pointer"
+                  className={cn(
+                    "clay-tag px-3 py-1.5 text-xs font-bold transition-all cursor-pointer shadow-2xs",
+                    isFullDueActive
+                      ? "bg-emerald-600 text-white border-emerald-600 shadow-xs font-extrabold"
+                      : "bg-white text-slate-700 border-slate-200 hover:bg-emerald-50/60 hover:text-emerald-800"
+                  )}
                 >
-                  Full Due ({formatCurrency(currentBalance, "INR")})
+                  Full Due ({formatCurrency(currentBalance, currencyCode)})
                 </button>
                 <button
                   type="button"
                   onClick={() => handleQuickPercent(50)}
-                  className="clay-tag px-3 py-1 text-xs font-bold bg-slate-50 text-slate-700 border border-slate-200/80 hover:bg-slate-100 transition-colors cursor-pointer"
+                  className={cn(
+                    "clay-tag px-3 py-1.5 text-xs font-bold transition-all cursor-pointer shadow-2xs",
+                    is50Active
+                      ? "bg-emerald-600 text-white border-emerald-600 shadow-xs font-extrabold"
+                      : "bg-white text-slate-700 border-slate-200 hover:bg-emerald-50/60 hover:text-emerald-800"
+                  )}
                 >
-                  50% Advance
+                  50% Advance {halfAdvance > 0 && `(${formatCurrency(halfAdvance, currencyCode)})`}
                 </button>
                 <button
                   type="button"
                   onClick={() => handleQuickPercent(20)}
-                  className="clay-tag px-3 py-1 text-xs font-bold bg-slate-50 text-slate-700 border border-slate-200/80 hover:bg-slate-100 transition-colors cursor-pointer"
+                  className={cn(
+                    "clay-tag px-3 py-1.5 text-xs font-bold transition-all cursor-pointer shadow-2xs",
+                    is20Active
+                      ? "bg-emerald-600 text-white border-emerald-600 shadow-xs font-extrabold"
+                      : "bg-white text-slate-700 border-slate-200 hover:bg-emerald-50/60 hover:text-emerald-800"
+                  )}
                 >
-                  20% Token
+                  20% Token {tokenAdvance > 0 && `(${formatCurrency(tokenAdvance, currencyCode)})`}
                 </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickPercent(10)}
+                  className={cn(
+                    "clay-tag px-3 py-1.5 text-xs font-bold transition-all cursor-pointer shadow-2xs",
+                    is10Active
+                      ? "bg-emerald-600 text-white border-emerald-600 shadow-xs font-extrabold"
+                      : "bg-white text-slate-700 border-slate-200 hover:bg-emerald-50/60 hover:text-emerald-800"
+                  )}
+                >
+                  10% Token {tenToken > 0 && `(${formatCurrency(tenToken, currencyCode)})`}
+                </button>
+
+                {/* Custom % Button or Inline Input */}
+                {isCustomPercentOpen ? (
+                  <div className="inline-flex items-center gap-1 rounded-xl bg-emerald-50 border border-emerald-300 px-2.5 py-1 shadow-2xs animate-in fade-in-50 zoom-in-95">
+                    <span className="text-[11px] font-bold text-emerald-800">Custom:</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="100"
+                      step="0.1"
+                      placeholder="%"
+                      value={percentValue}
+                      onChange={(e) => handlePercentInputChange(e.target.value)}
+                      className="w-14 text-xs font-black text-emerald-900 bg-white rounded-lg px-2 py-0.5 border border-emerald-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-center"
+                      autoFocus
+                    />
+                    <span className="text-xs font-black text-emerald-800">%</span>
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomPercentOpen(false)}
+                      className="text-[11px] font-bold text-slate-400 hover:text-slate-700 ml-1 px-1 cursor-pointer"
+                      title="Close custom %"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCustomPercentOpen(true);
+                      setAmountMode("percentage");
+                    }}
+                    className={cn(
+                      "clay-tag px-3 py-1.5 text-xs font-bold transition-all cursor-pointer shadow-2xs",
+                      isCustomPercentActive
+                        ? "bg-emerald-600 text-white border-emerald-600 shadow-xs font-extrabold"
+                        : "bg-white text-slate-700 border-slate-200 hover:bg-emerald-50/60 hover:text-emerald-800"
+                    )}
+                  >
+                    ⚙️ Custom % {isCustomPercentActive && percentValue ? `(${percentValue}%)` : ""}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -429,7 +656,7 @@ function RecordPaymentForm() {
               <div className="flex justify-between items-center text-slate-600">
                 <span>Paying Now:</span>
                 <span className="font-bold text-slate-900 text-sm">
-                  {formatCurrency(parsedAmount, "INR")}
+                  {formatCurrency(parsedAmount, currencyCode)}
                 </span>
               </div>
 
@@ -441,7 +668,7 @@ function RecordPaymentForm() {
                     remainingBalanceAfter === 0 ? "text-emerald-700" : "text-amber-700"
                   )}
                 >
-                  {formatCurrency(remainingBalanceAfter, "INR")}
+                  {formatCurrency(remainingBalanceAfter, currencyCode)}
                   {remainingBalanceAfter === 0 && (
                     <span className="text-[10px] font-bold text-emerald-600 ml-1.5 uppercase">
                       (Fully Settled)

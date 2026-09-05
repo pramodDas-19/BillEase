@@ -27,6 +27,10 @@ export interface QuotationBuilderState {
 
   termsAndConditions: string;
   notes: string;
+
+  // Advance / Booking Token
+  advanceType?: "percentage" | "fixed" | "none";
+  advanceValue?: number;
 }
 
 export function useQuotationBuilder(initialState?: Partial<QuotationBuilderState>) {
@@ -65,6 +69,8 @@ export function useQuotationBuilder(initialState?: Partial<QuotationBuilderState
     isRoundOffEnabled: initialState?.isRoundOffEnabled ?? false,
     termsAndConditions: initialState?.termsAndConditions || "",
     notes: initialState?.notes || "",
+    advanceType: initialState?.advanceType || "percentage",
+    advanceValue: initialState?.advanceValue ?? 50,
   });
 
   const totals = useMemo(() => {
@@ -79,6 +85,16 @@ export function useQuotationBuilder(initialState?: Partial<QuotationBuilderState
     });
   }, [state.items, state.discountType, state.discountValue, state.isTaxEnabled, state.defaultTaxRate, state.gstType, state.isRoundOffEnabled]);
 
+  const advanceAmount = useMemo(() => {
+    const total = totals.totalAmount;
+    if (state.advanceType === "none") return 0;
+    if (state.advanceType === "fixed") {
+      return Math.min(total, Math.max(0, state.advanceValue || 0));
+    }
+    // Default percentage
+    const pct = state.advanceValue ?? 50;
+    return Math.round(((total * pct) / 100) * 100) / 100;
+  }, [totals.totalAmount, state.advanceType, state.advanceValue]);
 
   const addItem = () => {
     setState((prev) => ({
@@ -124,6 +140,7 @@ export function useQuotationBuilder(initialState?: Partial<QuotationBuilderState
     state,
     setState,
     totals,
+    advanceAmount,
     addItem,
     removeItem,
     updateItem,

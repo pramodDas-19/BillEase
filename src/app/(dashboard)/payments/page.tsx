@@ -6,6 +6,7 @@ import { PaymentService } from "@/services/payment.service";
 import { Payment, PaymentMethod } from "@/types";
 import { getWhatsAppPaymentReceiptUrl } from "@/lib/whatsapp";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import { useTenant } from "@/hooks/use-tenant";
 
 import {
   CreditCard,
@@ -27,6 +28,7 @@ import { exportPaymentsToCsv } from "@/lib/export-csv";
 
 
 export default function PaymentsPage() {
+  const { currentTenant } = useTenant();
   const [paymentsList, setPaymentsList] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -433,6 +435,7 @@ export default function PaymentsPage() {
                         paymentNumber: p.paymentNumber,
                         amount: p.amount,
                         currency: p.currency,
+                        businessName: currentTenant?.businessName,
                       })}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -526,6 +529,7 @@ export default function PaymentsPage() {
                               paymentNumber: p.paymentNumber,
                               amount: p.amount,
                               currency: p.currency,
+                              businessName: currentTenant?.businessName,
                             })}
                             target="_blank"
                             rel="noopener noreferrer"

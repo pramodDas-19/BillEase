@@ -63,6 +63,11 @@ export interface Quotation {
 
   totalAmount: number;
 
+  // Advance / Booking Token (OPTIONAL)
+  advanceType?: "percentage" | "fixed" | "none";
+  advanceValue?: number;
+  advanceAmount?: number;
+
   termsAndConditions?: string;
   notes?: string;
 

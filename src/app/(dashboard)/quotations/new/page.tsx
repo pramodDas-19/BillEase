@@ -77,6 +77,7 @@ function NewQuotationContent() {
     state,
     setState,
     totals,
+    advanceAmount,
     addItem,
     removeItem,
     updateItem,
@@ -338,6 +339,9 @@ function NewQuotationContent() {
         totalTax: totals.totalTax,
         discountAmount: totals.discountAmount,
         totalAmount: totals.totalAmount,
+        advanceType: state.advanceType,
+        advanceValue: state.advanceValue,
+        advanceAmount,
       });
 
 
@@ -868,6 +872,110 @@ function NewQuotationContent() {
                   {formatCurrency(totals.totalAmount, state.currency)}
                 </span>
               </div>
+
+              {/* Booking Advance Required Setup */}
+              <div className="pt-3 border-t border-slate-200/80 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-slate-800">🎯 Booking Advance</span>
+                    <span className="text-[10px] font-semibold text-slate-400">(Required to book)</span>
+                  </div>
+                  {state.advanceType !== "none" && (
+                    <span className="text-[11px] font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                      {formatCurrency(advanceAmount, state.currency)}
+                    </span>
+                  )}
+                </div>
+
+                {/* Preset Chips */}
+                <div className="grid grid-cols-5 gap-1">
+                  {[
+                    { label: "None", type: "none" as const, val: 0 },
+                    { label: "10%", type: "percentage" as const, val: 10 },
+                    { label: "20%", type: "percentage" as const, val: 20 },
+                    { label: "50%", type: "percentage" as const, val: 50 },
+                    { label: "Custom", type: "custom" as const, val: null },
+                  ].map((preset) => {
+                    const isCustomActive = preset.type === "custom" && (state.advanceType === "fixed" || (state.advanceType === "percentage" && ![10, 20, 50].includes(state.advanceValue ?? 50)));
+                    const isActive = preset.type === "custom"
+                      ? isCustomActive
+                      : state.advanceType === preset.type && (preset.type === "none" || state.advanceValue === preset.val);
+
+                    return (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => {
+                          if (preset.type === "none") {
+                            setState((p) => ({ ...p, advanceType: "none", advanceValue: 0 }));
+                          } else if (preset.type === "custom") {
+                            if (!isCustomActive) {
+                              setState((p) => ({ ...p, advanceType: "percentage", advanceValue: p.advanceValue || 25 }));
+                            }
+                          } else {
+                            setState((p) => ({ ...p, advanceType: "percentage", advanceValue: preset.val }));
+                          }
+                        }}
+                        className={`py-1.5 rounded-lg text-xs font-bold transition-all text-center cursor-pointer border ${
+                          isActive
+                            ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs font-extrabold"
+                            : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Custom Advance Input if Custom Active */}
+                {(state.advanceType === "fixed" || (state.advanceType === "percentage" && ![10, 20, 50].includes(state.advanceValue ?? 50))) && (
+                  <div className="flex items-center gap-2 pt-1 animate-in fade-in-50 duration-150">
+                    <div className="flex rounded-lg border border-slate-200 p-0.5 bg-slate-100 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setState((p) => ({ ...p, advanceType: "percentage", advanceValue: 15 }))}
+                        className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                          state.advanceType === "percentage" ? "bg-white text-emerald-800 shadow-2xs" : "text-slate-500"
+                        }`}
+                      >
+                        %
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setState((p) => ({ ...p, advanceType: "fixed", advanceValue: Math.round(totals.totalAmount * 0.25) }))}
+                        className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                          state.advanceType === "fixed" ? "bg-white text-emerald-800 shadow-2xs" : "text-slate-500"
+                        }`}
+                      >
+                        ₹
+                      </button>
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      step={state.advanceType === "percentage" ? "1" : "100"}
+                      value={state.advanceValue ?? 0}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 0;
+                        setState((p) => ({ ...p, advanceValue: val }));
+                      }}
+                      className="w-full text-xs font-bold px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white focus:outline-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                      placeholder={state.advanceType === "percentage" ? "Enter % (e.g. 15)" : "Enter ₹ (e.g. 10000)"}
+                    />
+                  </div>
+                )}
+
+                {/* Balance on Delivery line */}
+                {state.advanceType !== "none" && (
+                  <div className="flex justify-between items-center text-[11px] text-slate-500 pt-1">
+                    <span>Balance on Delivery:</span>
+                    <span className="font-semibold text-slate-700">
+                      {formatCurrency(Math.max(0, totals.totalAmount - advanceAmount), state.currency)}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           </Card>
         </div>
@@ -928,6 +1036,9 @@ function NewQuotationContent() {
                     taxBreakdown: totals.taxBreakdown,
                     totalTax: totals.totalTax,
                     totalAmount: totals.totalAmount,
+                    advanceType: state.advanceType,
+                    advanceValue: state.advanceValue,
+                    advanceAmount,
                     termsAndConditions: state.termsAndConditions,
                     status: "draft",
                     createdAt: new Date().toISOString(),

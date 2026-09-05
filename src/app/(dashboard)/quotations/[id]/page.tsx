@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { QuotationStatusBadge } from "@/components/quotations";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { getWhatsAppQuotationShareUrl } from "@/lib/whatsapp";
+import { useTenant } from "@/hooks/use-tenant";
 
 import {
   ArrowLeft,
@@ -22,6 +23,7 @@ import {
 
 export default function QuotationDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const { currentTenant } = useTenant();
   const [quote, setQuote] = useState<Quotation | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -66,8 +68,12 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
         quotationId: quote.id,
         publicToken: quote.publicToken,
         totalAmount: quote.totalAmount,
+        advanceAmount: quote.advanceAmount,
+        advancePercentage: quote.advanceValue,
+        advanceType: quote.advanceType,
         validUntil: formatDate(quote.validUntil),
         currency: quote.currency,
+        businessName: currentTenant?.businessName,
       })
     : "";
 

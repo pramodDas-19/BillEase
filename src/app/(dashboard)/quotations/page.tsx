@@ -8,6 +8,7 @@ import { QuotationService } from "@/services/quotation.service";
 import { Quotation, QuotationStatus } from "@/types";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { getWhatsAppQuotationShareUrl } from "@/lib/whatsapp";
+import { useTenant } from "@/hooks/use-tenant";
 
 import {
   FileText,
@@ -32,6 +33,7 @@ import {
 
 export default function QuotationsPage() {
   const router = useRouter();
+  const { currentTenant } = useTenant();
   const [quotationsList, setQuotationsList] = useState<Quotation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -406,8 +408,12 @@ export default function QuotationsPage() {
                             quotationId: q.id,
                             publicToken: q.publicToken,
                             totalAmount: q.totalAmount,
+                            advanceAmount: q.advanceAmount,
+                            advancePercentage: q.advanceValue,
+                            advanceType: q.advanceType,
                             validUntil: formatDate(q.validUntil),
                             currency: q.currency,
+                            businessName: currentTenant?.businessName,
                           })}
                           target="_blank"
                           rel="noopener noreferrer"
@@ -606,8 +612,12 @@ export default function QuotationsPage() {
                                 quotationId: q.id,
                                 publicToken: q.publicToken,
                                 totalAmount: q.totalAmount,
+                                advanceAmount: q.advanceAmount,
+                                advancePercentage: q.advanceValue,
+                                advanceType: q.advanceType,
                                 validUntil: formatDate(q.validUntil),
                                 currency: q.currency,
+                                businessName: currentTenant?.businessName,
                               })}
                               target="_blank"
                               rel="noopener noreferrer"

@@ -28,8 +28,27 @@ export const QuotationService = {
       }
 
       return data.map((q: any) => {
-        const isInterState = (q.notes || "").includes("[IGST]");
-        const cleanNotes = (q.notes || "").replace(/\[IGST\]\s*/g, "").trim() || undefined;
+        const rawNotes = q.notes || "";
+        const isInterState = rawNotes.includes("[IGST]");
+        const advMatch = rawNotes.match(/\[ADVANCE:([a-z]+):([0-9.]+):([0-9.]+)\]/i);
+        let advanceType: "percentage" | "fixed" | "none" | undefined = undefined;
+        let advanceValue: number | undefined = undefined;
+        let advanceAmount: number | undefined = undefined;
+
+        if (advMatch) {
+          advanceType = advMatch[1] as "percentage" | "fixed" | "none";
+          advanceValue = parseFloat(advMatch[2]);
+          advanceAmount = parseFloat(advMatch[3]);
+        } else if (q.advance_amount !== undefined && q.advance_amount !== null) {
+          advanceAmount = parseFloat(q.advance_amount);
+          advanceValue = q.advance_value ? parseFloat(q.advance_value) : undefined;
+          advanceType = q.advance_type || "percentage";
+        }
+
+        const cleanNotes = rawNotes
+          .replace(/\[IGST\]\s*/g, "")
+          .replace(/\[ADVANCE:[^\]]+\]\s*/gi, "")
+          .trim() || undefined;
         const isTaxEnabled = q.is_tax_enabled ?? true;
         const totalTax = parseFloat(q.total_tax || "0");
         const subtotal = parseFloat(q.subtotal || "0");
@@ -95,6 +114,9 @@ export const QuotationService = {
           taxBreakdown,
           totalTax,
           totalAmount: parseFloat(q.total_amount || "0"),
+          advanceType,
+          advanceValue,
+          advanceAmount,
           termsAndConditions: q.terms_and_conditions,
           notes: cleanNotes,
           createdAt: q.created_at,
@@ -122,8 +144,27 @@ export const QuotationService = {
 
       if (error || !data) return null;
 
-      const isInterState = (data.notes || "").includes("[IGST]");
-      const cleanNotes = (data.notes || "").replace(/\[IGST\]\s*/g, "").trim() || undefined;
+      const rawNotes = data.notes || "";
+      const isInterState = rawNotes.includes("[IGST]");
+      const advMatch = rawNotes.match(/\[ADVANCE:([a-z]+):([0-9.]+):([0-9.]+)\]/i);
+      let advanceType: "percentage" | "fixed" | "none" | undefined = undefined;
+      let advanceValue: number | undefined = undefined;
+      let advanceAmount: number | undefined = undefined;
+
+      if (advMatch) {
+        advanceType = advMatch[1] as "percentage" | "fixed" | "none";
+        advanceValue = parseFloat(advMatch[2]);
+        advanceAmount = parseFloat(advMatch[3]);
+      } else if (data.advance_amount !== undefined && data.advance_amount !== null) {
+        advanceAmount = parseFloat(data.advance_amount);
+        advanceValue = data.advance_value ? parseFloat(data.advance_value) : undefined;
+        advanceType = data.advance_type || "percentage";
+      }
+
+      const cleanNotes = rawNotes
+        .replace(/\[IGST\]\s*/g, "")
+        .replace(/\[ADVANCE:[^\]]+\]\s*/gi, "")
+        .trim() || undefined;
       const isTaxEnabled = data.is_tax_enabled ?? true;
       const totalTax = parseFloat(data.total_tax || "0");
       const subtotal = parseFloat(data.subtotal || "0");
@@ -189,6 +230,9 @@ export const QuotationService = {
         taxBreakdown,
         totalTax,
         totalAmount: parseFloat(data.total_amount || "0"),
+        advanceType,
+        advanceValue,
+        advanceAmount,
         termsAndConditions: data.terms_and_conditions,
         notes: cleanNotes,
         createdAt: data.created_at,
@@ -243,6 +287,10 @@ export const QuotationService = {
       let finalNotes = quotation.notes || null;
       if (quotation.gstType === "inter_state") {
         finalNotes = finalNotes ? `[IGST] ${finalNotes}` : "[IGST]";
+      }
+      if (quotation.advanceType && quotation.advanceAmount !== undefined) {
+        const advTag = `[ADVANCE:${quotation.advanceType}:${quotation.advanceValue || 0}:${quotation.advanceAmount}]`;
+        finalNotes = finalNotes ? `${advTag} ${finalNotes}` : advTag;
       }
 
       // 1. Insert master quotation record
@@ -356,7 +404,18 @@ export const QuotationService = {
       if (quotation.totalTax !== undefined) quotePayload.total_tax = quotation.totalTax;
       if (quotation.totalAmount !== undefined) quotePayload.total_amount = quotation.totalAmount;
       if (quotation.termsAndConditions !== undefined) quotePayload.terms_and_conditions = quotation.termsAndConditions || null;
-      if (quotation.notes !== undefined) quotePayload.notes = quotation.notes || null;
+
+      let finalUpdateNotes = quotation.notes || null;
+      if (quotation.gstType === "inter_state") {
+        finalUpdateNotes = finalUpdateNotes ? `[IGST] ${finalUpdateNotes}` : "[IGST]";
+      }
+      if (quotation.advanceType && quotation.advanceAmount !== undefined) {
+        const advTag = `[ADVANCE:${quotation.advanceType}:${quotation.advanceValue || 0}:${quotation.advanceAmount}]`;
+        finalUpdateNotes = finalUpdateNotes ? `${advTag} ${finalUpdateNotes}` : advTag;
+      }
+      if (quotation.notes !== undefined || quotation.advanceAmount !== undefined || quotation.gstType !== undefined) {
+        quotePayload.notes = finalUpdateNotes;
+      }
 
       const { error: quoteError } = await supabase
         .from("quotations")

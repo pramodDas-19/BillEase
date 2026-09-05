@@ -7,6 +7,7 @@ import { InvoiceService } from "@/services/invoice.service";
 import { Invoice } from "@/types";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { getWhatsAppInvoiceShareUrl } from "@/lib/whatsapp";
+import { useTenant } from "@/hooks/use-tenant";
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -19,6 +20,7 @@ import {
 
 export function PaymentAttention() {
   const router = useRouter();
+  const { currentTenant } = useTenant();
   const [attentionInvoices, setAttentionInvoices] = useState<Invoice[]>([]);
   const [remindedIds, setRemindedIds] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -48,6 +50,7 @@ export function PaymentAttention() {
         totalAmount: inv.totalAmount,
         balanceDue: inv.balanceDue,
         currency: inv.currency,
+        businessName: currentTenant?.businessName,
       });
       window.open(url, "_blank");
     }

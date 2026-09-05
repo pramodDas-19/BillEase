@@ -415,6 +415,7 @@ export default function InvoicesPage() {
                             totalAmount: inv.totalAmount,
                             balanceDue: inv.balanceDue,
                             currency: inv.currency,
+                            businessName: currentTenant?.businessName,
                           })}
                           target="_blank"
                           rel="noopener noreferrer"
@@ -683,6 +684,7 @@ export default function InvoicesPage() {
                                 totalAmount: inv.totalAmount,
                                 balanceDue: inv.balanceDue,
                                 currency: inv.currency,
+                                businessName: currentTenant?.businessName,
                               })}
                               target="_blank"
                               rel="noopener noreferrer"
