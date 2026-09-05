@@ -95,7 +95,7 @@ export default function QuotationPreviewPage({ params }: { params: Promise<{ id:
       </div>
 
       {/* Official Printable Quotation Document */}
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-2 shadow-md print:p-0 print:border-none print:shadow-none">
+      <div className="rounded-2xl border border-slate-200/80 bg-white p-2 shadow-md print:p-0 print:m-0 print:border-none print:shadow-none print:overflow-visible print:rounded-none">
         <QuotationPrintDocument quotation={quote} tenant={currentTenant} />
       </div>
     </div>

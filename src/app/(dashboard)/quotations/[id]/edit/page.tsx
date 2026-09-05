@@ -76,6 +76,10 @@ export default function EditQuotationPage({
                     unit: i.unit,
                     rate: i.rate,
                     amount: i.amount || 0,
+                    discountType: i.discountType,
+                    discountValue: i.discountValue,
+                    discountAmount: i.discountAmount,
+                    taxRate: i.taxRate,
                   }))
                 : [
                     {

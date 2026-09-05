@@ -161,12 +161,26 @@ html, body {
     margin: 6mm 8mm 6mm 8mm;
   }
 
+  /* Completely eliminate all scrollbars in print and PDF */
+  * {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+
+  ::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+
   html, body {
     background: #ffffff !important;
     color: #000000 !important;
     padding: 0 !important;
     margin: 0 !important;
     width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
   }
 
   header,

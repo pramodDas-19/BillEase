@@ -146,22 +146,49 @@ export function QuotationItemRow({
   };
 
 
+  const getPreDiscountBase = (
+    qty = item.quantity,
+    rate = item.rate,
+    currentAmt = item.amount,
+    currentDiscAmt = item.discountAmount
+  ) => {
+    if (qty !== undefined && qty > 0 && rate !== undefined && rate > 0) {
+      return Math.round(Number(qty) * Number(rate) * 100) / 100;
+    }
+    if (rate !== undefined && rate > 0) {
+      const q = qty !== undefined && qty > 0 ? Number(qty) : 1;
+      return Math.round(q * Number(rate) * 100) / 100;
+    }
+    // If rate is missing or 0, base is derived from current amount + deducted discount
+    const gross = (Number(currentAmt) || 0) + (Number(currentDiscAmt) || 0);
+    return Math.max(0, gross);
+  };
+
   const computeLineAmount = (
     qty = item.quantity,
     rate = item.rate,
-    discType = item.discountType || "percentage",
-    discVal = item.discountValue || 0
+    discType: "percentage" | "fixed" = item.discountType || "percentage",
+    discVal = item.discountValue || 0,
+    currentAmt = item.amount
   ) => {
-    const q = qty !== undefined && qty > 0 ? qty : (rate ? 1 : 0);
-    const r = rate || 0;
-    const base = q * r;
+    const base = getPreDiscountBase(qty, rate, currentAmt, item.discountAmount);
+
+    let effectiveType: "percentage" | "fixed" = discType;
+    let effectiveVal = Number(discVal) || 0;
+
+    // Smart UX: If user entered > 100 in percentage mode (e.g. 2000),
+    // they clearly intended a currency amount (₹2000), not an impossible 2000% discount
+    if (effectiveType === "percentage" && effectiveVal > 100) {
+      effectiveType = "fixed";
+    }
 
     let discAmount = 0;
-    if (discVal > 0) {
-      if (discType === "percentage") {
-        discAmount = Math.round(((base * discVal) / 100) * 100) / 100;
+    if (effectiveVal > 0 && base > 0) {
+      if (effectiveType === "percentage") {
+        const cappedPct = Math.min(100, Math.max(0, effectiveVal));
+        discAmount = Math.round(((base * cappedPct) / 100) * 100) / 100;
       } else {
-        discAmount = Math.min(base, discVal);
+        discAmount = Math.min(base, effectiveVal);
       }
     }
 
@@ -169,6 +196,8 @@ export function QuotationItemRow({
     return {
       amount: finalAmount > 0 ? finalAmount : (item.amount || 0),
       discountAmount: discAmount > 0 ? discAmount : undefined,
+      discountType: effectiveType,
+      discountValue: effectiveVal,
     };
   };
 
@@ -194,17 +223,27 @@ export function QuotationItemRow({
 
   const handleDiscountChange = (newDiscStr: string) => {
     const newDiscVal = newDiscStr === "" ? 0 : Number(newDiscStr);
-    const { amount, discountAmount } = computeLineAmount(item.quantity, item.rate, item.discountType || "percentage", newDiscVal);
+    const { amount, discountAmount, discountType } = computeLineAmount(
+      item.quantity,
+      item.rate,
+      item.discountType || "percentage",
+      newDiscVal
+    );
     onUpdate(item.id, {
       discountValue: newDiscVal,
-      discountType: item.discountType || "percentage",
+      discountType,
       amount,
       discountAmount,
     });
   };
 
   const handleDiscountTypeChange = (newDiscType: "percentage" | "fixed") => {
-    const { amount, discountAmount } = computeLineAmount(item.quantity, item.rate, newDiscType, item.discountValue);
+    const { amount, discountAmount } = computeLineAmount(
+      item.quantity,
+      item.rate,
+      newDiscType,
+      item.discountValue
+    );
     onUpdate(item.id, {
       discountType: newDiscType,
       amount,
@@ -393,8 +432,23 @@ export function QuotationItemRow({
               step="any"
               required
               placeholder="0.00"
-              value={item.amount !== undefined ? item.amount : ""}
-              onChange={(e) => onUpdate(item.id, { amount: Number(e.target.value) || 0 })}
+              value={item.amount && item.amount > 0 ? item.amount : ""}
+              onChange={(e) => {
+                const valStr = e.target.value;
+                if (valStr === "") {
+                  onUpdate(item.id, { amount: 0, discountAmount: undefined });
+                  return;
+                }
+                const newGross = Number(valStr) || 0;
+                const { amount, discountAmount } = computeLineAmount(
+                  item.quantity,
+                  item.rate,
+                  item.discountType,
+                  item.discountValue,
+                  newGross
+                );
+                onUpdate(item.id, { amount, discountAmount });
+              }}
               className="w-full text-right rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white focus:bg-white px-3 py-2 text-base font-mono font-extrabold text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-2xs transition-all"
             />
           </div>

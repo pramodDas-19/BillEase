@@ -14,6 +14,19 @@ export function QuotationPrintDocument({ quotation, tenant }: QuotationPrintDocu
   const hasQtyOrRate = quotation.items.some((item) => item.quantity !== undefined || item.rate !== undefined);
   const hasHsnSac = quotation.items.some((item) => Boolean(item.hsnSacCode));
   const taxableAmount = Math.max(0, (quotation.subtotal || 0) - (quotation.discountAmount || 0));
+  const fallbackTaxRate = quotation.taxBreakdown && quotation.taxBreakdown.length > 0
+    ? Math.round(quotation.taxBreakdown.reduce((sum, t) => sum + (t.rate || 0), 0) * 100) / 100
+    : (quotation.defaultTaxRate || 18);
+  const totalItemDiscounts = quotation.items.reduce((acc, it) => {
+    const dAmt = (it.discountAmount !== undefined && it.discountAmount > 0)
+      ? it.discountAmount
+      : (it.discountValue && it.discountValue > 0
+          ? (it.discountType === "fixed"
+              ? it.discountValue
+              : Math.round(((it.amount * it.discountValue) / Math.max(1, 100 - it.discountValue)) * 100) / 100)
+          : 0);
+    return acc + dAmt;
+  }, 0);
 
   const bankDetails = tenant?.bankDetails || {
     accountName: tenant?.businessName || "",
@@ -104,69 +117,119 @@ export function QuotationPrintDocument({ quotation, tenant }: QuotationPrintDocu
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-200 border-b-2 border-slate-900">
-          {quotation.items.map((item, idx) => (
-            <tr key={item.id} className="align-top">
-              <td className="py-2 px-2.5 text-center text-slate-500 font-bold font-mono text-[11px]">
-                {String(idx + 1).padStart(2, "0")}
-              </td>
-              <td className="py-2 px-2.5">
-                <p className="font-bold text-slate-900">
-                  {item.description}
-                  {quotation.isTaxEnabled && item.taxRate !== undefined && (
-                    <span className="text-[10px] font-semibold text-slate-500 ml-1.5 font-sans">
-                      (GST {item.taxRate}%)
+          {quotation.items.map((item, idx) => {
+            const itDiscAmt = (item.discountAmount !== undefined && item.discountAmount > 0)
+              ? item.discountAmount
+              : (item.discountValue && item.discountValue > 0
+                  ? (item.discountType === "fixed"
+                      ? item.discountValue
+                      : Math.round(((item.amount * item.discountValue) / Math.max(1, 100 - item.discountValue)) * 100) / 100)
+                  : 0);
+
+            const itemTaxRate = (item.taxRate !== undefined && item.taxRate !== null)
+              ? item.taxRate
+              : fallbackTaxRate;
+
+            return (
+              <tr key={item.id} className="align-top">
+                <td className="py-2 px-2.5 text-center text-slate-500 font-bold font-mono text-[11px]">
+                  {String(idx + 1).padStart(2, "0")}
+                </td>
+                <td className="py-2 px-2.5">
+                  <p className="font-bold text-slate-900">
+                    {item.description}
+                    {quotation.isTaxEnabled && itemTaxRate !== undefined && (
+                      <span className="text-[10px] font-semibold text-slate-500 ml-1.5 font-sans">
+                        (GST {itemTaxRate}%)
+                      </span>
+                    )}
+                  </p>
+                  {Boolean(item.discountValue && item.discountValue > 0) && (
+                    <div className="mt-0.5">
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        🏷️ Includes {item.discountValue}{item.discountType === "fixed" ? " ₹" : "%"} discount
+                        {itDiscAmt > 0 ? ` (-${formatCurrency(itDiscAmt, quotation.currency)})` : ""}
+                      </span>
+                    </div>
+                  )}
+                  {item.detailedNotes && (
+                    <p className="mt-0.5 text-[10px] text-slate-600 whitespace-pre-line leading-tight">
+                      {item.detailedNotes}
+                    </p>
+                  )}
+                </td>
+                {hasHsnSac && (
+                  <td className="py-2 px-2.5 text-center font-mono font-semibold text-[10px] text-slate-700">
+                    {item.hsnSacCode || "—"}
+                  </td>
+                )}
+                {hasQtyOrRate && (
+                  <>
+                    <td className="py-2 px-2.5 text-center text-slate-700 font-medium">
+                      {item.quantity !== undefined ? `${item.quantity} ${item.unit || ""}` : "—"}
+                    </td>
+                    <td className="py-2 px-2.5 text-right text-slate-700 font-mono">
+                      {item.rate !== undefined ? formatCurrency(item.rate, quotation.currency) : "—"}
+                    </td>
+                  </>
+                )}
+                <td className="py-2 px-2.5 text-right font-mono">
+                  {Boolean(item.discountValue && item.discountValue > 0 && itDiscAmt > 0) ? (
+                    <div>
+                      <span className="text-[10px] text-slate-400 line-through block font-normal">
+                        {formatCurrency(item.amount + itDiscAmt, quotation.currency)}
+                      </span>
+                      <span className="font-bold text-slate-900 block">
+                        {formatCurrency(item.amount, quotation.currency)}
+                      </span>
+                      <span className="text-[9px] font-bold text-emerald-700 font-sans block">
+                        (-{item.discountValue}{item.discountType === "fixed" ? "₹" : "%"} off)
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="font-bold text-slate-900">
+                      {formatCurrency(item.amount, quotation.currency)}
                     </span>
                   )}
-                </p>
-                {item.detailedNotes && (
-                  <p className="mt-0.5 text-[10px] text-slate-600 whitespace-pre-line leading-tight">
-                    {item.detailedNotes}
-                  </p>
-                )}
-              </td>
-              {hasHsnSac && (
-                <td className="py-2 px-2.5 text-center font-mono font-semibold text-[10px] text-slate-700">
-                  {item.hsnSacCode || "—"}
                 </td>
-              )}
-              {hasQtyOrRate && (
-                <>
-                  <td className="py-2 px-2.5 text-center text-slate-700 font-medium">
-                    {item.quantity !== undefined ? `${item.quantity} ${item.unit || ""}` : "—"}
-                  </td>
-                  <td className="py-2 px-2.5 text-right text-slate-700 font-mono">
-                    {item.rate !== undefined ? (
-                      <div>
-                        <span>{formatCurrency(item.rate, quotation.currency)}</span>
-                        {Boolean(item.discountValue && item.discountValue > 0) && (
-                          <span className="block text-[9px] font-bold text-emerald-700 font-sans">
-                            (-{item.discountValue}{item.discountType === "fixed" ? "₹" : "%"} off)
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                </>
-              )}
-              <td className="py-2 px-2.5 text-right font-bold text-slate-900 font-mono">
-                {formatCurrency(item.amount, quotation.currency)}
-              </td>
-            </tr>
-          ))}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
 
       {/* 4. Calculations Block */}
       <div className="flex justify-end mb-3 print:mb-2">
         <div className="w-64 space-y-1 text-xs text-right">
-          <div className="flex justify-between">
-            <span className="text-slate-600 font-medium">Subtotal</span>
-            <span className="font-bold text-slate-900 font-mono">
-              {formatCurrency(quotation.subtotal, quotation.currency)}
-            </span>
-          </div>
+          {totalItemDiscounts > 0 ? (
+            <>
+              <div className="flex justify-between text-slate-500">
+                <span>Original Total</span>
+                <span className="font-mono line-through">
+                  {formatCurrency(quotation.subtotal + totalItemDiscounts, quotation.currency)}
+                </span>
+              </div>
+              <div className="flex justify-between text-emerald-600 font-medium">
+                <span>Total Item Discounts</span>
+                <span className="font-mono font-semibold">
+                  -{formatCurrency(totalItemDiscounts, quotation.currency)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600 font-medium">Net Subtotal</span>
+                <span className="font-bold text-slate-900 font-mono">
+                  {formatCurrency(quotation.subtotal, quotation.currency)}
+                </span>
+              </div>
+            </>
+          ) : (
+            <div className="flex justify-between">
+              <span className="text-slate-600 font-medium">Subtotal</span>
+              <span className="font-bold text-slate-900 font-mono">
+                {formatCurrency(quotation.subtotal, quotation.currency)}
+              </span>
+            </div>
+          )}
 
           {Boolean(quotation.discountAmount && quotation.discountAmount > 0) && (
             <div className="flex justify-between text-rose-600">

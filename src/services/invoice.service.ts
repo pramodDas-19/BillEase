@@ -1,9 +1,74 @@
 import { supabase } from "@/lib/supabase/client";
-import { Invoice, InvoiceStatus, TaxBreakdown } from "@/types";
+import { Invoice, InvoiceLineItem, InvoiceStatus, TaxBreakdown } from "@/types";
 import { QuotationService } from "./quotation.service";
 import { AuthService } from "./auth.service";
 import { getSafeSequentialInvoiceNumber } from "@/lib/numbering-safety";
+import { calculateDocumentTotals } from "@/lib/calculation";
 
+function parseInvoiceItemRow(item: any): InvoiceLineItem {
+  const rawNotes = item.detailed_notes || "";
+  const hsnMatch = rawNotes.match(/\[(?:SAC|HSN):\s*([^\]]+)\]/i);
+  const hsnSacCode = item.hsn_sac_code || (hsnMatch ? hsnMatch[1] : undefined);
+
+  const discMatch = rawNotes.match(/\[DISC:([a-z]+):([0-9.]+):([0-9.]+)\]/i);
+  let discountType: "percentage" | "fixed" | undefined = undefined;
+  let discountValue: number | undefined = undefined;
+  let discountAmount: number | undefined = undefined;
+
+  if (discMatch) {
+    discountType = discMatch[1] as "percentage" | "fixed";
+    discountValue = parseFloat(discMatch[2]);
+    discountAmount = parseFloat(discMatch[3]);
+  }
+
+  const taxMatch = rawNotes.match(/\[TAX:([0-9.]+)\]/i);
+  const taxRate = taxMatch ? parseFloat(taxMatch[1]) : (item.tax_rate !== undefined && item.tax_rate !== null ? parseFloat(item.tax_rate) : undefined);
+
+  const cleanNotes = rawNotes
+    .replace(/\[(?:SAC|HSN):\s*[^\]]+\]\s*/gi, "")
+    .replace(/\[DISC:[^\]]+\]\s*/gi, "")
+    .replace(/\[TAX:[^\]]+\]\s*/gi, "")
+    .trim() || undefined;
+
+  return {
+    id: item.id,
+    description: item.description,
+    detailedNotes: cleanNotes,
+    hsnSacCode,
+    quantity: item.quantity ? parseFloat(item.quantity) : undefined,
+    unit: item.unit || undefined,
+    rate: item.rate ? parseFloat(item.rate) : undefined,
+    amount: parseFloat(item.amount || "0"),
+    discountType,
+    discountValue,
+    discountAmount,
+    taxRate,
+  };
+}
+
+function serializeInvoiceItemRow(item: InvoiceLineItem, invoiceId: string, idx: number) {
+  let notes = item.detailedNotes || "";
+  if (item.hsnSacCode) {
+    notes = `[SAC: ${item.hsnSacCode}] ${notes}`.trim();
+  }
+  if (item.discountValue && item.discountValue > 0) {
+    notes = `[DISC:${item.discountType || "percentage"}:${item.discountValue}:${item.discountAmount || 0}] ${notes}`.trim();
+  }
+  if (item.taxRate !== undefined && item.taxRate !== null) {
+    notes = `[TAX:${item.taxRate}] ${notes}`.trim();
+  }
+
+  return {
+    id: item.id && !item.id.startsWith("item-") ? item.id : `ii-${Date.now()}-${idx}`,
+    invoice_id: invoiceId,
+    description: item.description,
+    detailed_notes: notes || null,
+    quantity: item.quantity !== undefined && item.quantity !== null ? item.quantity : null,
+    unit: item.unit || null,
+    rate: item.rate !== undefined && item.rate !== null ? item.rate : null,
+    amount: item.amount,
+  };
+}
 
 export const InvoiceService = {
   // Fetch all invoices with line items for active tenant from Supabase
@@ -35,38 +100,33 @@ export const InvoiceService = {
         const discountAmount = parseFloat(inv.discount_amount || "0");
         const net = Math.max(1, subtotal - discountAmount);
 
+        const items = (inv.invoice_items || []).map(parseInvoiceItemRow);
+
         let taxBreakdown: TaxBreakdown[] | undefined = undefined;
-        if (isTaxEnabled && totalTax > 0) {
-          const rate = Math.round((totalTax / net) * 100);
-          if (isInterState) {
-            taxBreakdown = [{ name: `IGST (${rate}%)`, rate, amount: totalTax }];
-          } else {
-            const halfRate = Math.round((rate / 2) * 100) / 100;
-            const cgst = Math.round((totalTax / 2) * 100) / 100;
-            taxBreakdown = [
-              { name: `CGST (${halfRate}%)`, rate: halfRate, amount: cgst },
-              { name: `SGST (${halfRate}%)`, rate: halfRate, amount: Math.round((totalTax - cgst) * 100) / 100 },
-            ];
+        if (isTaxEnabled) {
+          const computed = calculateDocumentTotals({
+            items,
+            discountType: inv.discount_type,
+            discountValue: parseFloat(inv.discount_value || "0"),
+            isTaxEnabled,
+            gstType: isInterState ? "inter_state" : "intra_state",
+          });
+          if (computed.taxBreakdown && computed.taxBreakdown.length > 0) {
+            taxBreakdown = computed.taxBreakdown;
+          } else if (totalTax > 0) {
+            const rate = Math.round((totalTax / net) * 100);
+            if (isInterState) {
+              taxBreakdown = [{ name: `IGST (${rate}%)`, rate, amount: totalTax }];
+            } else {
+              const halfRate = Math.round((rate / 2) * 100) / 100;
+              const cgst = Math.round((totalTax / 2) * 100) / 100;
+              taxBreakdown = [
+                { name: `CGST (${halfRate}%)`, rate: halfRate, amount: cgst },
+                { name: `SGST (${halfRate}%)`, rate: halfRate, amount: Math.round((totalTax - cgst) * 100) / 100 },
+              ];
+            }
           }
         }
-
-        const items = (inv.invoice_items || []).map((item: any) => {
-          const rawNotes = item.detailed_notes || "";
-          const hsnMatch = rawNotes.match(/\[(?:SAC|HSN):\s*([^\]]+)\]/i);
-          const hsnSacCode = item.hsn_sac_code || (hsnMatch ? hsnMatch[1] : undefined);
-          const detailedNotes = hsnMatch ? rawNotes.replace(/\[(?:SAC|HSN):\s*[^\]]+\]\s*/i, "").trim() : (item.detailed_notes || undefined);
-
-          return {
-            id: item.id,
-            description: item.description,
-            detailedNotes,
-            hsnSacCode,
-            quantity: item.quantity ? parseFloat(item.quantity) : undefined,
-            unit: item.unit,
-            rate: item.rate ? parseFloat(item.rate) : undefined,
-            amount: parseFloat(item.amount || "0"),
-          };
-        });
 
         return {
           id: inv.id,
@@ -132,38 +192,33 @@ export const InvoiceService = {
       const discountAmount = parseFloat(data.discount_amount || "0");
       const net = Math.max(1, subtotal - discountAmount);
 
+      const items = (data.invoice_items || []).map(parseInvoiceItemRow);
+
       let taxBreakdown: TaxBreakdown[] | undefined = undefined;
-      if (isTaxEnabled && totalTax > 0) {
-        const rate = Math.round((totalTax / net) * 100);
-        if (isInterState) {
-          taxBreakdown = [{ name: `IGST (${rate}%)`, rate, amount: totalTax }];
-        } else {
-          const halfRate = Math.round((rate / 2) * 100) / 100;
-          const cgst = Math.round((totalTax / 2) * 100) / 100;
-          taxBreakdown = [
-            { name: `CGST (${halfRate}%)`, rate: halfRate, amount: cgst },
-            { name: `SGST (${halfRate}%)`, rate: halfRate, amount: Math.round((totalTax - cgst) * 100) / 100 },
-          ];
+      if (isTaxEnabled) {
+        const computed = calculateDocumentTotals({
+          items,
+          discountType: data.discount_type,
+          discountValue: parseFloat(data.discount_value || "0"),
+          isTaxEnabled,
+          gstType: isInterState ? "inter_state" : "intra_state",
+        });
+        if (computed.taxBreakdown && computed.taxBreakdown.length > 0) {
+          taxBreakdown = computed.taxBreakdown;
+        } else if (totalTax > 0) {
+          const rate = Math.round((totalTax / net) * 100);
+          if (isInterState) {
+            taxBreakdown = [{ name: `IGST (${rate}%)`, rate, amount: totalTax }];
+          } else {
+            const halfRate = Math.round((rate / 2) * 100) / 100;
+            const cgst = Math.round((totalTax / 2) * 100) / 100;
+            taxBreakdown = [
+              { name: `CGST (${halfRate}%)`, rate: halfRate, amount: cgst },
+              { name: `SGST (${halfRate}%)`, rate: halfRate, amount: Math.round((totalTax - cgst) * 100) / 100 },
+            ];
+          }
         }
       }
-
-      const items = (data.invoice_items || []).map((item: any) => {
-        const rawNotes = item.detailed_notes || "";
-        const hsnMatch = rawNotes.match(/\[(?:SAC|HSN):\s*([^\]]+)\]/i);
-        const hsnSacCode = item.hsn_sac_code || (hsnMatch ? hsnMatch[1] : undefined);
-        const detailedNotes = hsnMatch ? rawNotes.replace(/\[(?:SAC|HSN):\s*[^\]]+\]\s*/i, "").trim() : (item.detailed_notes || undefined);
-
-        return {
-          id: item.id,
-          description: item.description,
-          detailedNotes,
-          hsnSacCode,
-          quantity: item.quantity ? parseFloat(item.quantity) : undefined,
-          unit: item.unit,
-          rate: item.rate ? parseFloat(item.rate) : undefined,
-          amount: parseFloat(item.amount || "0"),
-        };
-      });
 
       return {
         id: data.id,
@@ -272,25 +327,9 @@ export const InvoiceService = {
         return null;
       }
 
-      // 2. Insert line items with HSN/SAC preserved
+      // 2. Insert line items with HSN/SAC & discount preserved
       if (invoice.items && invoice.items.length > 0) {
-        const itemRows = invoice.items.map((item, idx) => {
-          let detailedNotes = item.detailedNotes || null;
-          if (item.hsnSacCode) {
-            detailedNotes = `[SAC: ${item.hsnSacCode}] ${detailedNotes || ""}`.trim();
-          }
-
-          return {
-            id: item.id || `ii-${Date.now()}-${idx}`,
-            invoice_id: invoiceId,
-            description: item.description,
-            detailed_notes: detailedNotes,
-            quantity: item.quantity || null,
-            unit: item.unit || null,
-            rate: item.rate || null,
-            amount: item.amount,
-          };
-        });
+        const itemRows = invoice.items.map((item, idx) => serializeInvoiceItemRow(item, invoiceId, idx));
 
         const { error: itemsError } = await supabase.from("invoice_items").insert(itemRows);
         if (itemsError) {
@@ -380,16 +419,7 @@ export const InvoiceService = {
       if (invoice.items && invoice.items.length > 0) {
         await supabase.from("invoice_items").delete().eq("invoice_id", id);
 
-        const itemRows = invoice.items.map((item, idx) => ({
-          id: item.id && !item.id.startsWith("item-") ? item.id : `ii-${Date.now()}-${idx}`,
-          invoice_id: id,
-          description: item.description,
-          detailed_notes: item.detailedNotes || null,
-          quantity: item.quantity || null,
-          unit: item.unit || null,
-          rate: item.rate || null,
-          amount: item.amount,
-        }));
+        const itemRows = invoice.items.map((item, idx) => serializeInvoiceItemRow(item, id, idx));
 
         const { error: itemsError } = await supabase.from("invoice_items").insert(itemRows);
         if (itemsError) {
