@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { NotificationService, AppNotification } from "@/services/notification.service";
 import { getWhatsAppReminderUrl } from "@/lib/whatsapp";
+import { useTenant } from "@/hooks/use-tenant";
 import { cn } from "@/lib/utils";
 import {
   Bell,
@@ -23,6 +24,7 @@ import {
 
 export function NotificationDropdown() {
   const router = useRouter();
+  const { currentTenant } = useTenant();
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [selectedTab, setSelectedTab] = useState<"all" | "dues" | "payments" | "activity">("all");
@@ -279,6 +281,9 @@ export function NotificationDropdown() {
                             clientName: notif.clientName || "Client",
                             balanceDue: notif.amount || 0,
                             invoiceId: notif.actionUrl?.replace("/invoices/", ""),
+                            businessName: currentTenant?.businessName,
+                            currency: currentTenant?.settings?.defaultCurrency || "INR",
+                            customTemplate: currentTenant?.settings?.whatsappReminderTemplate,
                           })}
                           target="_blank"
                           rel="noopener noreferrer"

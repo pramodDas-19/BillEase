@@ -8,6 +8,7 @@ import { InvoiceService } from "@/services/invoice.service";
 import { ClientEditDialog } from "@/components/clients/client-edit-dialog";
 import { Client, Invoice } from "@/types";
 import { getWhatsAppReminderUrl } from "@/lib/whatsapp";
+import { useTenant } from "@/hooks/use-tenant";
 
 import { cn, formatCurrency } from "@/lib/utils";
 import {
@@ -33,6 +34,7 @@ import {
 } from "lucide-react";
 
 export default function ClientsPage() {
+  const { currentTenant } = useTenant();
   const [clientsList, setClientsList] = useState<Client[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -589,6 +591,9 @@ export default function ClientsPage() {
                                 clientPhone: client.phone,
                                 clientName: client.name,
                                 balanceDue: client.balanceDue || 0,
+                                businessName: currentTenant?.businessName,
+                                currency: currentTenant?.settings?.defaultCurrency || "INR",
+                                customTemplate: currentTenant?.settings?.whatsappReminderTemplate,
                               })}
                               target="_blank"
                               rel="noopener noreferrer"

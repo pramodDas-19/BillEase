@@ -248,6 +248,12 @@ export function QuotationPrintDocument({ quotation, tenant }: QuotationPrintDocu
                   <span className="font-mono font-bold text-emerald-800">{upiId}</span>
                 </p>
               )}
+              {bankDetails.accountName && (
+                <p>
+                  <span className="text-slate-500 font-medium">A/C Name:</span>{" "}
+                  <span className="font-semibold text-slate-900">{bankDetails.accountName}</span>
+                </p>
+              )}
               {bankDetails.bankName && (
                 <p>
                   <span className="text-slate-500 font-medium">Bank:</span>{" "}

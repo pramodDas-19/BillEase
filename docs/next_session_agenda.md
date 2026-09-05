@@ -7,19 +7,26 @@
 
 ## 🎯 Active Priorities for Next Session
 
-### 1. ⚙️ Business Settings Checking & New Feature Addition
-- **Audit Current Settings**: Thoroughly inspect Profile & Branding, Numbering Sequences (Quotes & Invoices), Bank Details, UPI ID, and GST configurations.
-- **Implement New Settings Capability**: Build the specific new business settings feature requested by the user.
-- **Default Presets Management**: Allow business owners to customize their default legal terms, default payment terms, and preferred default currency.
+### 1. ⚙️ Business Settings Checking & Enhancements — ✅ COMPLETED
+- [x] **Fixed Tab 4 GST & Legal Terms Persistence**:
+  - Bound controlled states (`enableGstByDefault`, `defaultTaxRate`, `defaultTermsAndConditions`) to input elements.
+  - Added fast GST slab selector chips (`5%`, `12%`, `18%`, `28%`).
+  - Added primary default currency selector (`INR ₹`, `USD $`, `EUR €`, `GBP £`, `AED د.إ`, `CAD $`, `AUD $`, `SGD $`) in Tab 1.
+  - Synced settings persistence to both Supabase and `localStorage` (`billease_registered_user`).
+  - Synced loaded default settings into [Quotation Builder](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/(dashboard)/quotations/new/page.tsx) and [Invoice Builder](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/(dashboard)/invoices/new/page.tsx) so new documents automatically adopt the user's customized defaults.
 
 ---
 
-### 2. 💬 WhatsApp Message Checking & Polishing *(New Priority)*
-- **Review Current WhatsApp Flow**: Test the 1-click WhatsApp dispatch link on both Quotations and Invoices.
-- **Message Template Polishing**:
-  - Craft warm, professional, high-converting templates for sending new estimates, tax invoices, and payment reminders.
-  - Embed dynamic variables: `{client_name}`, `{document_number}`, `{amount_with_currency}`, `{due_date}`, and `{portal_pay_link}`.
-- **Number Normalization**: Ensure client phone numbers with or without `+91`, spaces, or hyphens are automatically sanitized for seamless WhatsApp Web / App launching.
+### 2. 💬 WhatsApp Message Checking & Polishing — ✅ COMPLETED
+- [x] **Upgraded Settings Tab 5 (WhatsApp Reminder Template)**:
+  - Added 3 fast 1-click template presets: `Friendly Nudge`, `Formal Business`, and `Urgent Overdue`.
+  - Added clickable variable tags (`+ {client_name}`, `+ {business_name}`, `+ {invoice_num}`, `+ {balance_due}`, `+ {pay_link}`) with click-to-insert.
+  - Added dynamic real-time live customer preview showing formatted text as the user edits.
+- [x] **Connected Custom Template to 1-Click WhatsApp Links**:
+  - Updated [whatsapp.ts](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/lib/whatsapp.ts) to interpolate custom business reminder templates with auto-attached 1-click payment links.
+  - Integrated custom template into [clients/page.tsx](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/(dashboard)/clients/page.tsx) and [notification-dropdown.tsx](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/components/layout/notification-dropdown.tsx).
+- [x] **Sanitization & Normalization**:
+  - Automated E.164 normalization for Indian 10-digit mobile numbers with/without `+91`, prefixes, and spaces.
 
 ---
 

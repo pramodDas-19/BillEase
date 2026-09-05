@@ -202,6 +202,8 @@ function NewQuotationContent() {
             setState((prev) => ({
               ...prev,
               quotationNumber: `${prefix}${nextNum}`,
+              currency: currentTenant?.settings?.defaultCurrency || prev.currency,
+              termsAndConditions: prev.termsAndConditions || currentTenant?.settings?.defaultTermsAndConditions || "",
               items: [
                 {
                   id: `item-${Date.now()}`,
@@ -227,6 +229,10 @@ function NewQuotationContent() {
             setState((prev) => ({
               ...prev,
               quotationNumber: `${prefix}${nextNum}`,
+              currency: currentTenant?.settings?.defaultCurrency || prev.currency,
+              isTaxEnabled: currentTenant?.settings?.enableGstByDefault ?? prev.isTaxEnabled,
+              defaultTaxRate: currentTenant?.settings?.defaultTaxRate || prev.defaultTaxRate,
+              termsAndConditions: prev.termsAndConditions || currentTenant?.settings?.defaultTermsAndConditions || "",
               clientId: client.id,
               clientName: client.name,
               clientCompanyName: client.companyName || "",
@@ -243,6 +249,10 @@ function NewQuotationContent() {
         setState((prev) => ({
           ...prev,
           quotationNumber: `${prefix}${nextNum}`,
+          currency: currentTenant?.settings?.defaultCurrency || prev.currency,
+          isTaxEnabled: currentTenant?.settings?.enableGstByDefault ?? prev.isTaxEnabled,
+          defaultTaxRate: currentTenant?.settings?.defaultTaxRate || prev.defaultTaxRate,
+          termsAndConditions: prev.termsAndConditions || currentTenant?.settings?.defaultTermsAndConditions || "",
         }));
       } catch (err) {
         console.error("Failed to load quotation initial data:", err);

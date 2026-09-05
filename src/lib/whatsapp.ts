@@ -35,6 +35,7 @@ export interface WhatsAppReminderParams {
   balanceDue: number;
   currency?: CurrencyCode;
   businessName?: string;
+  customTemplate?: string;
 }
 
 export interface WhatsAppPaymentReceiptParams {
@@ -192,39 +193,56 @@ export function getWhatsAppReminderUrl({
   balanceDue,
   currency = "INR",
   businessName,
+  customTemplate,
 }: WhatsAppReminderParams): string {
   const cleanPhone = formatWhatsAppPhoneNumber(clientPhone);
   const baseUrl = getBaseUrl();
   const balanceFormatted = formatCurrency(balanceDue, currency);
   const payUrl = publicToken ? `${baseUrl}/pay/${publicToken}` : "";
 
-  const lines = [
-    `Hello *${clientName.trim()}*,`,
-    ``,
-    businessName
-      ? `⏳ *Friendly Payment Reminder* from *${businessName.trim()}*`
-      : `⏳ *Friendly Payment Reminder*`,
-    invoiceNumber
-      ? `Regarding outstanding balance on invoice *#${invoiceNumber}*:`
-      : `Regarding your outstanding ledger balance:`,
-    `Balance Due: *${balanceFormatted}*`,
-  ];
+  let message = "";
+  if (customTemplate && customTemplate.trim()) {
+    message = customTemplate
+      .replace(/\{client_name\}/gi, clientName.trim())
+      .replace(/\{business_name\}/gi, businessName?.trim() || "Our Team")
+      .replace(/\{invoice_num\}/gi, invoiceNumber ? `${invoiceNumber}` : "")
+      .replace(/\{balance_due\}/gi, balanceFormatted)
+      .replace(/\{pay_link\}/gi, payUrl || "");
 
-  if (payUrl) {
+    // If template didn't include pay link placeholder and payUrl is present, append cleanly
+    if (payUrl && !customTemplate.includes("{pay_link}")) {
+      message += `\n\n💳 1-Click Pay: ${payUrl}`;
+    }
+  } else {
+    const lines = [
+      `Hello *${clientName.trim()}*,`,
+      ``,
+      businessName
+        ? `⏳ *Friendly Payment Reminder* from *${businessName.trim()}*`
+        : `⏳ *Friendly Payment Reminder*`,
+      invoiceNumber
+        ? `Regarding outstanding balance on invoice *#${invoiceNumber}*:`
+        : `Regarding your outstanding ledger balance:`,
+      `Balance Due: *${balanceFormatted}*`,
+    ];
+
+    if (payUrl) {
+      lines.push(
+        ``,
+        `💳 *1-Click Instant Settlement:*`,
+        payUrl
+      );
+    }
+
     lines.push(
       ``,
-      `💳 *1-Click Instant Settlement:*`,
-      payUrl
+      `Kindly arrange for settlement at your earliest convenience. Thank you!`,
+      businessName ? `— *${businessName.trim()}*` : ""
     );
+
+    message = lines.filter((line) => line !== "").join("\n");
   }
 
-  lines.push(
-    ``,
-    `Kindly arrange for settlement at your earliest convenience. Thank you!`,
-    businessName ? `— *${businessName.trim()}*` : ""
-  );
-
-  const message = lines.filter((line) => line !== "").join("\n");
   return cleanPhone
     ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`
     : `https://wa.me/?text=${encodeURIComponent(message)}`;

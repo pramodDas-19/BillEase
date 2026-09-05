@@ -310,6 +310,10 @@ function NewInvoiceContent() {
           setState((prev) => ({
             ...prev,
             invoiceNumber: `${prefix}${nextNum}`,
+            currency: currentTenant?.settings?.defaultCurrency || prev.currency,
+            isTaxEnabled: currentTenant?.settings?.enableGstByDefault ?? prev.isTaxEnabled,
+            defaultTaxRate: currentTenant?.settings?.defaultTaxRate || prev.defaultTaxRate,
+            termsAndConditions: prev.termsAndConditions || currentTenant?.settings?.defaultTermsAndConditions || "",
           }));
         }
       } catch (err) {

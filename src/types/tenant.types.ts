@@ -20,6 +20,7 @@ export interface BusinessSettings {
   defaultTermsAndConditions?: string;
   defaultQuotationNotes?: string;
   defaultInvoiceNotes?: string;
+  whatsappReminderTemplate?: string;
   logoUrl?: string;
   signatureUrl?: string;
   paymentReminderSettings?: {

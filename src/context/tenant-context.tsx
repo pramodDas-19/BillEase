@@ -145,9 +145,14 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         logoUrl: tenantRow?.logo_url || tenantRow?.settings?.logoUrl || registeredInfo?.logoUrl || undefined,
         signatureUrl: tenantRow?.signature_url || tenantRow?.settings?.signatureUrl || registeredInfo?.signatureUrl || undefined,
         address: tenantRow?.address || DEFAULT_TENANT.address,
-        bankDetails: tenantRow?.bank_details || DEFAULT_TENANT.bankDetails,
+        bankDetails: {
+          ...DEFAULT_TENANT.bankDetails,
+          ...(registeredInfo?.bankDetails || {}),
+          ...(tenantRow?.bank_details || {}),
+        },
         settings: {
           ...DEFAULT_TENANT.settings,
+          ...(registeredInfo?.settings || {}),
           ...(tenantRow?.settings || {}),
           logoUrl: tenantRow?.logo_url || tenantRow?.settings?.logoUrl || registeredInfo?.logoUrl || undefined,
           signatureUrl: tenantRow?.signature_url || tenantRow?.settings?.signatureUrl || registeredInfo?.signatureUrl || undefined,
@@ -206,6 +211,23 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       settings: updatedSettings,
     }));
 
+    if (typeof window !== "undefined") {
+      try {
+        const regStr = localStorage.getItem("billease_registered_user");
+        const existing = regStr ? JSON.parse(regStr) : {};
+        localStorage.setItem(
+          "billease_registered_user",
+          JSON.stringify({
+            ...existing,
+            tenantId: currentTenant.id,
+            settings: updatedSettings,
+          })
+        );
+      } catch (e) {
+        console.warn("Failed to persist settings to localStorage:", e);
+      }
+    }
+
     try {
       await supabase
         .from("tenants")
@@ -239,18 +261,29 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     setCurrentTenant(updated);
 
     if (typeof window !== "undefined") {
-      localStorage.setItem(
-        "billease_registered_user",
-        JSON.stringify({
-          tenantId: currentTenant.id,
-          businessName: updated.businessName,
-          ownerName: updated.ownerName,
-          email: updated.email,
-          phone: updated.phone,
-          logoUrl: updated.logoUrl,
-          signatureUrl: updated.signatureUrl,
-        })
-      );
+      try {
+        const regStr = localStorage.getItem("billease_registered_user");
+        const existing = regStr ? JSON.parse(regStr) : {};
+        localStorage.setItem(
+          "billease_registered_user",
+          JSON.stringify({
+            ...existing,
+            tenantId: currentTenant.id,
+            businessName: updated.businessName,
+            ownerName: updated.ownerName,
+            email: updated.email,
+            phone: updated.phone,
+            logoUrl: updated.logoUrl,
+            signatureUrl: updated.signatureUrl,
+            gstin: updated.gstin,
+            address: updated.address,
+            bankDetails: updated.bankDetails,
+            settings: updated.settings,
+          })
+        );
+      } catch (e) {
+        console.warn("Failed to persist profile to localStorage:", e);
+      }
     }
 
     try {
