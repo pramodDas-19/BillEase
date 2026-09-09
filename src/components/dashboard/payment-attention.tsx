@@ -113,7 +113,7 @@ export function PaymentAttention() {
                 <div
                   key={inv.id}
                   onClick={() => router.push(`/invoices/${inv.id}/preview`)}
-                  className="py-3.5 flex items-center justify-between gap-3 sm:gap-4 group hover:bg-slate-50/80 rounded-2xl px-2.5 -mx-2.5 transition-all duration-150 cursor-pointer"
+                  className="py-3.5 flex flex-col xs:flex-row xs:items-center justify-between gap-2.5 sm:gap-4 group hover:bg-slate-50/80 rounded-2xl px-2.5 -mx-2.5 transition-all duration-150 cursor-pointer"
                 >
                   {/* Left: Avatar + Client Info */}
                   <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -136,8 +136,8 @@ export function PaymentAttention() {
                   </div>
 
                   {/* Right: Amount & Action Controls */}
-                  <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
-                    <div className="text-right">
+                  <div className="flex items-center justify-between xs:justify-end gap-2.5 sm:gap-3 shrink-0 w-full xs:w-auto pt-1 xs:pt-0 border-t xs:border-0 border-slate-100/70">
+                    <div className="text-left xs:text-right">
                       <span className="block text-xs sm:text-sm font-extrabold text-slate-900 whitespace-nowrap">
                         {formattedBalanceDue}
                       </span>
@@ -158,7 +158,7 @@ export function PaymentAttention() {
                         </a>
                       )}
 
-                      <div className="w-28 sm:w-32 flex justify-end">
+                      <div className="w-24 xs:w-28 sm:w-32 flex justify-end">
                         <button
                           type="button"
                           onClick={(e) => handleSendReminder(inv, e)}

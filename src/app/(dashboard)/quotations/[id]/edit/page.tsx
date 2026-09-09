@@ -640,6 +640,37 @@ export default function EditQuotationPage({
           </Card>
         </div>
       </div>
+
+      {/* Mobile Sticky Bottom Action Bar */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200/90 px-4 py-2.5 pb-safe shadow-2xl flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block leading-tight">
+            Estimated Total
+          </span>
+          <span className="text-base font-black text-emerald-800 tracking-tight truncate block">
+            {formatCurrency(totals.totalAmount, state.currency)}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => router.push("/quotations")}
+            className="inline-flex items-center justify-center h-10 px-3 font-bold text-xs rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all shadow-2xs cursor-pointer"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            disabled={isSubmitting || state.items.length === 0}
+            className="clay-btn-emerald inline-flex items-center justify-center gap-1.5 h-10 px-4 font-bold text-xs rounded-xl shadow-md cursor-pointer disabled:opacity-70"
+          >
+            <Save className="h-4 w-4" />
+            <span>{isSubmitting ? "Saving..." : "Save Changes"}</span>
+          </button>
+        </div>
+      </div>
     </form>
   );
 }

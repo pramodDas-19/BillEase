@@ -246,7 +246,7 @@ export default function ReportsPage() {
             </button>
 
             {isExportOpen && (
-              <div className="absolute right-0 top-full mt-2 w-72 rounded-2xl bg-white p-2 border border-slate-200 shadow-2xl z-50 animate-in fade-in-50 zoom-in-95">
+              <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-2xl bg-white p-2 border border-slate-200 shadow-2xl z-50 animate-in fade-in-50 zoom-in-95">
                 <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 border-b border-slate-100">
                   Download Excel / CSV
                 </div>

@@ -139,7 +139,7 @@ export function NotificationDropdown() {
           }
         }}
         title="Notifications & Payment Alerts"
-        className="clay-icon-squircle relative flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 border border-slate-200/70 text-slate-600 hover:text-slate-900 hover:bg-white transition-all cursor-pointer shadow-2xs focus:outline-none"
+        className="clay-icon-squircle relative flex h-9.5 w-9.5 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-slate-50 border border-slate-200/70 text-slate-600 hover:text-slate-900 hover:bg-white transition-all cursor-pointer shadow-2xs focus:outline-none min-h-[38px] min-w-[38px]"
       >
         <Bell className="h-4 w-4" />
         {unreadCount > 0 && (
@@ -149,9 +149,9 @@ export function NotificationDropdown() {
         )}
       </button>
 
-      {/* Direct Dropdown (No Black Screen / No Backdrop) */}
+      {/* Direct Dropdown (Viewport Safe on Mobile) */}
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 p-4 z-40 bg-white border border-slate-200/90 rounded-2xl shadow-2xl space-y-3 animate-in fade-in-50 zoom-in-95 duration-150">
+        <div className="fixed sm:absolute top-18 sm:top-full left-3 sm:left-auto right-3 sm:right-0 mt-1 sm:mt-2 w-[calc(100vw-1.5rem)] sm:w-96 p-4 z-40 bg-white border border-slate-200/90 rounded-2xl shadow-2xl space-y-3 animate-in fade-in-50 zoom-in-95 duration-150">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
             <div className="flex items-center gap-2">

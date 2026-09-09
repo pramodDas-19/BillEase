@@ -19,6 +19,16 @@ export function MobileBottomBar() {
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
+  // On builder pages (creation, editing, payment recording), yield to dedicated mobile action bar
+  const isBuilderRoute =
+    pathname.endsWith("/new") ||
+    pathname.includes("/edit") ||
+    pathname.endsWith("/record");
+
+  if (isBuilderRoute) {
+    return null;
+  }
+
   const navItems = [
     { href: "/dashboard", label: "Home", icon: LayoutGrid },
     { href: "/quotations", label: "Quotes", icon: FileText },

@@ -88,10 +88,10 @@ export function Header() {
   return (
     <header className="flex h-16 w-full items-center justify-between border-b border-slate-200/80 bg-white/90 px-4 sm:px-6 lg:px-8 backdrop-blur-md transition-all shadow-2xs">
       {/* Left side: Mobile menu toggle + Dynamic Page Title */}
-      <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 mr-2">
+      <div className="flex items-center gap-2 sm:gap-3.5 min-w-0 mr-2">
         <button
           onClick={() => setIsMobileNavOpen(true)}
-          className="clay-icon-squircle p-2 text-slate-600 hover:text-slate-900 lg:hidden focus:outline-none bg-slate-50 border border-slate-200/70 cursor-pointer shrink-0"
+          className="clay-icon-squircle p-2 text-slate-600 hover:text-slate-900 lg:hidden focus:outline-none bg-slate-50 border border-slate-200/70 cursor-pointer shrink-0 min-h-[38px] min-w-[38px] flex items-center justify-center"
           aria-label="Open mobile navigation"
         >
           <Menu className="h-4 w-4" />
@@ -103,7 +103,7 @@ export function Header() {
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 min-w-0">
-              <h1 className="text-xs sm:text-sm font-extrabold text-slate-900 tracking-tight truncate">
+              <h1 className="text-xs sm:text-sm font-extrabold text-slate-900 tracking-tight truncate max-w-[140px] xs:max-w-[200px] sm:max-w-none">
                 {currentRoute.title}
               </h1>
               {currentRoute.badge && (

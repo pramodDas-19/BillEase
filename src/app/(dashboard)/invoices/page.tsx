@@ -273,7 +273,7 @@ export default function InvoicesPage() {
 
         {/* Filter Pills & View Switcher */}
         <div className="flex items-center justify-between md:justify-end gap-3 flex-wrap">
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 no-scrollbar max-w-full">
             {filterOptions.map((opt) => (
               <button
                 key={opt.id}
@@ -359,18 +359,18 @@ export default function InvoicesPage() {
               >
                 <div>
                   {/* Top Row: Invoice #, Status Pill & Direct Quick Actions */}
-                  <div className="flex items-start justify-between gap-2 pb-3 border-b border-slate-100">
-                    <div>
+                  <div className="flex flex-col xs:flex-row xs:items-start justify-between gap-2 pb-3 border-b border-slate-100">
+                    <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <Link
                           href={`/invoices/${inv.id}`}
-                          className="text-sm font-extrabold text-slate-900 hover:text-emerald-700 transition-colors"
+                          className="text-sm font-extrabold text-slate-900 hover:text-emerald-700 transition-colors truncate"
                         >
                           {inv.invoiceNumber}
                         </Link>
                         <span
                           className={cn(
-                            "clay-tag inline-block px-2 py-0.5 text-[10px] font-bold border",
+                            "clay-tag inline-block px-2 py-0.5 text-[10px] font-bold border shrink-0",
                             statusConfig.bg,
                             statusConfig.text,
                             statusConfig.border
@@ -379,7 +379,7 @@ export default function InvoicesPage() {
                           {statusConfig.label}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 mt-1">
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <p className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
                           <span>Issued {formatDate(inv.issueDate)}</span>
@@ -393,14 +393,14 @@ export default function InvoicesPage() {
                     </div>
 
                     {/* Top Action Icons: Call, WhatsApp Share, Red Delete */}
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0 self-end xs:self-start pt-1 xs:pt-0">
                       {inv.clientPhone && (
                         <a
                           href={`tel:${inv.clientPhone}`}
                           title={`Call ${inv.clientName}`}
-                          className="clay-icon-squircle flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-colors"
+                          className="clay-icon-squircle flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-colors"
                         >
-                          <Phone className="h-3 w-3" />
+                          <Phone className="h-3.5 w-3.5" />
                         </a>
                       )}
 
@@ -420,13 +420,11 @@ export default function InvoicesPage() {
                           target="_blank"
                           rel="noopener noreferrer"
                           title="Share Invoice & 1-Click Pay Link on WhatsApp"
-                          className="clay-icon-squircle flex h-7 w-7 items-center justify-center rounded-lg bg-teal-50 border border-teal-200 text-teal-700 hover:bg-teal-600 hover:text-white hover:border-teal-600 transition-colors"
+                          className="clay-icon-squircle flex h-8 w-8 items-center justify-center rounded-xl bg-teal-50 border border-teal-200 text-teal-700 hover:bg-teal-600 hover:text-white hover:border-teal-600 transition-colors"
                         >
-                          <MessageSquare className="h-3 w-3" />
+                          <MessageSquare className="h-3.5 w-3.5" />
                         </a>
                       )}
-
-
 
                       {/* Dynamic UPI QR Trigger Button */}
                       {inv.balanceDue > 0 && (
@@ -434,7 +432,7 @@ export default function InvoicesPage() {
                           type="button"
                           onClick={() => setActiveQrInvoice(inv)}
                           title="Generate Dynamic UPI QR Code"
-                          className="clay-icon-squircle flex h-7 w-7 items-center justify-center rounded-lg bg-teal-50 border border-teal-200 text-teal-700 hover:bg-teal-600 hover:text-white hover:border-teal-600 transition-colors cursor-pointer"
+                          className="clay-icon-squircle flex h-8 w-8 items-center justify-center rounded-xl bg-teal-50 border border-teal-200 text-teal-700 hover:bg-teal-600 hover:text-white hover:border-teal-600 transition-colors cursor-pointer"
                         >
                           <QrCode className="h-3.5 w-3.5" />
                         </button>
@@ -443,20 +441,18 @@ export default function InvoicesPage() {
                       <Link
                         href={`/invoices/${inv.id}/edit`}
                         title={`Edit Invoice #${inv.invoiceNumber}`}
-                        className="clay-icon-squircle flex h-7 w-7 items-center justify-center rounded-lg bg-slate-50 border border-slate-200/80 text-slate-600 hover:bg-slate-900 hover:text-white hover:border-slate-900 shadow-2xs transition-all cursor-pointer"
+                        className="clay-icon-squircle flex h-8 w-8 items-center justify-center rounded-xl bg-slate-50 border border-slate-200/80 text-slate-600 hover:bg-slate-900 hover:text-white hover:border-slate-900 shadow-2xs transition-all cursor-pointer"
                       >
-                        <Edit3 className="h-3 w-3" />
+                        <Edit3 className="h-3.5 w-3.5" />
                       </Link>
 
                       <button
                         onClick={() => handleDeleteInvoice(inv.id, inv.invoiceNumber)}
                         title="Delete Invoice"
-                        className="clay-icon-squircle flex h-7 w-7 items-center justify-center rounded-lg bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 shadow-2xs transition-all cursor-pointer"
+                        className="clay-icon-squircle flex h-8 w-8 items-center justify-center rounded-xl bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 shadow-2xs transition-all cursor-pointer ml-0.5"
                       >
-                        <Trash2 className="h-3 w-3" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </button>
-
-
                     </div>
                   </div>
 

@@ -86,7 +86,7 @@ export function RecentQuotationsCard() {
                         #{q.quotationNumber}
                       </Link>
                       <span className="text-slate-300 text-xs">•</span>
-                      <h4 className="text-xs sm:text-sm font-bold text-slate-800 truncate max-w-[140px] sm:max-w-[200px]">
+                      <h4 className="text-xs sm:text-sm font-bold text-slate-800 truncate max-w-[100px] xs:max-w-[140px] sm:max-w-[200px]">
                         {q.clientName}
                       </h4>
                       <span

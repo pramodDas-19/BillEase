@@ -269,7 +269,7 @@ export default function QuotationsPage() {
 
         {/* Filter Pills & View Switcher */}
         <div className="flex items-center justify-between md:justify-end gap-3 flex-wrap">
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 no-scrollbar max-w-full">
             {filterOptions.map((opt) => (
               <button
                 key={opt.id}
@@ -354,12 +354,12 @@ export default function QuotationsPage() {
               >
                 <div>
                   {/* Top Row: Quote #, Status Pill & Direct Quick Actions */}
-                  <div className="flex items-start justify-between gap-2 pb-3 border-b border-slate-100">
-                    <div>
-                      <div className="flex items-center gap-2">
+                  <div className="flex flex-col xs:flex-row xs:items-start justify-between gap-2 pb-3 border-b border-slate-100">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <Link
                           href={`/quotations/${q.id}`}
-                          className="text-sm font-extrabold text-slate-900 hover:text-emerald-700 transition-colors"
+                          className="text-sm font-extrabold text-slate-900 hover:text-emerald-700 transition-colors truncate"
                         >
                           {q.quotationNumber}
                         </Link>
@@ -367,7 +367,7 @@ export default function QuotationsPage() {
                           value={q.status}
                           onChange={(e) => handleStatusChange(q.id, e.target.value as QuotationStatus)}
                           className={cn(
-                            "clay-tag text-[10px] font-bold border px-1.5 py-0.5 rounded-lg cursor-pointer focus:outline-none",
+                            "clay-tag text-[10px] font-bold border px-1.5 py-0.5 rounded-lg cursor-pointer focus:outline-none shrink-0",
                             statusConfig.bg,
                             statusConfig.text,
                             statusConfig.border
@@ -388,14 +388,14 @@ export default function QuotationsPage() {
                     </div>
 
                     {/* Top Action Icons: Call, WhatsApp Share, Red Delete */}
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0 self-end xs:self-start pt-1 xs:pt-0">
                       {q.clientPhone && (
                         <a
                           href={`tel:${q.clientPhone}`}
                           title={`Call ${q.clientName}`}
-                          className="clay-icon-squircle flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-colors"
+                          className="clay-icon-squircle flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-colors"
                         >
-                          <Phone className="h-3 w-3" />
+                          <Phone className="h-3.5 w-3.5" />
                         </a>
                       )}
 
@@ -418,29 +418,27 @@ export default function QuotationsPage() {
                           target="_blank"
                           rel="noopener noreferrer"
                           title="Share Quote & 1-Click Pay on WhatsApp"
-                          className="clay-icon-squircle flex h-7 w-7 items-center justify-center rounded-lg bg-teal-50 border border-teal-200 text-teal-700 hover:bg-teal-600 hover:text-white hover:border-teal-600 transition-colors"
+                          className="clay-icon-squircle flex h-8 w-8 items-center justify-center rounded-xl bg-teal-50 border border-teal-200 text-teal-700 hover:bg-teal-600 hover:text-white hover:border-teal-600 transition-colors"
                         >
-                          <MessageSquare className="h-3 w-3" />
+                          <MessageSquare className="h-3.5 w-3.5" />
                         </a>
                       )}
-
 
                       <Link
                         href={`/quotations/${q.id}/edit`}
                         title={`Edit Quotation #${q.quotationNumber}`}
-                        className="clay-icon-squircle flex h-7 w-7 items-center justify-center rounded-lg bg-slate-50 border border-slate-200/80 text-slate-600 hover:bg-slate-900 hover:text-white hover:border-slate-900 shadow-2xs transition-all cursor-pointer"
+                        className="clay-icon-squircle flex h-8 w-8 items-center justify-center rounded-xl bg-slate-50 border border-slate-200/80 text-slate-600 hover:bg-slate-900 hover:text-white hover:border-slate-900 shadow-2xs transition-all cursor-pointer"
                       >
-                        <Edit3 className="h-3 w-3" />
+                        <Edit3 className="h-3.5 w-3.5" />
                       </Link>
 
                       <button
                         onClick={() => handleDeleteQuote(q.id, q.quotationNumber)}
                         title="Delete Quotation"
-                        className="clay-icon-squircle flex h-7 w-7 items-center justify-center rounded-lg bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 shadow-2xs transition-all cursor-pointer"
+                        className="clay-icon-squircle flex h-8 w-8 items-center justify-center rounded-xl bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 shadow-2xs transition-all cursor-pointer ml-0.5"
                       >
-                        <Trash2 className="h-3 w-3" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </button>
-
                     </div>
                   </div>
 

@@ -26,7 +26,7 @@ export function UserNav() {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="clay-icon-squircle flex items-center gap-2 p-1 rounded-2xl border border-slate-200/80 bg-slate-50/80 hover:bg-white hover:border-slate-300 transition-all cursor-pointer shadow-2xs focus:outline-none"
+        className="clay-icon-squircle flex items-center gap-2 p-1 rounded-2xl border border-slate-200/80 bg-slate-50/80 hover:bg-white hover:border-slate-300 transition-all cursor-pointer shadow-2xs focus:outline-none min-h-[38px] min-w-[38px]"
       >
         <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-slate-900 text-[11px] font-extrabold text-white shadow-xs">
           {initial}
@@ -40,7 +40,7 @@ export function UserNav() {
       {isOpen && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-          <div className="clay-card absolute right-0 mt-2.5 w-64 p-2 z-50 animate-in fade-in-50 zoom-in-95 shadow-xl">
+          <div className="clay-card absolute right-0 mt-2.5 w-64 max-w-[calc(100vw-2rem)] p-2 z-50 animate-in fade-in-50 zoom-in-95 shadow-xl">
             <div className="px-3 py-2.5 border-b border-slate-100">
               <p className="text-xs font-bold text-slate-900 truncate">{displayName}</p>
               <p className="text-[11px] text-slate-400 truncate mt-0.5">{displayEmail}</p>

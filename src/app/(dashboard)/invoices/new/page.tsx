@@ -540,9 +540,9 @@ function NewInvoiceContent() {
 
               {/* Due Date with Quick Presets */}
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-1.5">
                   <label className="text-xs font-bold text-slate-800">Due Date *</label>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 flex-wrap">
                     <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mr-1">
                       Presets:
                     </span>
@@ -555,7 +555,7 @@ function NewInvoiceContent() {
                           type="button"
                           onClick={() => applyDueDays(days)}
                           className={cn(
-                            "text-[10px] font-extrabold px-2 py-0.5 rounded-md border transition-all cursor-pointer shadow-2xs",
+                            "text-[10px] font-extrabold px-2 py-0.5 rounded-md border transition-all cursor-pointer shadow-2xs min-h-[28px] flex items-center justify-center",
                             active
                               ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
                               : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-200"
@@ -915,7 +915,8 @@ function NewInvoiceContent() {
                               : "text-slate-600 hover:text-slate-900"
                           }`}
                         >
-                          Within State (CGST + SGST)
+                          <span className="sm:hidden">Intra (CGST+SGST)</span>
+                          <span className="hidden sm:inline">Within State (CGST + SGST)</span>
                         </button>
                         <button
                           type="button"
@@ -926,7 +927,8 @@ function NewInvoiceContent() {
                               : "text-slate-600 hover:text-slate-900"
                           }`}
                         >
-                          Out of State (IGST)
+                          <span className="sm:hidden">Inter (IGST)</span>
+                          <span className="hidden sm:inline">Out of State (IGST)</span>
                         </button>
                       </div>
                     </div>
@@ -1033,6 +1035,38 @@ function NewInvoiceContent() {
               </div>
             </div>
           </Card>
+        </div>
+      </div>
+
+      {/* Mobile Sticky Bottom Action Bar */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200/90 px-4 py-2.5 pb-safe shadow-2xl flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block leading-tight">
+            {totals.balanceDue > 0 ? "Balance Due" : "Total Amount"}
+          </span>
+          <span className="text-base font-black text-emerald-800 tracking-tight truncate block">
+            {formatCurrency(totals.balanceDue > 0 ? totals.balanceDue : totals.totalAmount, state.currency)}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => setIsPreviewOpen(true)}
+            className="inline-flex items-center justify-center gap-1 h-10 px-3 font-bold text-xs rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all shadow-2xs cursor-pointer"
+          >
+            <Eye className="h-4 w-4 text-emerald-600" />
+            <span className="hidden xs:inline">Preview</span>
+          </button>
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="clay-btn-emerald inline-flex items-center justify-center gap-1.5 h-10 px-4 font-bold text-xs rounded-xl shadow-md cursor-pointer disabled:opacity-70"
+          >
+            <Save className="h-4 w-4" />
+            <span>{isSubmitting ? "Saving..." : "Save Invoice"}</span>
+          </button>
         </div>
       </div>
 
