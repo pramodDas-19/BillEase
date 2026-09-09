@@ -1,70 +1,94 @@
 # BillEase — Next Session Agenda & Action Plan
 
-**Last Updated**: September 4, 2026 (End of Day)  
+**Last Updated**: September 10, 2026 (End of Day)  
 **Status**: Active Engineering Roadmap  
 
 ---
 
 ## 🎯 Active Priorities for Next Session
 
-### 1. ⚙️ Business Settings Checking & Enhancements — ✅ COMPLETED
-- [x] **Fixed Tab 4 GST & Legal Terms Persistence**:
-  - Bound controlled states (`enableGstByDefault`, `defaultTaxRate`, `defaultTermsAndConditions`) to input elements.
-  - Added fast GST slab selector chips (`5%`, `12%`, `18%`, `28%`).
-  - Added primary default currency selector (`INR ₹`, `USD $`, `EUR €`, `GBP £`, `AED د.إ`, `CAD $`, `AUD $`, `SGD $`) in Tab 1.
-  - Synced settings persistence to both Supabase and `localStorage` (`billease_registered_user`).
-  - Synced loaded default settings into [Quotation Builder](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/(dashboard)/quotations/new/page.tsx) and [Invoice Builder](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/(dashboard)/invoices/new/page.tsx) so new documents automatically adopt the user's customized defaults.
+### 1. 🔔 Notification Module Deep Inspection & Verification
+- [ ] **Overdue Payment Triggers**: Verify automatic calculation of overdue invoices and generation of timely payment attention alerts.
+- [ ] **Notification Center UX**:
+  - Test mark-all-as-read, individual dismiss, and filter by unread status.
+  - Verify direct routing from notification item to invoice preview or payment record screen.
+- [ ] **Push & Sound Alerts**:
+  - Test browser web-push permissions and background service-worker notification triggers (`web-push`).
+  - Validate mobile responsive popover behavior on narrow viewports.
 
 ---
 
-### 2. 💬 WhatsApp Message Checking & Polishing — ✅ COMPLETED
-- [x] **Upgraded Settings Tab 5 (WhatsApp Reminder Template)**:
-  - Added 3 fast 1-click template presets: `Friendly Nudge`, `Formal Business`, and `Urgent Overdue`.
-  - Added clickable variable tags (`+ {client_name}`, `+ {business_name}`, `+ {invoice_num}`, `+ {balance_due}`, `+ {pay_link}`) with click-to-insert.
-  - Added dynamic real-time live customer preview showing formatted text as the user edits.
-- [x] **Connected Custom Template to 1-Click WhatsApp Links**:
-  - Updated [whatsapp.ts](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/lib/whatsapp.ts) to interpolate custom business reminder templates with auto-attached 1-click payment links.
-  - Integrated custom template into [clients/page.tsx](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/(dashboard)/clients/page.tsx) and [notification-dropdown.tsx](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/components/layout/notification-dropdown.tsx).
-- [x] **Sanitization & Normalization**:
-  - Automated E.164 normalization for Indian 10-digit mobile numbers with/without `+91`, prefixes, and spaces.
+### 2. 🛡️ Admin Dashboard, SaaS Subscriptions & Legal Pages
+- [ ] **Admin Dashboard (`/admin`)**:
+  - Dedicated admin view to monitor total registered users, business profiles, and platform growth metrics.
+  - User management table: view user signups, email, business name, active status, and document generation counts.
+  - Role-based authorization guard (Super-Admin access control).
+- [ ] **7-Day Free Trial Engine**:
+  - Automatic trial provisioning on initial user signup with active timestamp calculations (`trial_start`, `trial_end`).
+  - Claymorphic trial status countdown banner (`X days remaining in your free trial`) with fast upgrade CTA.
+  - Graceful feature gating or read-only transition upon trial expiration.
+- [ ] **Pricing Plans & Checkout**:
+  - Tiered plan architecture (e.g. Free Trial, Pro Monthly, Pro Annual).
+  - Modern claymorphic pricing comparison table showcasing features, quotas, and savings.
+- [ ] **Terms & Conditions and Privacy Policy Pages**:
+  - Dedicated public legal pages (`/terms` and `/privacy`).
+  - Compliance documentation for GST billing, data storage, user confidentiality, and cancellation/refund policies.
 
 ---
 
-### 3. 📱 Mobile Responsiveness Improving & Deep Inspection *(New Priority)*
-- **Viewport Stress Testing**: Test on real mobile screen widths (360px, 375px, 390px, 412px) across iOS Safari and Android Chrome.
-- **Builder Mobile Ergonomics**:
-  - Verify that the new 2-row card line item layout, inputs, and expandable scope drawer feel frictionless under one-thumb touch.
-  - Ensure the financial summary sidebar wraps and stacks cleanly beneath line items without layout shifts.
-  - Ensure modals (Live Preview, Unsaved Changes warning) scroll smoothly with zero touch freeze or horizontal overflow.
-- **Mobile Bottom Navigation & Sticky Header**: Verify tap target heights (minimum 44px) and thumb-reach usability.
+### 3. ⏱️ Recent Activity Feed *(Architecture & Planning Needed)*
+- [ ] **Planning & System Design**:
+  - Define `ActivityEvent` schema: `id`, `user_id`, `type` (invoice_created, quotation_sent, payment_received, client_added), `metadata`, `timestamp`.
+  - Determine optimal persistence strategy: Supabase events table vs. client-side activity aggregation.
+- [ ] **Activity Triggers & Dispatchers**:
+  - Automatic event emission across core actions (creating/editing invoices & quotes, recording payments, converting quotes).
+- [ ] **Dashboard Timeline Widget**:
+  - Interactive, human-readable activity feed card on Dashboard (`"Rahul Sharma paid ₹15,000 for #INV-2026-004 • 2m ago"`).
+  - Grouping by Today, Yesterday, and Earlier.
 
 ---
 
-### 4. 📄 Multi-Page PDF & Print Margin Validation
-- **Print Layout & Margins**: Review physical print (<kbd>Ctrl</kbd> + <kbd>P</kbd>) and browser "Save as PDF" outputs.
-- **Multi-Page Pagination**: Test long documents with 10+ line items to verify clean table breaks without cutting text or table borders in half.
-- **Dual-State Print Verification**: Validate clean styling for both Paid documents (green paid stamp) and Due documents (dynamic UPI QR code & bank details).
+### 4. 📄 Multi-Page PDF & Print Margin Validation *(Pending Task)*
+- [ ] **Print Layout & Margins**: Review physical print (<kbd>Ctrl</kbd> + <kbd>P</kbd>) and browser "Save as PDF" outputs across standard paper sizes (A4, Letter).
+- [ ] **Multi-Page Pagination**: Test documents with 10+ line items to verify clean table breaks without cutting text, item rows, or borders in half.
+- [ ] **Dual-State Print Verification**: Validate clean styling for both Paid documents (green paid stamp) and Due documents (dynamic UPI QR code & bank details).
 
 ---
 
-### 5. 🤖 AI Chatbot & Assistant Integration (Competitive Differentiator)
-- **Concept & Architecture**: Scope and build an intelligent AI billing assistant that sets BillEase apart from traditional accounting tools (Zoho, Vyapar, Tally).
-- **Core Capabilities**:
-  - *Natural Language Generation*: Create quotes/invoices from plain English (e.g. *"Bill Rahul Sharma ₹15,000 for website redesign with 18% GST and Net 15 days"*).
-  - *Smart Business Insights*: Query financial health in chat (e.g. *"Who owes me money this month?"*, *"What was my total revenue last month?"*).
-  - *Contextual Follow-Up Drafter*: Generate personalized WhatsApp/Email payment nudge drafts based on client payment history.
+### 5. 🤖 AI Chatbot & Assistant Integration *(Pending Task)*
+- [ ] **Natural Language Generation**: Create quotes/invoices from plain conversational English prompts (*"Bill Rahul Sharma ₹15,000 for website redesign with 18% GST and Net 15 days"*).
+- [ ] **Smart Business Insights**: Chat queries for immediate financial answers (*"Who owes me money this month?"*, *"What was my total revenue last month?"*).
+- [ ] **Contextual Follow-Up Drafter**: Auto-generate personalized WhatsApp/Email payment nudge drafts tailored to client history.
 
 ---
 
-## 🏁 Completed in Previous Session (September 4, 2026)
+## 🏁 Completed in Today's Session (September 10, 2026)
 
-- [x] **Line Item 2-Row Card Redesign**: 4 balanced columns (`Qty & Unit`, `Rate`, `Discount`, `GST Slab`) with expandable scope/HSN drawer on both Quotations & Invoices.
-- [x] **Multi-Currency System**: Added 8 global trade currencies (`INR`, `USD`, `EUR`, `GBP`, `AED`, `CAD`, `AUD`, `SGD`) with dynamic symbol updates.
-- [x] **1-Click Speed Presets**: Instant Validity chips (`+7d`, `+15d`, `+30d`) and Due Date chips (`Today`, `+7d`, `+15d`, `+30d`).
-- [x] **1-Click Standard Legal Clauses**: Quick chip insertion for advance payment, delivery, late fees, and bank transfer terms.
-- [x] **GSTIN State Auto-Detection**: Reads first 2 digits of GSTIN, displays state badge, and auto-routes Intra-State (CGST+SGST) vs Inter-State (IGST).
-- [x] **Commercial Auto Round-Off**: Toggle to round paise fractions into clean whole rupee totals.
-- [x] **Zero Data-Loss Navigation Guard**: Intercepts menu clicks, reloads, and back buttons with a full-screen React Portal warning modal (`z-[99999]`).
-- [x] **Live Document Previews**: Full-screen draft preview modals with dynamic UPI QR and bank details.
-- [x] **Sticky Frosted Header**: Pinned search (`⌘K`) and notifications header with `overflow-x-clip` layout fix.
-- [x] **Automated Tests**: 18/18 Vitest unit tests passing; 0 TypeScript errors.
+- [x] **Mobile Responsiveness Overhaul Across 5 Core Steps**:
+  - **Line Item Ergonomics**: Autocomplete popover containment (`max-w-[calc(100vw-3rem)]`), flex-wrapped row 1 headers, 36px/40px touch heights (`h-10 sm:h-9`), enlarged delete buttons.
+  - **Builder Layout & Mobile Actions**: Bottom navigation yields on builder routes; sticky mobile bottom bar on all `/new` and `/edit` pages showing live totals and 1-tap Preview/Save; responsive GST labels.
+  - **Header & Popovers**: Centered notification popover (`w-[calc(100vw-1.5rem)]`), enlarged hamburger, bell, and avatar buttons to 38px, added responsive title truncation.
+  - **Document List Cards**: Upgraded card headers to responsive `flex-col xs:flex-row` stacking with 32px action buttons.
+  - **Dashboard & Reports**: Refactored `PaymentAttention` cards to stacked layout; client name truncation; fixed Export CSV dropdown left-clipping bug.
+- [x] **QA & Verification**: 20/20 Vitest tests passing; 0 TypeScript compiler errors across all 30 routes.
+
+---
+
+<details>
+<summary><strong>📜 Archived: Completed in Earlier Sessions</strong></summary>
+
+### Business Settings & WhatsApp Engine (September 4, 2026):
+- [x] **GST & Legal Terms Persistence**: Controlled states bound to inputs, fast GST slab chips, default currency selector.
+- [x] **WhatsApp Reminder Template Customization**: 3 fast 1-click templates (`Friendly Nudge`, `Formal Business`, `Urgent Overdue`), dynamic tag insertion (`+ {client_name}`, `+ {balance_due}`), real-time live preview.
+- [x] **E.164 Mobile Normalization**: Automatic formatting of Indian 10-digit mobile numbers with/without `+91`.
+
+### Production-Grade Engine & Safety Guard (September 4, 2026):
+- [x] **Line Item 2-Row Card Structure**: 4 balanced columns with expandable scope/HSN drawer on both Quotations & Invoices.
+- [x] **Multi-Currency Global Engine**: 8 global trade currencies (`INR`, `USD`, `EUR`, `GBP`, `AED`, `CAD`, `AUD`, `SGD`).
+- [x] **Intelligent GST Automation**: Auto-detection of 30+ Indian state/UT GST codes from GSTIN string, auto-routing Intra-State vs. Inter-State.
+- [x] **Commercial Auto Round-Off**: Paise fraction rounding to nearest whole rupee.
+- [x] **Unsaved Changes Navigation Guard**: Full-screen React Portal warning modal (`z-[99999]`) protecting form data.
+- [x] **Live Document Previews**: Modal preview with dynamic UPI QR code.
+- [x] **Sticky Frosted Header**: Pinned search (`⌘K`) and notifications with `overflow-x-clip`.
+
+</details>
