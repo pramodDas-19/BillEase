@@ -349,7 +349,7 @@ export function QuotationItemRow({
                     ) : (
                       <>
                         <Plus className="h-3.5 w-3.5" />
-                        <span>+ Save</span>
+                        <span>Save</span>
                       </>
                     )}
                   </button>

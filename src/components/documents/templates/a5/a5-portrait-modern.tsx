@@ -104,6 +104,12 @@ export function A5PortraitModernTemplate({ doc }: { doc: NormalizedDocument }) {
               <span>Total:</span>
               <span className="text-indigo-600">{formatCurrency(doc.totalAmount)}</span>
             </div>
+            {isQuotation && doc.advanceAmount !== undefined && doc.advanceAmount > 0 && (
+              <div className="flex justify-between text-emerald-800 font-bold">
+                <span>Advance:</span>
+                <span>{formatCurrency(doc.advanceAmount)}</span>
+              </div>
+            )}
             {!isQuotation && (
               <div className="flex justify-between text-slate-700">
                 <span>Due:</span>

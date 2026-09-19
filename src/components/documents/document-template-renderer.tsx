@@ -35,7 +35,7 @@ export function DocumentTemplateRenderer({
   document,
   type,
   tenant,
-  templateId = "a4_advanced_gst",
+  templateId = "a4_modern",
 }: DocumentTemplateRendererProps) {
   const normDoc = normalizeDocument(document, type, tenant);
   const meta = getTemplateById(templateId);

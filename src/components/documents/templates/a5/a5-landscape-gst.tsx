@@ -54,24 +54,28 @@ export function A5LandscapeGstTemplate({ doc }: { doc: NormalizedDocument }) {
           </div>
         </div>
 
-        {/* 2. Bill To & Ship To */}
-        <div className="grid grid-cols-2 divide-x border-b border-slate-900 divide-slate-900 text-[9px] bg-slate-50/50">
+        {/* 2. Bill To & Ship To Banner */}
+        <div className={doc.shippingAddress ? "grid grid-cols-2 divide-x border-b border-slate-900 bg-white text-[9px]" : "grid grid-cols-1 border-b border-slate-900 bg-white text-[9px]"}>
           <div className="p-1.5 space-y-0.5">
             <span className="text-[8px] font-bold uppercase text-slate-500 block">BILL TO</span>
-            <p className="font-bold text-slate-900 text-[10px]">{doc.client.name}</p>
-            {doc.client.address && <p className="text-slate-600 leading-tight">{doc.client.address}</p>}
-            <div className="flex gap-2 text-[8px] text-slate-600">
+            <p className="font-bold text-slate-900">{doc.client.name}</p>
+            {doc.client.companyName && <p className="font-semibold text-slate-800">{doc.client.companyName}</p>}
+            <p className="text-slate-600 leading-tight">{doc.client.address}</p>
+            <div className="flex gap-2 text-[8px] text-slate-500">
               {doc.client.phone && <span>Ph: {doc.client.phone}</span>}
               {doc.client.gstin && <span className="font-bold text-slate-800">GST: {doc.client.gstin}</span>}
             </div>
+            {doc.placeOfSupply && !doc.shippingAddress && <p className="text-[8px] text-slate-500">Place of Supply: {doc.placeOfSupply}</p>}
           </div>
-          <div className="p-1.5 space-y-0.5">
-            <span className="text-[8px] font-bold uppercase text-slate-500 block">SHIP TO</span>
-            <p className="text-slate-600 leading-tight">
-              {doc.shippingAddress || doc.client.address || "Same as Billing"}
-            </p>
-            {doc.placeOfSupply && <p className="text-[8px] text-slate-500">Place of Supply: {doc.placeOfSupply}</p>}
-          </div>
+          {doc.shippingAddress && (
+            <div className="p-1.5 space-y-0.5">
+              <span className="text-[8px] font-bold uppercase text-slate-500 block">SHIP TO</span>
+              <p className="text-slate-600 leading-tight">
+                {doc.shippingAddress}
+              </p>
+              {doc.placeOfSupply && <p className="text-[8px] text-slate-500">Place of Supply: {doc.placeOfSupply}</p>}
+            </div>
+          )}
         </div>
 
         {/* 3. Items Table (Landscape Compact) */}

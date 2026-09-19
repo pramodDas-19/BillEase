@@ -39,6 +39,8 @@ export interface Quotation extends OfflinePendingMetadata {
   clientAddress?: string;
   clientGstin?: string;
   clientPan?: string;
+  shippingAddress?: string;
+  placeOfSupply?: string;
 
   date: string; // YYYY-MM-DD
   validUntil: string; // YYYY-MM-DD

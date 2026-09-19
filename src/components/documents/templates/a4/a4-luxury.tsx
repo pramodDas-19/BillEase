@@ -84,15 +84,15 @@ export function A4LuxuryTemplate({ doc }: { doc: NormalizedDocument }) {
           </div>
         </div>
 
-        {/* 3. Bill To & Ship To (Side by Side) */}
-        <div className="grid grid-cols-2 gap-6 py-3 border-b border-amber-200 font-sans text-xs">
+        {/* 3. Bill To & Ship To Banner */}
+        <div className={doc.shippingAddress ? "grid grid-cols-2 gap-3 my-3" : "grid grid-cols-1 my-3"}>
           <div className="bg-amber-50/20 p-2.5 rounded border border-amber-100">
             <span className="text-[9px] font-bold uppercase tracking-wider text-amber-800 block mb-1">
               BILL TO:
             </span>
-            <h3 className="font-bold text-slate-900 text-sm font-serif">{doc.client.name}</h3>
+            <p className="font-bold text-slate-900 text-sm">{doc.client.name}</p>
             {doc.client.companyName && (
-              <p className="font-semibold text-slate-800 text-[11px]">{doc.client.companyName}</p>
+              <p className="font-bold text-slate-800 text-[11px]">{doc.client.companyName}</p>
             )}
             {doc.client.address && (
               <p className="text-[10px] text-slate-600 mt-0.5 leading-snug">{doc.client.address}</p>
@@ -106,14 +106,16 @@ export function A4LuxuryTemplate({ doc }: { doc: NormalizedDocument }) {
             )}
           </div>
 
-          <div className="bg-amber-50/20 p-2.5 rounded border border-amber-100">
-            <span className="text-[9px] font-bold uppercase tracking-wider text-amber-800 block mb-1">
-              SHIP TO:
-            </span>
-            <p className="text-[10px] text-slate-600 leading-snug">
-              {doc.shippingAddress || doc.client.address || "Same as Billing Address"}
-            </p>
-          </div>
+          {doc.shippingAddress && (
+            <div className="bg-amber-50/20 p-2.5 rounded border border-amber-100">
+              <span className="text-[9px] font-bold uppercase tracking-wider text-amber-800 block mb-1">
+                SHIP TO:
+              </span>
+              <p className="text-[10px] text-slate-600 leading-snug">
+                {doc.shippingAddress}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* 4. Luxury Items Table */}
@@ -266,6 +268,25 @@ export function A4LuxuryTemplate({ doc }: { doc: NormalizedDocument }) {
                 <span className="font-mono">{formatCurrency(doc.totalAmount)}</span>
               </div>
 
+              {isQuotation && doc.advanceAmount !== undefined && doc.advanceAmount > 0 && (
+                <>
+                  <div className="flex justify-between text-amber-900 text-[11px] font-bold">
+                    <span>
+                      Booking Advance (
+                      {doc.advanceType === "percentage" && doc.advanceValue
+                        ? `${doc.advanceValue}%`
+                        : `${Math.round((doc.advanceAmount / (doc.totalAmount || 1)) * 100)}%`}
+                      ):
+                    </span>
+                    <span className="font-mono">{formatCurrency(doc.advanceAmount)}</span>
+                  </div>
+                  <div className="flex justify-between text-amber-950 font-bold bg-amber-200/60 px-1.5 py-0.5 rounded text-xs">
+                    <span>Balance on Delivery:</span>
+                    <span className="font-mono">{formatCurrency(Math.max(0, doc.totalAmount - doc.advanceAmount))}</span>
+                  </div>
+                </>
+              )}
+
               {!isQuotation && (
                 <>
                   <div className="flex justify-between text-emerald-800 text-[11px]">
@@ -284,7 +305,7 @@ export function A4LuxuryTemplate({ doc }: { doc: NormalizedDocument }) {
                   Total Amount (In Words):
                 </span>
                 <p className="font-serif italic font-bold text-slate-800 text-[11px] capitalize mt-0.5">
-                  {doc.totalInWords} Only
+                  {doc.totalInWords}
                 </p>
               </div>
             </div>

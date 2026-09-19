@@ -1,5 +1,5 @@
 import React from "react";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, cn } from "@/lib/utils";
 import { NormalizedDocument } from "../shared/template-adapter";
 import { GstSummaryMatrix } from "../shared/gst-summary-matrix";
 import { UpiQrBadge } from "../shared/upi-qr-badge";
@@ -57,23 +57,28 @@ export function A4AdvancedGstTemplate({ doc }: { doc: NormalizedDocument }) {
                 </div>
               </div>
               <div className="p-2 grid grid-cols-2 gap-2">
-                <div>
+                <div className={doc.placeOfSupply ? "" : "col-span-2"}>
                   <span className="text-[9px] uppercase font-bold text-slate-500 block">
                     {doc.dueDateOrValidUntil.label}
                   </span>
                   <span className="font-bold text-slate-900">{doc.dueDateOrValidUntil.value}</span>
                 </div>
-                <div>
-                  <span className="text-[9px] uppercase font-bold text-slate-500 block">Place of Supply</span>
-                  <span className="font-bold text-slate-900">{doc.placeOfSupply || "State"}</span>
-                </div>
+                {doc.placeOfSupply && (
+                  <div>
+                    <span className="text-[9px] uppercase font-bold text-slate-500 block">Place of Supply</span>
+                    <span className="font-bold text-slate-900">{doc.placeOfSupply}</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
           {/* 2. Bill To & Ship To Boxes */}
-          <div className="grid grid-cols-12 border-t-2 border-slate-900 divide-x-2 divide-slate-900">
-            <div className="col-span-6 p-2.5 bg-slate-50/50">
+          <div className={cn(
+            "grid border-t-2 border-slate-900",
+            doc.shippingAddress ? "grid-cols-12 divide-x-2 divide-slate-900" : "grid-cols-1"
+          )}>
+            <div className={cn(doc.shippingAddress ? "col-span-6" : "col-span-12", "p-2.5 bg-slate-50/50")}>
               <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 block mb-0.5">
                 BILL TO (PARTY)
               </span>
@@ -90,26 +95,28 @@ export function A4AdvancedGstTemplate({ doc }: { doc: NormalizedDocument }) {
               </div>
             </div>
 
-            <div className="col-span-6 p-2.5 bg-slate-50/50">
-              <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 block mb-0.5">
-                SHIP TO / DELIVERY DESTINATION
-              </span>
-              <p className="text-[10px] text-slate-700 leading-tight">
-                {doc.shippingAddress || doc.client.address || "Same as Billing Address"}
-              </p>
-              {(doc.eWayBillNo || doc.vehicleNo) && (
-                <div className="mt-1 pt-1 border-t border-slate-200 flex gap-3 text-[10px]">
-                  {doc.eWayBillNo && <span>E-Way Bill: <strong className="font-mono">{doc.eWayBillNo}</strong></span>}
-                  {doc.vehicleNo && <span>Vehicle No: <strong>{doc.vehicleNo}</strong></span>}
-                </div>
-              )}
-            </div>
+            {doc.shippingAddress && (
+              <div className="col-span-6 p-2.5 bg-slate-50/50">
+                <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 block mb-0.5">
+                  SHIP TO / DELIVERY DESTINATION
+                </span>
+                <p className="text-[10px] text-slate-700 leading-tight">
+                  {doc.shippingAddress}
+                </p>
+                {(doc.eWayBillNo || doc.vehicleNo) && (
+                  <div className="mt-1 pt-1 border-t border-slate-200 flex gap-3 text-[10px]">
+                    {doc.eWayBillNo && <span>E-Way Bill: <strong className="font-mono">{doc.eWayBillNo}</strong></span>}
+                    {doc.vehicleNo && <span>Vehicle No: <strong>{doc.vehicleNo}</strong></span>}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* 3. Items Table with Full Vertical Dividers & Flexible Height */}
           <table className="w-full border-collapse border-t-2 border-slate-900 text-left text-[11px] flex-1">
             <thead>
-              <tr className="bg-amber-100/70 border-b-2 border-slate-900 font-black text-slate-900 text-center">
+              <tr className="bg-slate-100 border-b-2 border-slate-900 font-black text-slate-900 text-center">
                 <th className="py-2 px-1 border-r-2 border-slate-900 w-8">S.N.</th>
                 <th className="py-2 px-2 border-r-2 border-slate-900 text-left">ITEMS / SERVICES</th>
                 {doc.hasHsn && (
@@ -173,7 +180,7 @@ export function A4AdvancedGstTemplate({ doc }: { doc: NormalizedDocument }) {
                 ))}
             </tbody>
             <tfoot>
-              <tr className="border-t-2 border-slate-900 bg-amber-50 font-black text-slate-900">
+              <tr className="border-t-2 border-slate-900 bg-slate-50 font-black text-slate-900">
                 <td colSpan={doc.hasHsn ? 3 : 2} className="py-1.5 px-2 border-r-2 border-slate-900 text-right">
                   SUBTOTAL
                 </td>
@@ -207,7 +214,7 @@ export function A4AdvancedGstTemplate({ doc }: { doc: NormalizedDocument }) {
                 Total Amount (In Words):
               </span>
               <p className="font-bold text-slate-900 text-xs italic mt-0.5 capitalize">
-                {doc.totalInWords} Only
+                {doc.totalInWords}
               </p>
             </div>
             {doc.terms && (
@@ -240,13 +247,31 @@ export function A4AdvancedGstTemplate({ doc }: { doc: NormalizedDocument }) {
               <span>TOTAL AMOUNT:</span>
               <span className="font-mono">{formatCurrency(doc.totalAmount)}</span>
             </div>
+            {isQuotation && doc.advanceAmount !== undefined && doc.advanceAmount > 0 && (
+              <>
+                <div className="flex justify-between text-emerald-800 font-bold pt-1 border-t border-slate-200 text-[11px]">
+                  <span>
+                    Booking Advance (
+                    {doc.advanceType === "percentage" && doc.advanceValue
+                      ? `${doc.advanceValue}%`
+                      : `${Math.round((doc.advanceAmount / (doc.totalAmount || 1)) * 100)}%`}
+                    ):
+                  </span>
+                  <span className="font-mono">{formatCurrency(doc.advanceAmount)}</span>
+                </div>
+                <div className="flex justify-between text-slate-900 font-bold bg-slate-100 p-1 rounded text-xs">
+                  <span>BALANCE ON DELIVERY:</span>
+                  <span className="font-mono">{formatCurrency(Math.max(0, doc.totalAmount - doc.advanceAmount))}</span>
+                </div>
+              </>
+            )}
             {!isQuotation && (
               <>
                 <div className="flex justify-between text-slate-700 pt-1 border-t border-slate-200">
                   <span>Received Amount:</span>
                   <span className="font-mono font-bold text-emerald-700">{formatCurrency(doc.receivedAmount)}</span>
                 </div>
-                <div className="flex justify-between text-slate-900 font-bold bg-amber-100 p-1 rounded">
+                <div className="flex justify-between text-slate-900 font-bold bg-slate-100 p-1 rounded">
                   <span>BALANCE DUE:</span>
                   <span className="font-mono">{formatCurrency(doc.balanceDue)}</span>
                 </div>

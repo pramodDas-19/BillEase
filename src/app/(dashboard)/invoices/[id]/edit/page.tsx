@@ -57,10 +57,17 @@ export default function EditInvoicePage({
             quotationNumber: invData.quotationNumber,
             clientId: invData.clientId || "",
             clientName: invData.clientName || "",
+            clientCompanyName: invData.clientCompanyName || "",
+            clientPan: invData.clientPan || "",
             clientEmail: invData.clientEmail || "",
             clientPhone: invData.clientPhone || "",
             clientAddress: invData.clientAddress || "",
             clientGstin: invData.clientGstin || "",
+            shippingAddress: invData.shippingAddress || "",
+            placeOfSupply: invData.placeOfSupply || "",
+            isShippingAddressEnabled: Boolean(invData.shippingAddress),
+            isShippingSameAsBilling: invData.shippingAddress ? invData.shippingAddress === invData.clientAddress : false,
+            isPlaceOfSupplyEnabled: Boolean(invData.placeOfSupply),
             issueDate: invData.issueDate || new Date().toISOString().split("T")[0],
             dueDate:
               invData.dueDate ||
@@ -118,6 +125,8 @@ export default function EditInvoicePage({
         ...prev,
         clientId: found.id,
         clientName: found.name,
+        clientCompanyName: found.companyName || "",
+        clientPan: found.pan || "",
         clientEmail: found.email || "",
         clientPhone: found.phone,
         clientAddress: found.address || (found.billingAddress ? `${found.billingAddress.street}, ${found.billingAddress.city}` : ""),
@@ -285,26 +294,41 @@ export default function EditInvoicePage({
                   required
                 />
                 <Input
+                  label="Company Name (Optional)"
+                  placeholder="e.g. Sharma Enterprises Pvt Ltd"
+                  value={state.clientCompanyName || ""}
+                  onChange={(e) => setState((p) => ({ ...p, clientCompanyName: e.target.value }))}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                <Input
                   label="Phone *"
                   placeholder="+91 98765 43210"
                   value={state.clientPhone || ""}
                   onChange={(e) => setState((p) => ({ ...p, clientPhone: e.target.value }))}
                   required
                 />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                 <Input
                   label="Email"
                   placeholder="client@example.com"
                   value={state.clientEmail || ""}
                   onChange={(e) => setState((p) => ({ ...p, clientEmail: e.target.value }))}
                 />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                 <Input
                   label="Client GSTIN (Optional)"
                   placeholder="27AAACS1429B1Z5"
                   value={state.clientGstin || ""}
                   onChange={(e) => setState((p) => ({ ...p, clientGstin: e.target.value }))}
+                />
+                <Input
+                  label="Client PAN (Optional)"
+                  placeholder="ABCDE1234F"
+                  value={state.clientPan || ""}
+                  onChange={(e) => setState((p) => ({ ...p, clientPan: e.target.value }))}
                 />
               </div>
 
@@ -313,8 +337,100 @@ export default function EditInvoicePage({
                   label="Billing Address"
                   placeholder="Street address, city, state..."
                   value={state.clientAddress || ""}
-                  onChange={(e) => setState((p) => ({ ...p, clientAddress: e.target.value }))}
+                  onChange={(e) => {
+                    const newAddr = e.target.value;
+                    setState((p) => ({
+                      ...p,
+                      clientAddress: newAddr,
+                      shippingAddress: p.isShippingSameAsBilling ? newAddr : p.shippingAddress,
+                    }));
+                  }}
                 />
+              </div>
+
+              {/* Optional Place of Supply & Shipping Address Toggles */}
+              <div className="pt-3 border-t border-slate-100 space-y-3">
+                <div className="flex flex-wrap items-center gap-6">
+                  <label className="inline-flex items-center gap-2 cursor-pointer select-none text-xs font-bold text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(state.isPlaceOfSupplyEnabled)}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setState((p) => ({
+                          ...p,
+                          isPlaceOfSupplyEnabled: checked,
+                          placeOfSupply: checked ? (p.placeOfSupply || "") : "",
+                        }));
+                      }}
+                      className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span>Specify Place of Supply</span>
+                  </label>
+
+                  <label className="inline-flex items-center gap-2 cursor-pointer select-none text-xs font-bold text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(state.isShippingAddressEnabled)}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setState((p) => ({
+                          ...p,
+                          isShippingAddressEnabled: checked,
+                          isShippingSameAsBilling: checked ? true : false,
+                          shippingAddress: checked ? (p.clientAddress || "") : "",
+                        }));
+                      }}
+                      className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span>Add Shipping / Delivery Destination</span>
+                  </label>
+                </div>
+
+                {/* Place of Supply Field */}
+                {state.isPlaceOfSupplyEnabled && (
+                  <div className="pt-1 animate-in fade-in-50 duration-150">
+                    <Input
+                      label="Place of Supply (State / UT)"
+                      placeholder="e.g. Maharashtra (27) or Delhi (07)"
+                      value={state.placeOfSupply || ""}
+                      onChange={(e) => setState((p) => ({ ...p, placeOfSupply: e.target.value }))}
+                    />
+                  </div>
+                )}
+
+                {/* Shipping Address Fields */}
+                {state.isShippingAddressEnabled && (
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2.5 animate-in fade-in-50 duration-150">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                        Shipping / Delivery Address
+                      </span>
+                      <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-600">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(state.isShippingSameAsBilling)}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setState((p) => ({
+                              ...p,
+                              isShippingSameAsBilling: checked,
+                              shippingAddress: checked ? (p.clientAddress || "") : "",
+                            }));
+                          }}
+                          className="h-3.5 w-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                        />
+                        <span>Same as Billing Address</span>
+                      </label>
+                    </div>
+
+                    <Input
+                      placeholder="Delivery warehouse, store, or project site address..."
+                      value={state.shippingAddress || ""}
+                      onChange={(e) => setState((p) => ({ ...p, shippingAddress: e.target.value, isShippingSameAsBilling: false }))}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </div>

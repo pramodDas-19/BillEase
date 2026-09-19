@@ -29,19 +29,23 @@ export function A5PortraitChallanTemplate({ doc }: { doc: NormalizedDocument }) 
           </div>
         </div>
 
-        {/* Customer & Delivery */}
-        <div className="bg-slate-50 p-2 rounded border border-slate-200 grid grid-cols-2 gap-2 text-[9px]">
+        {/* Party Info */}
+        <div className={doc.shippingAddress ? "bg-slate-50 p-2 rounded border border-slate-200 grid grid-cols-2 gap-2 text-[9px]" : "bg-slate-50 p-2 rounded border border-slate-200 grid grid-cols-1 gap-2 text-[9px]"}>
           <div>
             <span className="text-[8px] font-bold text-slate-500 uppercase block">Customer / Party:</span>
             <p className="font-bold text-slate-900">{doc.client.name}</p>
+            {doc.client.companyName && <p className="font-semibold text-slate-800">{doc.client.companyName}</p>}
+            {doc.client.address && <p className="text-slate-600">{doc.client.address}</p>}
             {doc.client.phone && <p className="text-slate-600">Ph: {doc.client.phone}</p>}
             {doc.client.gstin && <p className="text-slate-600">GST: {doc.client.gstin}</p>}
           </div>
-          <div>
-            <span className="text-[8px] font-bold text-slate-500 uppercase block">Delivery / Ref:</span>
-            <p className="text-slate-600 truncate">{doc.shippingAddress || "Counter Sale"}</p>
-            {doc.vehicleNo && <p className="text-slate-700">Vehicle: {doc.vehicleNo}</p>}
-          </div>
+          {doc.shippingAddress && (
+            <div>
+              <span className="text-[8px] font-bold text-slate-500 uppercase block">Delivery / Ref:</span>
+              <p className="text-slate-600 truncate">{doc.shippingAddress}</p>
+              {doc.vehicleNo && <p className="text-slate-700">Vehicle: {doc.vehicleNo}</p>}
+            </div>
+          )}
         </div>
 
         {/* Items Table */}
@@ -92,7 +96,7 @@ export function A5PortraitChallanTemplate({ doc }: { doc: NormalizedDocument }) 
                 </div>
               </div>
             )}
-            <p className="text-[8px] text-slate-500 italic capitalize">{doc.totalInWords} Only</p>
+            <p className="text-[8px] text-slate-500 italic capitalize">{doc.totalInWords}</p>
           </div>
 
           <div className="space-y-0.5 text-right font-mono">

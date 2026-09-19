@@ -71,20 +71,23 @@ export function A4TallyTemplate({ doc }: { doc: NormalizedDocument }) {
 
         {/* Consignee (Ship To) and Buyer (Bill To) */}
         <div className="grid grid-cols-2 divide-x border-b border-black divide-black text-[10px]">
-          <div className="p-2 space-y-0.5">
+          <div className={doc.shippingAddress ? "p-2 space-y-0.5" : "p-2 space-y-0.5 col-span-2"}>
             <span className="font-bold uppercase text-[9px] text-neutral-700 block">Buyer (Bill to)</span>
             <p className="font-bold text-xs">{doc.client.name}</p>
             {doc.client.companyName && <p className="font-bold">{doc.client.companyName}</p>}
             <p className="text-neutral-700">{doc.client.address}</p>
             {doc.client.gstin && <p className="font-bold">GSTIN/UIN: {doc.client.gstin}</p>}
             {doc.client.pan && <p>PAN/IT No: {doc.client.pan}</p>}
+            {doc.placeOfSupply && <p className="font-bold">State Name: {doc.placeOfSupply}</p>}
           </div>
-          <div className="p-2 space-y-0.5">
-            <span className="font-bold uppercase text-[9px] text-neutral-700 block">Consignee (Ship to)</span>
-            <p className="font-bold text-xs">{doc.client.name}</p>
-            <p className="text-neutral-700">{doc.shippingAddress || doc.client.address || "Same as Buyer"}</p>
-            <p className="font-bold">State Name: {doc.placeOfSupply || "Default"}</p>
-          </div>
+          {doc.shippingAddress && (
+            <div className="p-2 space-y-0.5">
+              <span className="font-bold uppercase text-[9px] text-neutral-700 block">Consignee (Ship to)</span>
+              <p className="font-bold text-xs">{doc.client.name}</p>
+              <p className="text-neutral-700">{doc.shippingAddress}</p>
+              {doc.placeOfSupply && <p className="font-bold">State Name: {doc.placeOfSupply}</p>}
+            </div>
+          )}
         </div>
 
         {/* Line Items Table */}
@@ -165,7 +168,7 @@ export function A4TallyTemplate({ doc }: { doc: NormalizedDocument }) {
         <div className="grid grid-cols-2 divide-x border-b border-black divide-black text-[10px]">
           <div className="p-2 space-y-1">
             <p className="text-[9px] text-neutral-600 uppercase font-semibold">Amount Chargeable (in words):</p>
-            <p className="font-bold uppercase text-neutral-900">{doc.totalInWords} Only</p>
+            <p className="font-bold uppercase text-neutral-900">{doc.totalInWords}</p>
             {doc.terms && (
               <div className="mt-2 pt-1 border-t border-black/40">
                 <span className="font-bold text-[9px] block">Declaration:</span>
@@ -194,6 +197,18 @@ export function A4TallyTemplate({ doc }: { doc: NormalizedDocument }) {
               <span>Total:</span>
               <span>{formatCurrency(doc.totalAmount)}</span>
             </div>
+            {isQuotation && doc.advanceAmount !== undefined && doc.advanceAmount > 0 && (
+              <>
+                <div className="flex justify-between font-mono pt-0.5 text-neutral-800">
+                  <span>Advance ({doc.advanceType === "percentage" && doc.advanceValue ? `${doc.advanceValue}%` : `${Math.round((doc.advanceAmount / (doc.totalAmount || 1)) * 100)}%`}):</span>
+                  <span className="font-bold">{formatCurrency(doc.advanceAmount)}</span>
+                </div>
+                <div className="flex justify-between font-mono pt-0.5 text-neutral-800">
+                  <span>Balance on Delivery:</span>
+                  <span className="font-bold">{formatCurrency(Math.max(0, doc.totalAmount - doc.advanceAmount))}</span>
+                </div>
+              </>
+            )}
             {!isQuotation && (
               <div className="flex justify-between font-mono pt-0.5 text-neutral-700">
                 <span>Balance Due:</span>

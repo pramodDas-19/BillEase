@@ -14,6 +14,11 @@ export interface QuotationBuilderState {
   clientAddress: string;
   clientGstin: string;
   clientPan?: string;
+  shippingAddress?: string;
+  placeOfSupply?: string;
+  isShippingAddressEnabled?: boolean;
+  isPlaceOfSupplyEnabled?: boolean;
+  isShippingSameAsBilling?: boolean;
   date: string;
   validUntil: string;
   currency: CurrencyCode;
@@ -49,6 +54,11 @@ export function useQuotationBuilder(initialState?: Partial<QuotationBuilderState
     clientAddress: initialState?.clientAddress || "",
     clientGstin: initialState?.clientGstin || "",
     clientPan: initialState?.clientPan || "",
+    shippingAddress: initialState?.shippingAddress || "",
+    placeOfSupply: initialState?.placeOfSupply || "",
+    isShippingAddressEnabled: initialState?.isShippingAddressEnabled ?? Boolean(initialState?.shippingAddress),
+    isPlaceOfSupplyEnabled: initialState?.isPlaceOfSupplyEnabled ?? Boolean(initialState?.placeOfSupply),
+    isShippingSameAsBilling: initialState?.isShippingSameAsBilling ?? false,
     date: initialState?.date || today,
     validUntil: initialState?.validUntil || defaultValidDate,
     currency: initialState?.currency || "INR",

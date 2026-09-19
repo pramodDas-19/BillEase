@@ -21,7 +21,7 @@ export default function QuotationPreviewPage({ params }: { params: Promise<{ id:
 
   // Default to tenant preferred template or fallback to Advanced GST
   const defaultTemplateId =
-    currentTenant?.settings?.defaultQuotationTemplate || "a4_advanced_gst";
+    currentTenant?.settings?.defaultQuotationTemplate || "a4_modern";
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(defaultTemplateId);
 
   useEffect(() => {

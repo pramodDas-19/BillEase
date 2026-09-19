@@ -44,7 +44,7 @@ export function A4BillbookTemplate({ doc }: { doc: NormalizedDocument }) {
         </div>
 
         {/* Bill To Party */}
-        <div className="py-3 border-b border-slate-300 grid grid-cols-2 gap-4">
+        <div className={doc.shippingAddress ? "py-3 border-b border-slate-300 grid grid-cols-2 gap-4" : "py-3 border-b border-slate-300 grid grid-cols-1"}>
           <div>
             <span className="text-[9px] font-bold uppercase text-slate-500 block mb-0.5">BILL TO</span>
             <p className="font-bold text-slate-900 text-xs">{doc.client.name}</p>
@@ -52,11 +52,13 @@ export function A4BillbookTemplate({ doc }: { doc: NormalizedDocument }) {
             {doc.client.address && <p className="text-[10px] text-slate-600 leading-tight mt-0.5">{doc.client.address}</p>}
             {doc.client.phone && <p className="text-[10px] text-slate-600 mt-0.5">Ph: {doc.client.phone}</p>}
           </div>
-          <div>
-            <span className="text-[9px] font-bold uppercase text-slate-500 block mb-0.5">DELIVERY DETAILS</span>
-            <p className="text-[10px] text-slate-600">{doc.shippingAddress || "Same as Billing"}</p>
-            {doc.vehicleNo && <p className="text-[10px] text-slate-700 mt-1">Vehicle No: <strong>{doc.vehicleNo}</strong></p>}
-          </div>
+          {doc.shippingAddress && (
+            <div>
+              <span className="text-[9px] font-bold uppercase text-slate-500 block mb-0.5">DELIVERY DETAILS</span>
+              <p className="text-[10px] text-slate-600">{doc.shippingAddress}</p>
+              {doc.vehicleNo && <p className="text-[10px] text-slate-700 mt-1">Vehicle No: <strong>{doc.vehicleNo}</strong></p>}
+            </div>
+          )}
         </div>
 
         {/* Items Table */}
@@ -119,7 +121,7 @@ export function A4BillbookTemplate({ doc }: { doc: NormalizedDocument }) {
           <div className="col-span-7 space-y-3">
             <div className="text-[10px]">
               <span className="text-[9px] font-bold text-slate-400 uppercase block">Invoice Amount (in words)</span>
-              <p className="font-bold text-slate-800 capitalize italic">{doc.totalInWords} Only</p>
+              <p className="font-bold text-slate-800 capitalize italic">{doc.totalInWords}</p>
             </div>
 
             <div className="flex gap-4 items-center pt-2 border-t border-slate-200">
@@ -158,13 +160,31 @@ export function A4BillbookTemplate({ doc }: { doc: NormalizedDocument }) {
                 <span>TOTAL AMOUNT:</span>
                 <span className="font-mono">{formatCurrency(doc.totalAmount)}</span>
               </div>
+              {isQuotation && doc.advanceAmount !== undefined && doc.advanceAmount > 0 && (
+                <>
+                  <div className="flex justify-between text-emerald-800 font-bold text-[11px]">
+                    <span>
+                      Booking Advance (
+                      {doc.advanceType === "percentage" && doc.advanceValue
+                        ? `${doc.advanceValue}%`
+                        : `${Math.round((doc.advanceAmount / (doc.totalAmount || 1)) * 100)}%`}
+                      ):
+                    </span>
+                    <span className="font-mono">{formatCurrency(doc.advanceAmount)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-900 font-bold bg-slate-100 p-1 rounded text-xs">
+                    <span>Balance on Delivery:</span>
+                    <span className="font-mono">{formatCurrency(Math.max(0, doc.totalAmount - doc.advanceAmount))}</span>
+                  </div>
+                </>
+              )}
               {!isQuotation && (
                 <>
                   <div className="flex justify-between text-slate-600 text-[11px]">
                     <span>Received Amount:</span>
                     <span className="font-mono font-bold text-emerald-700">{formatCurrency(doc.receivedAmount)}</span>
                   </div>
-                  <div className="flex justify-between text-slate-900 font-bold bg-amber-100 p-1 rounded text-xs">
+                  <div className="flex justify-between text-slate-900 font-bold bg-slate-100 p-1 rounded text-xs">
                     <span>Balance Amount:</span>
                     <span className="font-mono">{formatCurrency(doc.balanceDue)}</span>
                   </div>

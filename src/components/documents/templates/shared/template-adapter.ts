@@ -78,6 +78,9 @@ export interface NormalizedDocument {
   totalInWords: string;
   receivedAmount: number;
   balanceDue: number;
+  advanceAmount?: number;
+  advanceType?: "percentage" | "fixed" | "none";
+  advanceValue?: number;
   notes?: string;
   terms?: string;
   upiUri: string;
@@ -229,8 +232,8 @@ export function normalizeDocument(
       gstin: doc.clientGstin || "",
       pan: doc.clientPan || "",
     },
-    shippingAddress: (docAny.shippingAddress as string) || doc.clientAddress || "",
-    placeOfSupply: (docAny.placeOfSupply as string) || "",
+    shippingAddress: ((docAny.shippingAddress as string) || "").trim() || undefined,
+    placeOfSupply: ((docAny.placeOfSupply as string) || "").trim() || undefined,
     eWayBillNo: (docAny.eWayBillNo as string) || "",
     poNumber: (docAny.poNumber as string) || "",
     vehicleNo: (docAny.vehicleNo as string) || "",
@@ -243,6 +246,9 @@ export function normalizeDocument(
     totalInWords: numberToWords(doc.totalAmount || 0),
     receivedAmount,
     balanceDue,
+    advanceAmount: quot?.advanceAmount,
+    advanceType: quot?.advanceType,
+    advanceValue: quot?.advanceValue,
     notes: doc.notes || "",
     terms: doc.termsAndConditions || "",
     upiUri,

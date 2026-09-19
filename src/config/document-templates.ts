@@ -19,6 +19,18 @@ export const DOCUMENT_TEMPLATES: DocumentTemplateMeta[] = [
   // 5 A4 TEMPLATES
   // ==========================
   {
+    id: "a4_modern",
+    name: "BillEase Modern Classic",
+    category: "a4",
+    orientation: "portrait",
+    badge: "Recommended",
+    description: "Clean, elegant layout with modern cards, item discount badges, booking advance split, QR payment card & digital signature.",
+    paperWidthMm: 210,
+    paperHeightMm: 297,
+    tags: ["Recommended", "Modern", "Soft Cards", "All Businesses"],
+    isPopular: true,
+  },
+  {
     id: "a4_advanced_gst",
     name: "Advanced GST",
     category: "a4",
@@ -28,7 +40,6 @@ export const DOCUMENT_TEMPLATES: DocumentTemplateMeta[] = [
     paperWidthMm: 210,
     paperHeightMm: 297,
     tags: ["B2B", "GST Compliant", "Multi-column", "Vyapar Style"],
-    isPopular: true,
   },
   {
     id: "a4_tally",
@@ -52,17 +63,6 @@ export const DOCUMENT_TEMPLATES: DocumentTemplateMeta[] = [
     paperHeightMm: 297,
     tags: ["Luxury", "Gold Accents", "Boutique", "Jewelry"],
     isPopular: true,
-  },
-  {
-    id: "a4_modern",
-    name: "Modern Minimalist",
-    category: "a4",
-    orientation: "portrait",
-    badge: "Creative / IT",
-    description: "Clean frameless layout with pastel pill badges for Party details, rounded subtotal banner and generous airy whitespace.",
-    paperWidthMm: 210,
-    paperHeightMm: 297,
-    tags: ["Agencies", "Modern", "Soft Cards", "Consultants"],
   },
   {
     id: "a4_billbook",

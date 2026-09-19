@@ -21,7 +21,7 @@ export default function InvoicePreviewPage({ params }: { params: Promise<{ id: s
 
   // Default to tenant preferred template or fallback to Advanced GST
   const defaultTemplateId =
-    currentTenant?.settings?.defaultInvoiceTemplate || "a4_advanced_gst";
+    currentTenant?.settings?.defaultInvoiceTemplate || "a4_modern";
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(defaultTemplateId);
 
   useEffect(() => {

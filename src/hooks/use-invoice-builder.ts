@@ -16,6 +16,11 @@ export interface InvoiceBuilderState {
   clientAddress: string;
   clientGstin: string;
   clientPan?: string;
+  shippingAddress?: string;
+  placeOfSupply?: string;
+  isShippingAddressEnabled?: boolean;
+  isPlaceOfSupplyEnabled?: boolean;
+  isShippingSameAsBilling?: boolean;
   issueDate: string;
   dueDate: string;
   currency: CurrencyCode;
@@ -50,6 +55,11 @@ export function useInvoiceBuilder(initialState?: Partial<InvoiceBuilderState>) {
     clientAddress: initialState?.clientAddress || "",
     clientGstin: initialState?.clientGstin || "",
     clientPan: initialState?.clientPan || "",
+    shippingAddress: initialState?.shippingAddress || "",
+    placeOfSupply: initialState?.placeOfSupply || "",
+    isShippingAddressEnabled: initialState?.isShippingAddressEnabled ?? Boolean(initialState?.shippingAddress),
+    isPlaceOfSupplyEnabled: initialState?.isPlaceOfSupplyEnabled ?? Boolean(initialState?.placeOfSupply),
+    isShippingSameAsBilling: initialState?.isShippingSameAsBilling ?? false,
     issueDate: initialState?.issueDate || today,
     dueDate: initialState?.dueDate || defaultDueDate,
     currency: initialState?.currency || "INR",

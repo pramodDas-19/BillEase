@@ -36,6 +36,8 @@ export interface Invoice extends OfflinePendingMetadata {
   clientAddress?: string;
   clientGstin?: string;
   clientPan?: string;
+  shippingAddress?: string;
+  placeOfSupply?: string;
 
   issueDate: string; // YYYY-MM-DD
   dueDate: string; // YYYY-MM-DD

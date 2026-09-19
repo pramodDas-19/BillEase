@@ -200,4 +200,45 @@ describe("15 Document Templates Suite", () => {
     expect(doc.totalAmount).toBe(4500);
     expect(doc.balanceDue).toBe(4500);
   });
+
+  it("strictly preserves optional shippingAddress and placeOfSupply without phantom fallbacks", () => {
+    const quoteWithoutOptional: Quotation = {
+      id: "quote-no-opt",
+      tenantId: "tenant-1",
+      clientId: "client-opt-1",
+      quotationNumber: "QT-2026-099",
+      clientName: "Freelance Client",
+      clientAddress: "123 Main Street, Bangalore",
+      date: "2026-09-19",
+      validUntil: "2026-10-04",
+      status: "draft",
+      isTaxEnabled: false,
+      items: [{ id: "1", description: "Design Consulting", amount: 15000 }],
+      subtotal: 15000,
+      totalAmount: 15000,
+      totalTax: 0,
+      currency: "INR",
+      createdAt: "2026-09-19",
+      updatedAt: "2026-09-19",
+    };
+
+    const doc1 = normalizeDocument(quoteWithoutOptional, "quotation", null);
+    expect(doc1.shippingAddress).toBeUndefined();
+    expect(doc1.placeOfSupply).toBeUndefined();
+    expect(doc1.client.address).toBe("123 Main Street, Bangalore");
+
+    const quoteWithOptional: Quotation = {
+      ...quoteWithoutOptional,
+      shippingAddress: "Warehouse 4B, Electronic City, Bangalore",
+      placeOfSupply: "Karnataka (29)",
+    };
+
+    const doc2 = normalizeDocument(quoteWithOptional, "quotation", null);
+    expect(doc2.shippingAddress).toBe("Warehouse 4B, Electronic City, Bangalore");
+    expect(doc2.placeOfSupply).toBe("Karnataka (29)");
+
+    // Ensure totalInWords does not contain duplicate "Only Only"
+    expect(doc2.totalInWords).toMatch(/Only$/);
+    expect(doc2.totalInWords).not.toMatch(/Only\s+Only/i);
+  });
 });
