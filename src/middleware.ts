@@ -16,13 +16,50 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 2. Public customer portal routes that must always be accessible without login
-  // e.g. /pay/[id] (Client payment portal)
-  if (pathname.startsWith("/pay/")) {
+  // 2. Public customer portal and static marketing routes that require zero authentication
+  if (
+    pathname.startsWith("/pay/") ||
+    pathname.startsWith("/pricing") ||
+    pathname.startsWith("/terms") ||
+    pathname.startsWith("/privacy")
+  ) {
     return NextResponse.next();
   }
 
-  // 3. Create Supabase client for SSR Cookie handling
+  // 3. Fast cookie inspection to avoid blocking cloud roundtrips
+  const allCookies = request.cookies.getAll();
+  const hasAuthCookie = allCookies.some(
+    (c) => c.name.startsWith("sb-") && c.name.includes("-auth-token")
+  );
+  const hasAdminCookie = request.cookies.get("billease_admin_session")?.value === "true";
+
+  // If user has neither an admin session nor a Supabase auth cookie, they are definitively unauthenticated
+  if (!hasAuthCookie && !hasAdminCookie) {
+    const isProtectedPath =
+      pathname.startsWith("/dashboard") ||
+      pathname.startsWith("/clients") ||
+      pathname.startsWith("/services") ||
+      pathname.startsWith("/quotations") ||
+      pathname.startsWith("/invoices") ||
+      pathname.startsWith("/payments") ||
+      pathname.startsWith("/reports") ||
+      pathname.startsWith("/settings") ||
+      pathname.startsWith("/admin");
+
+    if (isProtectedPath) {
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("redirectTo", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+
+    if (pathname === "/") {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+
+    return NextResponse.next();
+  }
+
+  // 4. Create Supabase client for SSR Cookie handling only when auth cookies are present
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -49,12 +86,13 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  // 4. Authenticate user strictly from verified Supabase session or Super-Admin cookie
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Verify Supabase session cryptographically
+  let user = null;
+  if (hasAuthCookie) {
+    const { data } = await supabase.auth.getUser();
+    user = data?.user || null;
+  }
 
-  const hasAdminCookie = request.cookies.get("billease_admin_session")?.value === "true";
   const isAuthenticated = !!user || hasAdminCookie;
 
 
