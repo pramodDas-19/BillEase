@@ -1,12 +1,14 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { DASHBOARD_NAV_CONFIG } from "@/config/nav.config";
 import { cn } from "@/lib/utils";
 import { useLayoutState } from "./dashboard-shell";
 import { useTenant } from "@/hooks/use-tenant";
+import { AuthService } from "@/services/auth.service";
+import { PlanBadge } from "@/components/layout/plan-badge";
 import {
   LayoutDashboard,
   FileText,
@@ -16,10 +18,15 @@ import {
   Package,
   BarChart3,
   Settings,
+  ShieldCheck,
   PanelLeftClose,
   PanelLeftOpen,
   Sparkles,
   X,
+  Building2,
+  HelpCircle,
+  LogOut,
+  ChevronDown,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -31,16 +38,39 @@ const ICON_MAP: Record<string, React.ElementType> = {
   Package,
   BarChart3,
   Settings,
+  ShieldCheck,
 };
 
 export function Sidebar() {
+  const router = useRouter();
   const pathname = usePathname();
   const { isSidebarCollapsed, setIsSidebarCollapsed, isMobileNavOpen, setIsMobileNavOpen } =
     useLayoutState();
   const { currentUser, currentTenant } = useTenant();
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   const businessName = currentTenant?.businessName || "My Business Studio";
   const userName = currentUser?.name || "Business Owner";
+  const isPaid = currentTenant?.subscription?.status === "active";
+
+  const isSuperAdmin =
+    currentUser?.role === "super_admin" ||
+    currentUser?.email?.toLowerCase() === "admin@billease.com" ||
+    (typeof window !== "undefined" &&
+      (localStorage.getItem("billease_super_admin_session") === "true" ||
+        sessionStorage.getItem("billease_admin_session") === "true" ||
+        document.cookie.includes("billease_admin_session=true")));
+
+  const handleSignOut = async () => {
+    setIsUserMenuOpen(false);
+    if (typeof window !== "undefined") {
+      document.cookie = "billease_admin_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      localStorage.removeItem("billease_super_admin_session");
+      sessionStorage.removeItem("billease_admin_session");
+    }
+    await AuthService.signOut();
+    router.push("/login");
+  };
 
   const userInitials = userName
     .split(" ")
@@ -195,36 +225,129 @@ export function Sidebar() {
         {/* Navigation Sections */}
         {renderNavItems(false)}
 
-        {/* Bottom User Account Footer (Personalized to User) */}
-        <div className="p-3 border-t border-slate-100 bg-slate-50/50">
-          <div
+        {/* Bottom User Account Footer (Personalized to User with Reference 2 Popover) */}
+        <div className="p-3 border-t border-slate-100 bg-slate-50/50 relative">
+          {/* Plan Badge (Free plan • Upgrade) */}
+          {!isSidebarCollapsed && (
+            <div className="mb-2.5">
+              <PlanBadge className="w-full justify-between" />
+            </div>
+          )}
+
+          {/* User Profile Card Button */}
+          <button
+            type="button"
+            onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
             className={cn(
-              "clay-card flex items-center gap-3 p-2 transition-all hover:bg-white border border-slate-200/60 shadow-2xs group relative",
+              "clay-card w-full flex items-center justify-between p-2 transition-all hover:bg-white border border-slate-200/60 shadow-2xs group cursor-pointer text-left focus:outline-none",
               isSidebarCollapsed && "justify-center p-1.5"
             )}
+            title={userName}
           >
-            <div className="clay-icon-squircle flex h-8 w-8 shrink-0 items-center justify-center bg-emerald-600 text-white font-extrabold text-xs shadow-xs">
-              {userInitials}
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="clay-icon-squircle flex h-8 w-8 shrink-0 items-center justify-center bg-slate-900 text-white font-extrabold text-xs shadow-xs">
+                {userInitials}
+              </div>
+              {!isSidebarCollapsed && (
+                <div className="overflow-hidden">
+                  <p className="truncate text-xs font-bold text-slate-900 leading-tight">
+                    {userName}
+                  </p>
+                  <p className="text-[10px] font-semibold text-slate-400 truncate mt-0.5">
+                    {isPaid ? "Pro plan" : "Free plan"}
+                  </p>
+                </div>
+              )}
             </div>
-            {!isSidebarCollapsed && (
-              <div className="overflow-hidden">
-                <p className="truncate text-xs font-bold text-slate-900 leading-tight">
-                  {userName}
-                </p>
-                <p className="text-[10px] font-semibold text-emerald-700 truncate mt-0.5">
-                  Owner & Admin
-                </p>
-              </div>
-            )}
 
-            {/* Collapsed Tooltip for User */}
-            {isSidebarCollapsed && (
-              <div className="pointer-events-none absolute left-full ml-3 z-50 hidden rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-bold text-white shadow-xl group-hover:flex flex-col whitespace-nowrap animate-in fade-in-50 zoom-in-95">
-                <span>{userName}</span>
-                <span className="text-[10px] text-emerald-400 font-medium">Owner & Admin</span>
-              </div>
+            {!isSidebarCollapsed && (
+              <Building2 className="h-4 w-4 text-slate-400 group-hover:text-slate-700 transition-colors shrink-0" />
             )}
-          </div>
+          </button>
+
+          {/* Upward Popover Menu Matching Reference 2 */}
+          {isUserMenuOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setIsUserMenuOpen(false)} />
+              <div className="absolute bottom-full left-3 right-3 mb-2 p-1.5 z-50 rounded-2xl bg-slate-900 text-slate-100 border border-slate-800 shadow-2xl animate-in fade-in-50 zoom-in-95 min-w-[210px]">
+                {/* Header User Card */}
+                <Link
+                  href="/settings"
+                  onClick={() => setIsUserMenuOpen(false)}
+                  className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-800/80 transition-colors group"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-800 border border-slate-700 text-xs font-bold text-slate-200">
+                      {userInitials}
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold text-white block truncate">
+                        {userName}
+                      </span>
+                      <span className="text-[10px] text-slate-400 block truncate">
+                        {isPaid ? "Pro plan" : "Free plan"}
+                      </span>
+                    </div>
+                  </div>
+                  <ChevronDown className="h-3 w-3 text-slate-400 -rotate-90 group-hover:text-white transition-colors shrink-0" />
+                </Link>
+
+                <div className="h-px bg-slate-800 my-1" />
+
+                {/* Actions */}
+                <div className="space-y-0.5 text-xs font-semibold">
+                  <Link
+                    href="/pricing"
+                    onClick={() => setIsUserMenuOpen(false)}
+                    className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-emerald-400 hover:bg-slate-800 hover:text-emerald-300 transition-colors"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                    <span className="font-bold">Upgrade plan</span>
+                  </Link>
+
+                  <Link
+                    href="/settings"
+                    onClick={() => setIsUserMenuOpen(false)}
+                    className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-slate-200 hover:bg-slate-800 hover:text-white transition-colors"
+                  >
+                    <Settings className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                    <span>Settings</span>
+                  </Link>
+
+                  {isSuperAdmin && (
+                    <Link
+                      href="/admin"
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-purple-300 hover:bg-slate-800 hover:text-purple-200 transition-colors"
+                    >
+                      <ShieldCheck className="h-3.5 w-3.5 text-purple-400 shrink-0" />
+                      <span>Super-Admin</span>
+                    </Link>
+                  )}
+
+                  <Link
+                    href="/terms"
+                    onClick={() => setIsUserMenuOpen(false)}
+                    className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
+                  >
+                    <HelpCircle className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                    <span>Help & Legal</span>
+                  </Link>
+                </div>
+
+                <div className="h-px bg-slate-800 my-1" />
+
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-950/40 hover:text-rose-300 transition-colors cursor-pointer text-left"
+                >
+                  <LogOut className="h-3.5 w-3.5 text-rose-400 shrink-0" />
+                  <span>Log out</span>
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </aside>
 
@@ -268,16 +391,29 @@ export function Sidebar() {
             {/* Nav list */}
             {renderNavItems(true)}
 
-            {/* Mobile Footer */}
-            <div className="p-4 border-t border-slate-100 bg-slate-50/50">
-              <div className="clay-card flex items-center gap-3 p-2.5 bg-white border border-slate-200/80 shadow-2xs">
-                <div className="clay-icon-squircle flex h-8 w-8 shrink-0 items-center justify-center bg-emerald-600 text-white font-extrabold text-xs shadow-xs">
-                  {userInitials}
+            {/* Mobile Footer with Plan Badge */}
+            <div className="p-4 border-t border-slate-100 bg-slate-50/50 space-y-2.5">
+              <PlanBadge className="w-full justify-between" />
+              <div className="clay-card flex items-center justify-between p-2.5 bg-white border border-slate-200/80 shadow-2xs">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="clay-icon-squircle flex h-8 w-8 shrink-0 items-center justify-center bg-slate-900 text-white font-extrabold text-xs shadow-xs">
+                    {userInitials}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-900 truncate">{userName}</p>
+                    <p className="text-[10px] font-semibold text-slate-400 truncate">
+                      {isPaid ? "Pro plan" : "Free plan"}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs font-bold text-slate-900">{userName}</p>
-                  <p className="text-[10px] font-semibold text-emerald-700">Owner & Admin</p>
-                </div>
+                <Link
+                  href="/settings"
+                  onClick={() => setIsMobileNavOpen(false)}
+                  className="clay-icon-squircle p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-50"
+                  title="Settings"
+                >
+                  <Settings className="h-4 w-4" />
+                </Link>
               </div>
             </div>
           </div>

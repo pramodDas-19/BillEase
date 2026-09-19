@@ -49,14 +49,23 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  // 4. Authenticate user strictly from verified Supabase session
+  // 4. Authenticate user strictly from verified Supabase session or Super-Admin cookie
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isAuthenticated = !!user;
+  const hasAdminCookie = request.cookies.get("billease_admin_session")?.value === "true";
+  const isAuthenticated = !!user || hasAdminCookie;
 
 
+
+  // Admin routes protection
+  const isAdminPath = pathname.startsWith("/admin");
+  if (isAdminPath && !hasAdminCookie) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("redirectTo", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
 
   // Protected application routes
   const isProtectedPath =
@@ -84,18 +93,23 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // B. If already authenticated and trying to visit login/signup -> redirect to /dashboard
+  // B. If already authenticated and trying to visit login/signup
   if (isAuthPage && isAuthenticated) {
+    if (hasAdminCookie) {
+      return NextResponse.redirect(new URL("/admin", request.url));
+    }
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  // C. Root redirect: "/" -> "/dashboard" if authenticated, else "/login"
+  // C. Root redirect: "/" -> "/admin" if admin, "/dashboard" if authenticated, else "/login"
   if (pathname === "/") {
+    if (hasAdminCookie) {
+      return NextResponse.redirect(new URL("/admin", request.url));
+    }
     if (isAuthenticated) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
-    } else {
-      return NextResponse.redirect(new URL("/login", request.url));
     }
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   return response;

@@ -76,7 +76,10 @@ export default function ClientsPage() {
           };
         });
 
-        setClientsList(enrichedClients);
+        const scopedClients = currentTenant?.id
+          ? enrichedClients.filter((c) => c.tenantId === currentTenant.id)
+          : enrichedClients;
+        setClientsList(scopedClients);
       } catch (err) {
         console.error("Failed to load clients data:", err);
       } finally {
@@ -84,7 +87,17 @@ export default function ClientsPage() {
       }
     }
     loadData();
-  }, []);
+
+    const handleSync = () => {
+      loadData();
+    };
+    window.addEventListener("billease:data-synced", handleSync);
+    window.addEventListener("billease:queue-updated", handleSync);
+    return () => {
+      window.removeEventListener("billease:data-synced", handleSync);
+      window.removeEventListener("billease:queue-updated", handleSync);
+    };
+  }, [currentTenant?.id]);
 
   const handleDeleteClient = async (id: string, name: string) => {
     if (
@@ -346,12 +359,23 @@ export default function ClientsPage() {
                         <Users className="h-4 w-4" />
                       </div>
                       <div className="min-w-0">
-                        <Link
-                          href={`/clients/${client.id}`}
-                          className="text-sm font-bold text-slate-900 hover:text-emerald-700 transition-colors truncate block"
-                        >
-                          {client.name}
-                        </Link>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <Link
+                            href={`/clients/${client.id}`}
+                            className="text-sm font-bold text-slate-900 hover:text-emerald-700 transition-colors truncate block"
+                          >
+                            {client.name}
+                          </Link>
+                          {client._isPendingSync && (
+                            <span
+                              className="inline-flex items-center gap-1 px-1.5 py-0.2 text-[9px] font-bold rounded-full bg-amber-50 text-amber-800 border border-amber-300 shrink-0"
+                              title="Saved locally — will sync when you're back online"
+                            >
+                              <Clock className="h-2.5 w-2.5 animate-pulse text-amber-600" />
+                              Pending Sync
+                            </span>
+                          )}
+                        </div>
                         {client.companyName && (
                           <p className="text-xs text-slate-500 font-medium truncate flex items-center gap-1 mt-0.5">
                             <Building2 className="h-3 w-3 text-slate-400 shrink-0" />
@@ -530,12 +554,23 @@ export default function ClientsPage() {
                   return (
                     <tr key={client.id} className="hover:bg-slate-50/70 transition-colors group">
                       <td className="py-3.5 px-4">
-                        <Link
-                          href={`/clients/${client.id}`}
-                          className="font-bold text-slate-900 text-sm group-hover:text-emerald-700 transition-colors block"
-                        >
-                          {client.name}
-                        </Link>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <Link
+                            href={`/clients/${client.id}`}
+                            className="font-bold text-slate-900 text-sm group-hover:text-emerald-700 transition-colors block"
+                          >
+                            {client.name}
+                          </Link>
+                          {client._isPendingSync && (
+                            <span
+                              className="inline-flex items-center gap-1 px-1.5 py-0.2 text-[9px] font-bold rounded-full bg-amber-50 text-amber-800 border border-amber-300 shrink-0"
+                              title="Saved locally — will sync when you're back online"
+                            >
+                              <Clock className="h-2.5 w-2.5 animate-pulse text-amber-600" />
+                              Pending Sync
+                            </span>
+                          )}
+                        </div>
                         {client.companyName && (
                           <p className="text-[11px] text-slate-400 font-medium mt-0.5">
                             {client.companyName}

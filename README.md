@@ -7,7 +7,7 @@
 [![Deployment](https://img.shields.io/badge/Vercel-Ready-black?style=flat-square&logo=vercel)](https://vercel.com/)
 [![License](https://img.shields.io/badge/License-Proprietary-slate?style=flat-square)]()
 
-**BillEase** is an enterprise-grade, multi-tenant billing, quotation, invoice, and financial ledger platform engineered specifically for **Event Planners, Print Studios, Graphic Designers, and Rental Services**.
+**BillEase** is an enterprise-grade, multi-tenant billing, quotation, invoice, and payments platform engineered for **all types of businesses** — including service providers, agencies, freelancers, consultants, contractors, traders, physical goods sellers, and growing SMBs.
 
 Built with Next.js 15 App Router, React 19, and Supabase PostgreSQL, it pairs a bespoke **Tactile Neo-Claymorphism** visual design with strict deterministic accounting principles.
 

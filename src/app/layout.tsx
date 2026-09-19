@@ -14,7 +14,7 @@ export const viewport: Viewport = {
 
 
 export const metadata: Metadata = {
-  title: "BillEase — Smart Billing & Invoicing",
+  title: "BillEase by Pramod Das — Smart Billing & Invoicing",
   description:
     "Fast, compliant quotation, invoicing, payment tracking and GST billing platform for all Indian businesses.",
   manifest: "/manifest.json",
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "BillEase",
+    title: "BillEase by Pramod Das",
   },
 };
 

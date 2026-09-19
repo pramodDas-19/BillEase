@@ -14,10 +14,12 @@ import {
   UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTrial } from "@/hooks/use-trial";
 
 export function MobileBottomBar() {
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { checkCanPerformAction } = useTrial();
 
   // On builder pages (creation, editing, payment recording), yield to dedicated mobile action bar
   const isBuilderRoute =
@@ -60,7 +62,12 @@ export function MobileBottomBar() {
             <div className="grid grid-cols-2 gap-2 pt-1">
               <Link
                 href="/invoices/new"
-                onClick={() => setIsMenuOpen(false)}
+                onClick={(e) => {
+                  if (!checkCanPerformAction("Creating new invoices")) {
+                    e.preventDefault();
+                  }
+                  setIsMenuOpen(false);
+                }}
                 className="clay-card p-3 rounded-2xl bg-emerald-50/60 border border-emerald-200/70 flex items-center gap-2.5 hover:bg-emerald-100 transition-colors"
               >
                 <div className="p-2 rounded-xl bg-emerald-600 text-white shadow-2xs">
@@ -74,7 +81,12 @@ export function MobileBottomBar() {
 
               <Link
                 href="/quotations/new"
-                onClick={() => setIsMenuOpen(false)}
+                onClick={(e) => {
+                  if (!checkCanPerformAction("Creating new quotations")) {
+                    e.preventDefault();
+                  }
+                  setIsMenuOpen(false);
+                }}
                 className="clay-card p-3 rounded-2xl bg-blue-50/60 border border-blue-200/70 flex items-center gap-2.5 hover:bg-blue-100 transition-colors"
               >
                 <div className="p-2 rounded-xl bg-blue-600 text-white shadow-2xs">
@@ -102,15 +114,20 @@ export function MobileBottomBar() {
 
               <Link
                 href="/payments/record"
-                onClick={() => setIsMenuOpen(false)}
+                onClick={(e) => {
+                  if (!checkCanPerformAction("Recording payments")) {
+                    e.preventDefault();
+                  }
+                  setIsMenuOpen(false);
+                }}
                 className="clay-card p-3 rounded-2xl bg-purple-50/60 border border-purple-200/70 flex items-center gap-2.5 hover:bg-purple-100 transition-colors"
               >
                 <div className="p-2 rounded-xl bg-purple-600 text-white shadow-2xs">
                   <CreditCard className="h-4 w-4" />
                 </div>
                 <div>
-                  <h6 className="text-xs font-black text-purple-950">Log Payment</h6>
-                  <p className="text-[10px] text-purple-700 font-medium">Direct receipt</p>
+                  <h6 className="text-xs font-black text-purple-950">Record Payment</h6>
+                  <p className="text-[10px] text-purple-700 font-medium">Log collection</p>
                 </div>
               </Link>
             </div>

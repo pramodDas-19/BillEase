@@ -9,6 +9,7 @@ import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { getWhatsAppInvoiceShareUrl } from "@/lib/whatsapp";
 import { UpiQrModal } from "@/components/payments/upi-qr-modal";
 import { useTenant } from "@/hooks/use-tenant";
+import { useTrial } from "@/hooks/use-trial";
 
 import {
 
@@ -38,6 +39,7 @@ import { exportInvoicesToCsv } from "@/lib/export-csv";
 export default function InvoicesPage() {
   const router = useRouter();
   const { currentTenant } = useTenant();
+  const { checkCanPerformAction } = useTrial();
   const [invoicesList, setInvoicesList] = useState<Invoice[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
@@ -51,11 +53,24 @@ export default function InvoicesPage() {
     async function loadData() {
       setIsLoading(true);
       const data = await InvoiceService.getInvoices();
-      setInvoicesList(data);
+      const scoped = currentTenant?.id
+        ? data.filter((inv) => inv.tenantId === currentTenant.id)
+        : data;
+      setInvoicesList(scoped);
       setIsLoading(false);
     }
     loadData();
-  }, []);
+
+    const handleSync = () => {
+      loadData();
+    };
+    window.addEventListener("billease:data-synced", handleSync);
+    window.addEventListener("billease:queue-updated", handleSync);
+    return () => {
+      window.removeEventListener("billease:data-synced", handleSync);
+      window.removeEventListener("billease:queue-updated", handleSync);
+    };
+  }, [currentTenant?.id]);
 
   const handleDeleteInvoice = async (id: string, invoiceNum: string) => {
     if (window.confirm(`Are you sure you want to delete invoice "${invoiceNum}"?`)) {
@@ -176,7 +191,14 @@ export default function InvoicesPage() {
             <span className="hidden sm:inline">Export CSV</span>
           </button>
 
-          <Link href="/invoices/new">
+          <Link
+            href="/invoices/new"
+            onClick={(e) => {
+              if (!checkCanPerformAction("Creating new invoices")) {
+                e.preventDefault();
+              }
+            }}
+          >
             <button className="clay-btn-primary inline-flex items-center gap-2 h-11 px-5 font-bold text-xs sm:text-sm rounded-2xl cursor-pointer">
               <Plus className="h-4 w-4 text-emerald-400" />
               <span>Create New Invoice</span>
@@ -378,6 +400,15 @@ export default function InvoicesPage() {
                         >
                           {statusConfig.label}
                         </span>
+                        {inv._isPendingSync && (
+                          <span
+                            className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-50 text-amber-800 border border-amber-300 shrink-0"
+                            title="Saved locally — will sync when you're back online"
+                          >
+                            <Clock className="h-2.5 w-2.5 animate-pulse text-amber-600" />
+                            Pending Sync
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <p className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
@@ -621,16 +652,27 @@ export default function InvoicesPage() {
 
                       {/* Status Badge */}
                       <td className="py-3.5 px-4">
-                        <span
-                          className={cn(
-                            "clay-tag inline-block px-2 py-0.5 text-[10px] font-bold border",
-                            statusConfig.bg,
-                            statusConfig.text,
-                            statusConfig.border
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span
+                            className={cn(
+                              "clay-tag inline-block px-2 py-0.5 text-[10px] font-bold border",
+                              statusConfig.bg,
+                              statusConfig.text,
+                              statusConfig.border
+                            )}
+                          >
+                            {statusConfig.label}
+                          </span>
+                          {inv._isPendingSync && (
+                            <span
+                              className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-50 text-amber-800 border border-amber-300 shrink-0"
+                              title="Saved locally — will sync when you're back online"
+                            >
+                              <Clock className="h-2.5 w-2.5 animate-pulse text-amber-600" />
+                              Pending Sync
+                            </span>
                           )}
-                        >
-                          {statusConfig.label}
-                        </span>
+                        </div>
                       </td>
 
                       {/* Total Amount */}

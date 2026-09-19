@@ -9,6 +9,7 @@ import { Quotation, QuotationStatus } from "@/types";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { getWhatsAppQuotationShareUrl } from "@/lib/whatsapp";
 import { useTenant } from "@/hooks/use-tenant";
+import { useTrial } from "@/hooks/use-trial";
 
 import {
   FileText,
@@ -34,6 +35,7 @@ import {
 export default function QuotationsPage() {
   const router = useRouter();
   const { currentTenant } = useTenant();
+  const { checkCanPerformAction } = useTrial();
   const [quotationsList, setQuotationsList] = useState<Quotation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -44,11 +46,24 @@ export default function QuotationsPage() {
     async function loadData() {
       setIsLoading(true);
       const data = await QuotationService.getQuotations();
-      setQuotationsList(data);
+      const scoped = currentTenant?.id
+        ? data.filter((q) => q.tenantId === currentTenant.id)
+        : data;
+      setQuotationsList(scoped);
       setIsLoading(false);
     }
     loadData();
-  }, []);
+
+    const handleSync = () => {
+      loadData();
+    };
+    window.addEventListener("billease:data-synced", handleSync);
+    window.addEventListener("billease:queue-updated", handleSync);
+    return () => {
+      window.removeEventListener("billease:data-synced", handleSync);
+      window.removeEventListener("billease:queue-updated", handleSync);
+    };
+  }, [currentTenant?.id]);
 
   const handleDeleteQuote = async (id: string, quoteNum: string) => {
     if (window.confirm(`Are you sure you want to delete quotation "${quoteNum}"?`)) {
@@ -172,7 +187,14 @@ export default function QuotationsPage() {
           </p>
         </div>
 
-        <Link href="/quotations/new">
+        <Link
+          href="/quotations/new"
+          onClick={(e) => {
+            if (!checkCanPerformAction("Creating new quotations")) {
+              e.preventDefault();
+            }
+          }}
+        >
           <button className="clay-btn-primary inline-flex items-center gap-2 h-11 px-5 font-bold text-xs sm:text-sm rounded-2xl cursor-pointer">
             <Plus className="h-4 w-4 text-emerald-400" />
             <span>Create New Quotation</span>
@@ -380,6 +402,15 @@ export default function QuotationsPage() {
                           <option value="rejected">Declined</option>
                           <option value="expired">Expired</option>
                         </select>
+                        {q._isPendingSync && (
+                          <span
+                            className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-50 text-amber-800 border border-amber-300 shrink-0"
+                            title="Saved locally — will sync when you're back online"
+                          >
+                            <Clock className="h-2.5 w-2.5 animate-pulse text-amber-600" />
+                            Pending Sync
+                          </span>
+                        )}
                       </div>
                       <p className="text-[11px] text-slate-400 font-medium mt-0.5 flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
@@ -569,16 +600,27 @@ export default function QuotationsPage() {
 
                       {/* Status Badge */}
                       <td className="py-3.5 px-4">
-                        <span
-                          className={cn(
-                            "clay-tag inline-block px-2 py-0.5 text-[10px] font-bold border",
-                            statusConfig.bg,
-                            statusConfig.text,
-                            statusConfig.border
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span
+                            className={cn(
+                              "clay-tag inline-block px-2 py-0.5 text-[10px] font-bold border",
+                              statusConfig.bg,
+                              statusConfig.text,
+                              statusConfig.border
+                            )}
+                          >
+                            {statusConfig.label}
+                          </span>
+                          {q._isPendingSync && (
+                            <span
+                              className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-50 text-amber-800 border border-amber-300 shrink-0"
+                              title="Saved locally — will sync when you're back online"
+                            >
+                              <Clock className="h-2.5 w-2.5 animate-pulse text-amber-600" />
+                              Pending Sync
+                            </span>
                           )}
-                        >
-                          {statusConfig.label}
-                        </span>
+                        </div>
                       </td>
 
                       {/* Total Amount */}

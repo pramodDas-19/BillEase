@@ -1,18 +1,26 @@
 import React from "react";
 import {
   DashboardHeader,
+  GettingStartedChecklist,
   SummaryCards,
   RevenueChart,
   PaymentAttention,
   RecentQuotationsCard,
   RecentInvoicesCard,
 } from "@/components/dashboard";
+import { WelcomeModal } from "@/components/onboarding/welcome-modal";
 
 export default function DashboardPage() {
   return (
     <div className="space-y-6 sm:space-y-8 pb-10">
+      {/* 0. Day-1 Welcome Modal */}
+      <WelcomeModal />
+
       {/* 1. Greeting & Primary Action Bar */}
       <DashboardHeader />
+
+      {/* 1.5 Getting Started 4-Step Checklist */}
+      <GettingStartedChecklist />
 
       {/* 2. Four Primary Financial Summary Cards */}
       <SummaryCards />

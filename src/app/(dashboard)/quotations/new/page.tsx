@@ -21,6 +21,8 @@ import { formatCurrency, cn } from "@/lib/utils";
 import { CURRENCIES } from "@/constants/currencies";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import { UnsavedChangesDialog } from "@/components/ui/unsaved-changes-dialog";
+import { useTrial } from "@/hooks/use-trial";
+import { RoutePaywallBlocker } from "@/components/layout/route-paywall-blocker";
 
 const GST_STATE_CODES: Record<string, string> = {
   "01": "Jammu & Kashmir",
@@ -68,6 +70,7 @@ function NewQuotationContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const { isLocked } = useTrial();
 
   useEffect(() => {
     setMounted(true);
@@ -361,6 +364,10 @@ function NewQuotationContent() {
     )
   ).sort((a, b) => a - b);
   const isMultiRate = activeTaxRates.length > 1;
+
+  if (isLocked) {
+    return <RoutePaywallBlocker documentType="Quotation" backHref="/quotations" />;
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8 pb-12 animate-in fade-in-50 duration-200">

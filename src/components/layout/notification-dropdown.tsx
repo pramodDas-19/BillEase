@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { NotificationService, AppNotification } from "@/services/notification.service";
 import { getWhatsAppReminderUrl } from "@/lib/whatsapp";
@@ -12,14 +12,12 @@ import {
   CheckCircle2,
   Clock,
   MessageSquare,
-  Sparkles,
   CheckCheck,
-  Trash2,
   X,
   FileText,
-  CreditCard,
   PlusCircle,
-  ExternalLink,
+  Loader2,
+  Volume2,
 } from "lucide-react";
 
 export function NotificationDropdown() {
@@ -27,19 +25,52 @@ export function NotificationDropdown() {
   const { currentTenant } = useTenant();
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
   const [selectedTab, setSelectedTab] = useState<"all" | "dues" | "payments" | "activity">("all");
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [pushStatus, setPushStatus] = useState<string>("");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const loadNotifications = async () => {
-    const data = await NotificationService.getLiveNotifications();
-    setNotifications(data || []);
-  };
+  // Register service worker once on mount
+  useEffect(() => {
+    NotificationService.registerServiceWorker();
+  }, []);
+
+  // Fetch unread count for badge
+  const fetchUnreadCount = useCallback(async () => {
+    const count = await NotificationService.getUnreadCount();
+    setUnreadCount(count);
+  }, []);
 
   useEffect(() => {
-    loadNotifications();
-    NotificationService.registerServiceWorker();
-  }, [isOpen]);
+    fetchUnreadCount();
+    // Refresh unread count periodically
+    const interval = setInterval(fetchUnreadCount, 45000);
+    return () => clearInterval(interval);
+  }, [fetchUnreadCount]);
+
+  // Load notifications for active tab
+  const loadNotifications = useCallback(async (tab: string) => {
+    setIsLoading(true);
+    try {
+      const data = await NotificationService.getLiveNotifications(tab);
+      setNotifications(data || []);
+      // Recalculate unread count
+      const unread = (data || []).filter((n) => !n.isRead).length;
+      if (tab === "all") {
+        setUnreadCount(unread);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // When dropdown opens or selected tab changes, fetch notifications
+  useEffect(() => {
+    if (isOpen) {
+      loadNotifications(selectedTab);
+    }
+  }, [isOpen, selectedTab, loadNotifications]);
 
   // Close on outside click
   useEffect(() => {
@@ -52,31 +83,40 @@ export function NotificationDropdown() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
-
   const handleMarkAllRead = () => {
     const ids = notifications.map((n) => n.id);
     NotificationService.markAllAsRead(ids);
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    setUnreadCount(0);
   };
 
   const handleDismissOne = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     NotificationService.dismissNotification(id);
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    setNotifications((prev) => {
+      const item = prev.find((n) => n.id === id);
+      if (item && !item.isRead) {
+        setUnreadCount((c) => Math.max(0, c - 1));
+      }
+      return prev.filter((n) => n.id !== id);
+    });
   };
 
   const handleClearAll = () => {
     const ids = notifications.map((n) => n.id);
     NotificationService.clearAllNotifications(ids);
     setNotifications([]);
+    setUnreadCount(0);
   };
 
   const handleItemClick = (notif: AppNotification) => {
-    NotificationService.markAsRead(notif.id);
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === notif.id ? { ...n, isRead: true } : n))
-    );
+    if (!notif.isRead) {
+      NotificationService.markAsRead(notif.id);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notif.id ? { ...n, isRead: true } : n))
+      );
+      setUnreadCount((c) => Math.max(0, c - 1));
+    }
     setIsOpen(false);
     if (notif.actionUrl) {
       router.push(notif.actionUrl);
@@ -94,31 +134,23 @@ export function NotificationDropdown() {
     }
   };
 
-  // Filter notifications by tab
-  const filteredNotifications = useMemo(() => {
-    if (selectedTab === "dues") {
-      return notifications.filter((n) => n.type === "overdue" || n.type === "due_soon");
-    }
-    if (selectedTab === "payments") {
-      return notifications.filter((n) => n.type === "payment_received");
-    }
-    if (selectedTab === "activity") {
-      return notifications.filter((n) => n.type === "quote_accepted" || n.type === "action_created");
-    }
-    return notifications;
-  }, [notifications, selectedTab]);
-
   const getIcon = (type: AppNotification["type"]) => {
     switch (type) {
       case "overdue":
+      case "invoice_overdue":
         return <AlertTriangle className="h-4 w-4 text-rose-600" />;
       case "due_soon":
+      case "invoice_due_soon":
         return <Clock className="h-4 w-4 text-amber-600" />;
       case "payment_received":
         return <CheckCircle2 className="h-4 w-4 text-emerald-600" />;
       case "quote_accepted":
+      case "quotation_accepted":
+      case "quotation_converted":
         return <FileText className="h-4 w-4 text-blue-600" />;
       case "action_created":
+      case "invoice_created":
+      case "quotation_created":
         return <PlusCircle className="h-4 w-4 text-purple-600" />;
       default:
         return <Bell className="h-4 w-4 text-slate-600" />;
@@ -132,11 +164,6 @@ export function NotificationDropdown() {
         onClick={() => {
           const next = !isOpen;
           setIsOpen(next);
-          if (next && typeof window !== "undefined" && "Notification" in window) {
-            if (Notification.permission === "default") {
-              Notification.requestPermission();
-            }
-          }
         }}
         title="Notifications & Payment Alerts"
         className="clay-icon-squircle relative flex h-9.5 w-9.5 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-slate-50 border border-slate-200/70 text-slate-600 hover:text-slate-900 hover:bg-white transition-all cursor-pointer shadow-2xs focus:outline-none min-h-[38px] min-w-[38px]"
@@ -144,7 +171,7 @@ export function NotificationDropdown() {
         <Bell className="h-4 w-4" />
         {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-black text-white ring-2 ring-white animate-pulse">
-            {unreadCount}
+            {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
       </button>
@@ -216,20 +243,26 @@ export function NotificationDropdown() {
           </div>
 
           {/* Notification Items List */}
-          {filteredNotifications.length === 0 ? (
+          {isLoading ? (
+            <div className="text-center py-8 space-y-2">
+              <Loader2 className="h-6 w-6 mx-auto animate-spin text-emerald-600" />
+              <p className="text-xs font-semibold text-slate-500">Loading alerts...</p>
+            </div>
+          ) : notifications.length === 0 ? (
             <div className="text-center py-8 space-y-2">
               <div className="h-10 w-10 mx-auto rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 shadow-2xs">
                 <CheckCheck className="h-5 w-5" />
               </div>
               <div>
                 <p className="text-xs font-bold text-slate-800">All Caught Up!</p>
-                <p className="text-[11px] text-slate-400">Zero unread alerts in this view.</p>
+                <p className="text-[11px] text-slate-400">Zero alerts in this view.</p>
               </div>
             </div>
           ) : (
             <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-              {filteredNotifications.map((notif) => {
+              {notifications.map((notif) => {
                 const cleanPhone = notif.clientPhone ? notif.clientPhone.replace(/[^0-9]/g, "") : "";
+                const isOverdue = notif.type === "overdue" || notif.type === "invoice_overdue";
 
                 return (
                   <div
@@ -270,7 +303,7 @@ export function NotificationDropdown() {
                     </div>
 
                     {/* WhatsApp Reminder for Overdue Alerts */}
-                    {notif.type === "overdue" && cleanPhone && (
+                    {isOverdue && cleanPhone && (
                       <div
                         className="pt-1 flex items-center justify-end gap-2 border-t border-slate-100"
                         onClick={(e) => e.stopPropagation()}
@@ -292,7 +325,6 @@ export function NotificationDropdown() {
                           <MessageSquare className="h-3 w-3 text-amber-600" />
                           <span>1-Click WhatsApp Remind</span>
                         </a>
-
                       </div>
                     )}
                   </div>
@@ -300,6 +332,23 @@ export function NotificationDropdown() {
               })}
             </div>
           )}
+
+          {/* Footer: Web Push Registration Trigger */}
+          <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={handleTestPush}
+              className="inline-flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-emerald-700 transition-colors cursor-pointer"
+            >
+              <Volume2 className="h-3 w-3" />
+              <span>Enable Web Push Alerts</span>
+            </button>
+            {pushStatus && (
+              <span className="text-[10px] font-bold text-emerald-600 animate-fade-in">
+                {pushStatus}
+              </span>
+            )}
+          </div>
         </div>
       )}
     </div>

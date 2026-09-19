@@ -4,6 +4,10 @@ import React, { useState, createContext, useContext } from "react";
 import { Sidebar } from "./sidebar";
 import { Header } from "./header";
 import { MobileBottomBar } from "./mobile-bottom-bar";
+import { TrialNotificationBanner } from "./trial-notification-banner";
+import { PaywallModal } from "./paywall-modal";
+import { ImpersonationBanner } from "./impersonation-banner";
+import { GlobalAnnouncementBanner } from "./global-announcement-banner";
 import { cn } from "@/lib/utils";
 
 interface LayoutContextType {
@@ -50,13 +54,18 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           )}
         >
           <div className="sticky top-0 z-30 print:hidden">
+            <ImpersonationBanner />
+            <GlobalAnnouncementBanner />
             <Header />
+            <TrialNotificationBanner />
           </div>
           <main className="flex-1 p-3.5 sm:p-6 lg:p-8 pb-28 sm:pb-24 lg:pb-8 max-w-7xl w-full mx-auto print:p-0 print:m-0 print:max-w-none print:overflow-visible">
             {children}
           </main>
         </div>
 
+        {/* Global Action Paywall Modal */}
+        <PaywallModal />
 
         {/* Mobile Bottom Navigation Bar */}
         <MobileBottomBar />

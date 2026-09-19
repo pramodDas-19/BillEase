@@ -18,21 +18,23 @@
 
 ---
 
-### 2. 🛡️ Admin Dashboard, SaaS Subscriptions & Legal Pages
-- [ ] **Admin Dashboard (`/admin`)**:
-  - Dedicated admin view to monitor total registered users, business profiles, and platform growth metrics.
-  - User management table: view user signups, email, business name, active status, and document generation counts.
-  - Role-based authorization guard (Super-Admin access control).
-- [ ] **7-Day Free Trial Engine**:
-  - Automatic trial provisioning on initial user signup with active timestamp calculations (`trial_start`, `trial_end`).
-  - Claymorphic trial status countdown banner (`X days remaining in your free trial`) with fast upgrade CTA.
-  - Graceful feature gating or read-only transition upon trial expiration.
-- [ ] **Pricing Plans & Checkout**:
-  - Tiered plan architecture (e.g. Free Trial, Pro Monthly, Pro Annual).
-  - Modern claymorphic pricing comparison table showcasing features, quotas, and savings.
-- [ ] **Terms & Conditions and Privacy Policy Pages**:
-  - Dedicated public legal pages (`/terms` and `/privacy`).
-  - Compliance documentation for GST billing, data storage, user confidentiality, and cancellation/refund policies.
+### 2. 🛡️ Admin Dashboard, SaaS Subscriptions & Legal Pages — ✅ COMPLETED
+- [x] **Admin Dashboard (`/admin`)**:
+  - Dedicated Super-Admin console to monitor total registered businesses, active trials, and subscription tiers.
+  - User management table: search by name, email, phone; filter by status; extend 7-day trials with +7d action button.
+  - Sidebar and UserNav links integrated with role indicators.
+- [x] **7-Day Free Trial Engine**:
+  - Subscription metadata schema (`trialStartDate`, `trialEndDate`, `subscriptionStatus`).
+  - Claymorphic trial status countdown banner mounted on top of the Dashboard with live days remaining and 1-click Upgrade CTA.
+  - Session-level dismiss capability and auto-hiding for paid subscribers.
+- [x] **Pricing Plans & Subscriptions (`/pricing`)**:
+  - Interactive Monthly vs. Annual toggle with *"Save 17% • 2 Months Free"* badge.
+  - 3 transparent tiers: 7-Day Free Trial (₹0), Pro Business (₹1,499/mo), and Enterprise (₹3,999/mo).
+  - Feature comparison matrix and interactive FAQ accordion.
+- [x] **Terms & Conditions and Privacy Policy Pages (`/terms` & `/privacy`)**:
+  - Dedicated public legal pages compliant with Indian DPDP Act 2023, IT Act 2000, and GST Rule 46.
+  - Non-negotiable zero-data-monetization guarantee and perpetual CSV/PDF export rights.
+  - Signup page integrated with consent links.
 
 ---
 

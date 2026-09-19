@@ -20,14 +20,19 @@ import {
   Download,
   ChevronDown,
   FileSpreadsheet,
+  ShieldCheck,
 } from "lucide-react";
 import {
   exportInvoicesToCsv,
   exportPaymentsToCsv,
   exportClientsToCsv,
 } from "@/lib/export-csv";
+import { GstFilingHub } from "@/components/reports/gst-filing-hub";
+import { useTenant } from "@/hooks/use-tenant";
 
 export default function ReportsPage() {
+  const { currentTenant } = useTenant();
+  const [viewTab, setViewTab] = useState<"analytics" | "gst">("analytics");
   const [timeframe, setTimeframe] = useState<"month" | "quarter" | "year">("month");
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [quotations, setQuotations] = useState<Quotation[]>([]);
@@ -177,16 +182,53 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-200">
-      {/* Header & Export Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 flex items-center gap-2.5">
-            <span>Executive Business Analytics</span>
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium">
-            Cash collection efficiency, revenue streams, and client lifetime valuation.
-          </p>
-        </div>
+      {/* Top Level Module Switcher: Executive Analytics vs GST Filing Hub */}
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-3 print:hidden">
+        <button
+          onClick={() => setViewTab("analytics")}
+          className={cn(
+            "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer",
+            viewTab === "analytics"
+              ? "bg-slate-900 text-white shadow-xs"
+              : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+          )}
+        >
+          <TrendingUp className="h-4 w-4" />
+          <span>Executive Analytics</span>
+        </button>
+
+        <button
+          onClick={() => setViewTab("gst")}
+          className={cn(
+            "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer",
+            viewTab === "gst"
+              ? "bg-purple-700 text-white shadow-xs"
+              : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+          )}
+        >
+          <ShieldCheck className="h-4 w-4 text-purple-400" />
+          <span>GST Filing &amp; Returns (GSTR-1 / 3B)</span>
+        </button>
+      </div>
+
+      {viewTab === "gst" ? (
+        <GstFilingHub
+          invoices={invoices}
+          businessGstin={currentTenant?.gstin}
+          businessName={currentTenant?.businessName}
+        />
+      ) : (
+        <>
+          {/* Header & Export Actions */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 flex items-center gap-2.5">
+                <span>Executive Business Analytics</span>
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium">
+                Cash collection efficiency, revenue streams, and client lifetime valuation.
+              </p>
+            </div>
 
         {/* Print-Only Report Summary Badge */}
         <div className="hidden print:flex items-center gap-3 text-xs font-bold text-slate-700 bg-slate-100 px-3.5 py-2 rounded-xl border border-slate-300">
@@ -589,6 +631,8 @@ export default function ReportsPage() {
           </div>
         )}
       </div>
+        </>
+      )}
     </div>
   );
 }

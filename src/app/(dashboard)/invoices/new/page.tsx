@@ -10,7 +10,7 @@ import { ClientService } from "@/services/client.service";
 import { QuotationService } from "@/services/quotation.service";
 import { InvoiceService } from "@/services/invoice.service";
 import { CatalogService } from "@/services/service.service";
-import { Client, Quotation, CurrencyCode } from "@/types";
+import { Client, Quotation, CurrencyCode, Invoice } from "@/types";
 import { QuotationItemRow } from "@/components/quotations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,9 @@ import { ClientSearchCombobox } from "@/components/clients/client-search-combobo
 import { InvoicePrintDocument } from "@/components/documents/invoice-print-document";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import { UnsavedChangesDialog } from "@/components/ui/unsaved-changes-dialog";
+import { useTrial } from "@/hooks/use-trial";
+import { RoutePaywallBlocker } from "@/components/layout/route-paywall-blocker";
+import { FirstInvoiceSuccess } from "@/components/invoices/first-invoice-success";
 
 const GST_STATE_CODES: Record<string, string> = {
   "01": "Jammu & Kashmir",
@@ -85,9 +88,17 @@ function NewInvoiceContent() {
   const [isInitialLoading, setIsInitialLoading] = useState(!!fromQuoteId);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [isFirstEverInvoice, setIsFirstEverInvoice] = useState(false);
+  const [createdInvoiceForSuccess, setCreatedInvoiceForSuccess] = useState<Invoice | null>(null);
+  const { isLocked } = useTrial();
 
   useEffect(() => {
     setMounted(true);
+    InvoiceService.getInvoices().then((invs) => {
+      if (!invs || invs.length === 0) {
+        setIsFirstEverInvoice(true);
+      }
+    });
   }, []);
 
   const {
@@ -387,7 +398,7 @@ function NewInvoiceContent() {
         }
       }
 
-      await InvoiceService.createInvoice({
+      const createdInvoice = await InvoiceService.createInvoice({
         invoiceNumber: state.invoiceNumber,
         quotationId: state.quotationId,
         quotationNumber: state.quotationNumber,
@@ -443,7 +454,13 @@ function NewInvoiceContent() {
       });
 
       bypassWarning();
-      router.push("/invoices");
+
+      if (isFirstEverInvoice && createdInvoice) {
+        setCreatedInvoiceForSuccess(createdInvoice);
+        setIsSubmitting(false);
+      } else {
+        router.push("/invoices");
+      }
     } catch (err) {
       console.error("Failed to save invoice:", err);
       setIsSubmitting(false);
@@ -466,6 +483,10 @@ function NewInvoiceContent() {
         <span className="text-sm font-medium">Loading Quotation details...</span>
       </div>
     );
+  }
+
+  if (isLocked) {
+    return <RoutePaywallBlocker documentType="Invoice" backHref="/invoices" />;
   }
 
   return (
@@ -1179,6 +1200,15 @@ function NewInvoiceContent() {
         onCancel={cancelLeave}
         documentType="invoice"
       />
+
+      {/* First-Invoice Milestone Celebration & Live Portal Preview */}
+      {createdInvoiceForSuccess && (
+        <FirstInvoiceSuccess
+          invoice={createdInvoiceForSuccess}
+          tenant={currentTenant}
+          onClose={() => router.push("/invoices")}
+        />
+      )}
     </form>
   );
 }

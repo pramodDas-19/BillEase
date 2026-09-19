@@ -5,14 +5,13 @@ export const VAPID_PUBLIC_KEY =
   "BJXGGIrJaagO3mfuRXEiP9IKUevMAhsjd7rKDz973lMNeMQGN2HbCfWJjnURWvTIcz7XjHHDeOdAGzv3G-VmI98";
 
 export const VAPID_PRIVATE_KEY =
-  process.env.VAPID_PRIVATE_KEY ||
-  "tsFjHlPyA4Zqt7kMD7aR7HJe6zozhHiXLbTiXPMqevE";
+  process.env.VAPID_PRIVATE_KEY || "";
 
 export const VAPID_SUBJECT =
   process.env.VAPID_SUBJECT || "mailto:support@billease.app";
 
-// Initialize VAPID details on the server
-if (typeof window === "undefined") {
+// Initialize VAPID details on the server if keys are configured
+if (typeof window === "undefined" && VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   try {
     webPush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
   } catch (err) {
@@ -26,13 +25,20 @@ export interface PushNotificationPayload {
   url?: string;
 }
 
+export interface PushSendResult {
+  success: boolean;
+  statusCode?: number;
+  isDead?: boolean;
+  error?: string;
+}
+
 /**
  * Dispatches a real background push notification to a subscribed client browser/device.
  */
 export async function sendWebPushNotification(
   subscription: webPush.PushSubscription,
   payload: PushNotificationPayload
-): Promise<boolean> {
+): Promise<PushSendResult> {
   try {
     const stringPayload = JSON.stringify({
       title: payload.title,
@@ -40,11 +46,21 @@ export async function sendWebPushNotification(
       url: payload.url || "/dashboard",
     });
 
-    await webPush.sendNotification(subscription, stringPayload);
-    return true;
+    const response = await webPush.sendNotification(subscription, stringPayload);
+    return {
+      success: true,
+      statusCode: response.statusCode,
+    };
   } catch (err: any) {
-    console.warn("Error sending web push notification:", err.message);
-    return false;
+    const statusCode = err?.statusCode;
+    const isDead = statusCode === 404 || statusCode === 410;
+    console.warn(`[WebPush] Push dispatch failed (status ${statusCode || "unknown"}):`, err.message);
+    return {
+      success: false,
+      statusCode,
+      isDead,
+      error: err.message,
+    };
   }
 }
 

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AuthService } from "@/services/auth.service";
+import { useTenantContext } from "@/context/tenant-context";
 import {
   Building2,
   User,
@@ -19,6 +20,7 @@ import {
 
 export default function SignupPage() {
   const router = useRouter();
+  const { refreshTenantData } = useTenantContext();
   const [businessName, setBusinessName] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [phone, setPhone] = useState("");
@@ -42,10 +44,26 @@ export default function SignupPage() {
         password,
       });
 
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("billease_just_registered", "true");
+        localStorage.setItem("billease_just_registered", "true");
+      }
+
       setSuccessMsg("Account created! Redirecting to your new dashboard...");
+
+      try {
+        await refreshTenantData();
+      } catch (rErr) {
+        console.warn("Could not pre-refresh tenant data:", rErr);
+      }
+
       setTimeout(() => {
-        router.push("/dashboard");
-      }, 1200);
+        if (typeof window !== "undefined") {
+          window.location.href = "/dashboard";
+        } else {
+          router.push("/dashboard");
+        }
+      }, 800);
     } catch (err: any) {
       setErrorMsg(err.message || "Failed to create account. Please check your details.");
       setIsLoading(false);
@@ -192,6 +210,19 @@ export default function SignupPage() {
             <ArrowRight className="h-4 w-4" />
           </button>
         </div>
+
+        {/* Legal Consent */}
+        <p className="text-[11px] text-slate-400 text-center pt-1 font-medium leading-relaxed">
+          By signing up, you agree to our{" "}
+          <Link href="/terms" target="_blank" className="text-emerald-400 hover:underline">
+            Terms & Conditions
+          </Link>{" "}
+          and{" "}
+          <Link href="/privacy" target="_blank" className="text-emerald-400 hover:underline">
+            Privacy Policy
+          </Link>
+          .
+        </p>
       </form>
 
       {/* Sign In Link */}

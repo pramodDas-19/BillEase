@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { useTenant } from "@/hooks/use-tenant";
 import { cn } from "@/lib/utils";
 import { CurrencyCode } from "@/types";
@@ -24,6 +25,7 @@ import {
   Image as ImageIcon,
   FileSignature,
   Globe,
+  Layout,
 } from "lucide-react";
 
 export default function SettingsPage() {
@@ -266,6 +268,13 @@ export default function SettingsPage() {
               </button>
             );
           })}
+          <Link
+            href="/settings/templates"
+            className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition-all whitespace-nowrap"
+          >
+            <Layout className="h-3.5 w-3.5 text-indigo-600" />
+            <span>Templates (15)</span>
+          </Link>
         </div>
 
         {/* Desktop Left 1 Col: Settings Category Navigation Sidebar (Hidden on mobile) */}
@@ -296,6 +305,21 @@ export default function SettingsPage() {
               </button>
             );
           })}
+
+          <div className="pt-2 border-t border-slate-200">
+            <Link
+              href="/settings/templates"
+              className="w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold text-left transition-all border border-indigo-200 bg-indigo-50/70 text-indigo-900 hover:bg-indigo-100"
+            >
+              <div className="flex items-center gap-2.5">
+                <Layout className="h-4 w-4 text-indigo-600" />
+                <span>Document Templates</span>
+              </div>
+              <span className="px-1.5 py-0.5 rounded bg-indigo-600 text-white text-[9px] font-black">
+                15 Styles
+              </span>
+            </Link>
+          </div>
         </div>
 
 

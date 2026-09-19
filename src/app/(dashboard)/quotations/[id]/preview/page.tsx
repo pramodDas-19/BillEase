@@ -6,15 +6,29 @@ import { QuotationService } from "@/services/quotation.service";
 import { ClientService } from "@/services/client.service";
 import { Quotation } from "@/types";
 import { useTenant } from "@/hooks/use-tenant";
-import { QuotationPrintDocument } from "@/components/documents";
+import {
+  DocumentTemplateRenderer,
+} from "@/components/documents";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Printer, Loader2 } from "lucide-react";
+import { ArrowLeft, Printer, Loader2, Palette } from "lucide-react";
+import { triggerDocumentPrint } from "@/lib/print-page-helper";
 
 export default function QuotationPreviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { currentTenant } = useTenant();
+  const { currentTenant, refreshTenantData } = useTenant();
   const [quote, setQuote] = useState<Quotation | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Default to tenant preferred template or fallback to Advanced GST
+  const defaultTemplateId =
+    currentTenant?.settings?.defaultQuotationTemplate || "a4_advanced_gst";
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(defaultTemplateId);
+
+  useEffect(() => {
+    if (currentTenant?.settings?.defaultQuotationTemplate) {
+      setSelectedTemplateId(currentTenant.settings.defaultQuotationTemplate);
+    }
+  }, [currentTenant?.settings?.defaultQuotationTemplate]);
 
   useEffect(() => {
     QuotationService.getQuotationById(id).then(async (data) => {
@@ -29,8 +43,8 @@ export default function QuotationPreviewPage({ params }: { params: Promise<{ id:
             data.clientGstin = data.clientGstin || client.gstin;
             data.clientPan = data.clientPan || client.pan;
           }
-        } catch (e) {
-          console.warn("Could not enrich quotation with client details:", e);
+        } catch {
+          // ignore
         }
       }
       setQuote(data);
@@ -39,16 +53,12 @@ export default function QuotationPreviewPage({ params }: { params: Promise<{ id:
   }, [id]);
 
   const handlePrint = () => {
-    if (typeof window !== "undefined") {
-      const originalTitle = document.title;
-      if (quote?.quotationNumber) {
-        document.title = `Quotation_${quote.quotationNumber}`;
-      }
-      window.print();
-      setTimeout(() => {
-        document.title = originalTitle;
-      }, 1500);
-    }
+    if (!quote) return;
+    triggerDocumentPrint(
+      quote.quotationNumber,
+      "Quotation",
+      selectedTemplateId
+    );
   };
 
   if (isLoading) {
@@ -77,26 +87,45 @@ export default function QuotationPreviewPage({ params }: { params: Promise<{ id:
   }
 
   return (
-    <div className="space-y-6">
-      {/* Action Toolbar (hidden during print) */}
-      <div className="flex items-center justify-between print:hidden max-w-4xl mx-auto">
+    <div className="space-y-6 max-w-5xl mx-auto pb-12">
+      {/* 1. Action Toolbar (hidden during print) */}
+      <div className="flex items-center justify-between print:hidden">
         <Link
           href="/quotations"
-          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900"
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
           <span>Back to Quotations</span>
         </Link>
 
-        <Button size="sm" onClick={handlePrint} className="gap-1.5 text-xs font-bold cursor-pointer">
-          <Printer className="h-3.5 w-3.5" />
-          <span>Print / Save as PDF</span>
-        </Button>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/settings/templates"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 text-xs font-bold shadow-xs transition-colors"
+          >
+            <Palette className="h-3.5 w-3.5 text-[#0C9484]" />
+            <span>Customize Template</span>
+          </Link>
+
+          <Button
+            size="sm"
+            onClick={handlePrint}
+            className="gap-1.5 text-xs font-bold cursor-pointer bg-slate-900 hover:bg-slate-800 text-white rounded-xl shadow-xs"
+          >
+            <Printer className="h-3.5 w-3.5" />
+            <span>Print / Save as PDF</span>
+          </Button>
+        </div>
       </div>
 
-      {/* Official Printable Quotation Document */}
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-2 shadow-md print:p-0 print:m-0 print:border-none print:shadow-none print:overflow-visible print:rounded-none">
-        <QuotationPrintDocument quotation={quote} tenant={currentTenant} />
+      {/* 2. Official Printable Quotation Document Container */}
+      <div className="rounded-2xl border border-slate-200/80 bg-white p-2 sm:p-4 shadow-md print:p-0 print:m-0 print:border-none print:shadow-none print:overflow-visible print:rounded-none">
+        <DocumentTemplateRenderer
+          document={quote}
+          type="quotation"
+          tenant={currentTenant}
+          templateId={selectedTemplateId}
+        />
       </div>
     </div>
   );

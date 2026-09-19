@@ -5,35 +5,45 @@ import { InvoiceService } from "@/services/invoice.service";
 import { PaymentService } from "@/services/payment.service";
 import { Invoice, Payment } from "@/types";
 import { formatCurrency, cn } from "@/lib/utils";
+import { useTenant } from "@/hooks/use-tenant";
 import {
   ReceiptText,
   Wallet,
   Hourglass,
   AlertTriangle,
 } from "lucide-react";
+import { UpiCollectionTracker } from "./upi-collection-tracker";
 
 export function SummaryCards() {
+  const { currentTenant } = useTenant();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
     async function loadData() {
       try {
         const [invData, payData] = await Promise.all([
           InvoiceService.getInvoices(),
           PaymentService.getPayments(),
         ]);
+        if (!isMounted) return;
         setInvoices(invData || []);
         setPayments(payData || []);
       } catch (err) {
         console.error("Failed to load dashboard summary cards data:", err);
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     }
     loadData();
-  }, []);
+    return () => {
+      isMounted = false;
+    };
+  }, [currentTenant?.id]);
 
   const totalInvoiced = invoices.reduce((sum, i) => sum + (i.totalAmount || 0), 0);
   const totalCollected = invoices.reduce((sum, i) => sum + (i.paidAmount || 0), 0);
@@ -79,71 +89,66 @@ export function SummaryCards() {
       iconBg: "bg-amber-50 text-amber-600 border border-amber-200/80",
       tagBg: "bg-amber-50/90 border border-amber-200/80 text-amber-700",
     },
-    {
-      id: "overdue",
-      title: "Overdue Attention",
-      amount: totalOverdue,
-      countLabel: `${overdueInvoices.length} overdue`,
-      contextText: overdueInvoices.length > 0 ? "Urgent reminder required" : "No overdue bills",
-      icon: AlertTriangle,
-      bgGradient: "from-rose-50/30 via-white to-red-50/20",
-      iconBg: "bg-rose-50 text-rose-600 border border-rose-200/80",
-      tagBg: "bg-rose-50/90 border border-rose-200/80 text-rose-700",
-    },
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-      {metrics.map((metric) => {
-        const Icon = metric.icon;
+    <div className="space-y-4 sm:space-y-5">
+      {/* Top Row: 3 Primary Financial Metric Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
+        {metrics.map((metric) => {
+          const Icon = metric.icon;
 
-        return (
-          <div
-            key={metric.id}
-            className={cn(
-              "clay-card p-5 sm:p-6 relative overflow-hidden flex flex-col justify-between group",
-              `bg-gradient-to-br ${metric.bgGradient}`
-            )}
-          >
-            {/* Top row: Label & Clean Icon Squircle */}
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                {metric.title}
-              </span>
-              <div
-                className={cn(
-                  "clay-icon-squircle p-2.5 shrink-0 transition-transform duration-200 group-hover:scale-105",
-                  metric.iconBg
-                )}
-              >
-                <Icon className="h-4 w-4" />
+          return (
+            <div
+              key={metric.id}
+              className={cn(
+                "clay-card p-5 sm:p-6 relative overflow-hidden flex flex-col justify-between group",
+                `bg-gradient-to-br ${metric.bgGradient}`
+              )}
+            >
+              {/* Top row: Label & Clean Icon Squircle */}
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  {metric.title}
+                </span>
+                <div
+                  className={cn(
+                    "clay-icon-squircle p-2.5 shrink-0 transition-transform duration-200 group-hover:scale-105",
+                    metric.iconBg
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                </div>
+              </div>
+
+              {/* Middle: Large Dynamic Amount */}
+              <div className="my-3">
+                <h3 className="text-2xl sm:text-[28px] font-black tracking-tight text-slate-900">
+                  {isLoading ? "..." : formatCurrency(metric.amount, "INR")}
+                </h3>
+              </div>
+
+              {/* Bottom: Dynamic Tag + Context */}
+              <div className="flex items-center gap-2 flex-wrap pt-1">
+                <span
+                  className={cn(
+                    "clay-tag inline-flex items-center gap-1 px-2.5 py-0.5 text-[11px] font-bold shrink-0",
+                    metric.tagBg
+                  )}
+                >
+                  {metric.countLabel}
+                </span>
+                <span className="text-[11px] text-slate-500 font-medium truncate">
+                  {metric.contextText}
+                </span>
               </div>
             </div>
+          );
+        })}
+      </div>
 
-            {/* Middle: Large Dynamic Amount */}
-            <div className="my-3">
-              <h3 className="text-2xl sm:text-[28px] font-black tracking-tight text-slate-900">
-                {isLoading ? "..." : formatCurrency(metric.amount, "INR")}
-              </h3>
-            </div>
-
-            {/* Bottom: Dynamic Tag + Context */}
-            <div className="flex items-center gap-2 flex-wrap pt-1">
-              <span
-                className={cn(
-                  "clay-tag inline-flex items-center gap-1 px-2.5 py-0.5 text-[11px] font-bold shrink-0",
-                  metric.tagBg
-                )}
-              >
-                {metric.countLabel}
-              </span>
-              <span className="text-[11px] text-slate-500 font-medium truncate">
-                {metric.contextText}
-              </span>
-            </div>
-          </div>
-        );
-      })}
+      {/* Bottom Row: Full-width UPI Collection Tracker */}
+      <UpiCollectionTracker payments={payments} isLoading={isLoading} />
     </div>
   );
 }

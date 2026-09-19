@@ -31,3 +31,9 @@ export interface TaxBreakdown {
   name: string; // e.g. "GST", "CGST+SGST", "VAT"
   amount: number;
 }
+
+export interface OfflinePendingMetadata {
+  _isPendingSync?: boolean;
+  _pendingMessage?: string;
+  _pendingStatus?: "pending" | "retrying" | "failed";
+}

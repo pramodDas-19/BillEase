@@ -39,8 +39,38 @@ export default function LoginPage() {
     setIsLoading(true);
     setErrorMsg(null);
 
+    const cleanEmail = email.trim().toLowerCase();
+
+    // 1. Platform Super-Admin Master Login (Pramod)
+    if (cleanEmail === "admin@billease.com" && password === "123456789") {
+      if (typeof window !== "undefined") {
+        document.cookie = "billease_admin_session=true; path=/; max-age=604800; SameSite=Lax";
+        localStorage.setItem("billease_super_admin_session", "true");
+        sessionStorage.setItem("billease_admin_session", "true");
+        sessionStorage.removeItem("billease_is_impersonating");
+        localStorage.setItem(
+          "billease_registered_user",
+          JSON.stringify({
+            email: "admin@billease.com",
+            ownerName: "Pramod",
+            businessName: "BillEase Platform Control",
+            tenantId: "tenant-royal-events",
+          })
+        );
+        AuthService.setActiveTenantId("tenant-royal-events");
+        if (rememberMe) {
+          localStorage.setItem("billease_remember_email", email);
+        }
+        window.location.href = "/admin";
+      }
+      return;
+    }
+
+    // Normal customer login
     try {
       if (typeof window !== "undefined") {
+        localStorage.removeItem("billease_super_admin_session");
+        sessionStorage.removeItem("billease_admin_session");
         if (rememberMe) {
           localStorage.setItem("billease_remember_email", email);
         } else {

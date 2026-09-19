@@ -1,4 +1,4 @@
-import { CurrencyCode, TaxBreakdown } from "./common.types";
+import { CurrencyCode, TaxBreakdown, OfflinePendingMetadata } from "./common.types";
 
 export type InvoiceStatus = "draft" | "sent" | "paid" | "partially_paid" | "due" | "overdue" | "cancelled";
 
@@ -20,7 +20,7 @@ export interface InvoiceLineItem {
 }
 
 
-export interface Invoice {
+export interface Invoice extends OfflinePendingMetadata {
   id: string;
   publicToken?: string; // Secure unguessable UUID for client payment portal
   tenantId: string; // Multi-tenant isolation

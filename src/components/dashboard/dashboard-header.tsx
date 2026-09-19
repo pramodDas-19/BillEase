@@ -4,6 +4,8 @@ import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useTenant } from "@/hooks/use-tenant";
 import { InvoiceService } from "@/services/invoice.service";
+import { PlanBadge } from "@/components/layout/plan-badge";
+import { useTrial } from "@/hooks/use-trial";
 import {
   Plus,
   FileText,
@@ -16,7 +18,8 @@ import {
 } from "lucide-react";
 
 export function DashboardHeader() {
-  const { currentUser } = useTenant();
+  const { currentUser, currentTenant } = useTenant();
+  const { checkCanPerformAction } = useTrial();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [greeting, setGreeting] = useState("Good day");
   const [dateString, setDateString] = useState("");
@@ -70,7 +73,11 @@ export function DashboardHeader() {
     };
   }, [isCreateOpen]);
 
-  const firstName = currentUser?.name ? currentUser.name.split(" ")[0] : "Pramod";
+  const firstName = currentUser?.name
+    ? currentUser.name.split(" ")[0]
+    : currentTenant?.ownerName
+    ? currentTenant.ownerName.split(" ")[0]
+    : "Business Owner";
 
   const handleScrollToAttention = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -152,6 +159,9 @@ export function DashboardHeader() {
               <span>All Collections Healthy ✨</span>
             </div>
           )}
+
+          {/* Plan Status Chip */}
+          <PlanBadge />
         </div>
       </div>
 
@@ -185,7 +195,16 @@ export function DashboardHeader() {
                   <Link
                     key={opt.label}
                     href={opt.href}
-                    onClick={() => setIsCreateOpen(false)}
+                    onClick={(e) => {
+                      if (opt.href.includes("/invoices/new") || opt.href.includes("/quotations/new")) {
+                        if (!checkCanPerformAction(opt.label)) {
+                          e.preventDefault();
+                          setIsCreateOpen(false);
+                          return;
+                        }
+                      }
+                      setIsCreateOpen(false);
+                    }}
                     className="flex items-center gap-3 rounded-xl p-2 text-left hover:bg-slate-50 transition-colors group"
                   >
                     <div className={`clay-icon-container p-2 rounded-xl ${opt.iconColor} shrink-0`}>

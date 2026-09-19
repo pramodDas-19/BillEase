@@ -24,11 +24,38 @@ export class AuthService {
   static async getActiveTenantId(): Promise<string> {
     try {
       if (typeof window !== "undefined") {
+        const isImp =
+          sessionStorage.getItem("billease_is_impersonating") === "true" ||
+          localStorage.getItem("billease_is_impersonating") === "true";
+        if (isImp) {
+          const impTenantId =
+            sessionStorage.getItem("billease_active_tenant_id") ||
+            localStorage.getItem("billease_active_tenant_id");
+          if (impTenantId) return impTenantId;
+        }
+
         const stored = localStorage.getItem("billease_active_tenant_id");
         if (stored) return stored;
+
+        const registered = localStorage.getItem("billease_registered_user");
+        if (registered) {
+          try {
+            const parsed = JSON.parse(registered);
+            if (parsed.tenantId) {
+              localStorage.setItem("billease_active_tenant_id", parsed.tenantId);
+              return parsed.tenantId;
+            }
+          } catch (e) {}
+        }
       }
 
-      const { data: { user } } = await supabase.auth.getUser();
+      const authUserPromise = supabase.auth.getUser();
+      const res: any = await Promise.race([
+        authUserPromise,
+        new Promise((resolve) => setTimeout(() => resolve({ data: { user: null } }), 1200)),
+      ]);
+
+      const user = res?.data?.user;
       const tId = user?.app_metadata?.tenant_id || user?.user_metadata?.tenant_id;
       if (tId) {
         if (typeof window !== "undefined") {
@@ -38,22 +65,6 @@ export class AuthService {
       }
     } catch (e) {
       console.warn("Could not determine active tenant ID:", e);
-    }
-
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("billease_active_tenant_id");
-      if (stored) return stored;
-
-      const registered = localStorage.getItem("billease_registered_user");
-      if (registered) {
-        try {
-          const parsed = JSON.parse(registered);
-          if (parsed.tenantId) {
-            localStorage.setItem("billease_active_tenant_id", parsed.tenantId);
-            return parsed.tenantId;
-          }
-        } catch (e) {}
-      }
     }
 
     return "tenant-royal-events";

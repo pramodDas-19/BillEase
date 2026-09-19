@@ -4,6 +4,8 @@ import { QuotationService } from "./quotation.service";
 import { AuthService } from "./auth.service";
 import { getSafeSequentialInvoiceNumber } from "@/lib/numbering-safety";
 import { calculateDocumentTotals } from "@/lib/calculation";
+import { isNetworkError } from "@/lib/network-detector";
+import { enqueueMutation, getPendingMutations } from "@/lib/offline-queue";
 
 function parseInvoiceItemRow(item: any): InvoiceLineItem {
   const rawNotes = item.detailed_notes || "";
@@ -75,23 +77,52 @@ export const InvoiceService = {
   async getInvoices(): Promise<Invoice[]> {
     try {
       const tenantId = await AuthService.getActiveTenantId();
-      const { data, error } = await supabase
-        .from("invoices")
-        .select(`
-          *,
-          invoice_items (*)
-        `)
-        .eq("tenant_id", tenantId)
-        .order("created_at", { ascending: false });
+      let data: any[] | null = null;
 
-      if (error) {
-        console.warn("Supabase fetch invoices error:", error.message);
-        return [];
+      const isImpersonating =
+        typeof window !== "undefined" &&
+        (sessionStorage.getItem("billease_is_impersonating") === "true" ||
+          localStorage.getItem("billease_is_impersonating") === "true");
+
+      if (isImpersonating) {
+        try {
+          const res = await fetch(`/api/admin/impersonate?tenantId=${tenantId}&type=invoices`);
+          if (res.ok) {
+            const json = await res.json();
+            data = json.invoices || [];
+          }
+        } catch (e) {
+          console.warn("Could not fetch impersonated invoices via admin API:", e);
+        }
+      }
+
+      if (data === null) {
+        const queryPromise = supabase
+          .from("invoices")
+          .select(`
+            *,
+            invoice_items (*)
+          `)
+          .eq("tenant_id", tenantId)
+          .order("created_at", { ascending: false });
+
+        const res: any = await Promise.race([
+          queryPromise,
+          new Promise((resolve) => setTimeout(() => resolve({ data: null, error: { message: "timeout" } }), 2000)),
+        ]);
+        const queryData = res?.data;
+        const error = res?.error;
+
+        if (error && error.message !== "timeout") {
+          console.warn("Supabase fetch invoices error:", error.message);
+          return [];
+        }
+        data = queryData || [];
       }
 
       if (!data) return [];
 
-      return data.map((inv) => {
+      const parsed: Invoice[] = data.map((inv) => {
         const isInterState = (inv.notes || "").includes("[IGST]");
         const cleanNotes = (inv.notes || "").replace(/\[IGST\]\s*/g, "").trim() || undefined;
         const isTaxEnabled = inv.is_tax_enabled ?? true;
@@ -164,8 +195,83 @@ export const InvoiceService = {
         };
       });
 
+      // Merge pending offline invoices from IndexedDB
+      if (typeof window !== "undefined") {
+        try {
+          const pending = await getPendingMutations();
+          const pendingInvoices = pending.filter((p) => p.entityType === "invoice");
+          for (const p of pendingInvoices) {
+            const raw = p.payload?.invoicePayload;
+            if (raw && !parsed.some((i) => i.id === p.entityId)) {
+              parsed.unshift({
+                id: p.entityId,
+                tenantId: p.tenantId,
+                invoiceNumber: raw.invoice_number || "INV-PENDING",
+                clientId: raw.client_id || "",
+                clientName: raw.client_name || "Client",
+                clientEmail: raw.client_email,
+                clientPhone: raw.client_phone,
+                clientAddress: raw.client_address,
+                clientGstin: raw.client_gstin,
+                issueDate: raw.issue_date || new Date().toISOString().split("T")[0],
+                dueDate: raw.due_date || new Date().toISOString().split("T")[0],
+                status: "due",
+                currency: raw.currency || "INR",
+                items: [],
+                subtotal: parseFloat(raw.subtotal || "0"),
+                totalTax: parseFloat(raw.total_tax || "0"),
+                totalAmount: parseFloat(raw.total_amount || "0"),
+                paidAmount: parseFloat(raw.paid_amount || "0"),
+                balanceDue: parseFloat(raw.balance_due || raw.total_amount || "0"),
+                isTaxEnabled: true,
+                createdAt: p.createdAt,
+                updatedAt: p.updatedAt,
+                _isPendingSync: true,
+                _pendingStatus: p.status,
+                _pendingMessage: "Saved locally — will sync when you're back online",
+              });
+            }
+          }
+        } catch {}
+      }
+
+      return parsed;
+
     } catch (err) {
       console.error("InvoiceService.getInvoices error:", err);
+      // If offline, return any cached pending invoices from IndexedDB
+      if (typeof window !== "undefined") {
+        try {
+          const pending = await getPendingMutations();
+          const pendingInvoices = pending.filter((p) => p.entityType === "invoice");
+          return pendingInvoices.map((p) => {
+            const raw = p.payload?.invoicePayload || {};
+            return {
+              id: p.entityId,
+              tenantId: p.tenantId,
+              invoiceNumber: raw.invoice_number || "INV-PENDING",
+              clientId: raw.client_id || "",
+              clientName: raw.client_name || "Client",
+              issueDate: raw.issue_date || new Date().toISOString().split("T")[0],
+              dueDate: raw.due_date || new Date().toISOString().split("T")[0],
+              status: "due",
+              currency: raw.currency || "INR",
+              items: [],
+              subtotal: parseFloat(raw.subtotal || "0"),
+              totalTax: parseFloat(raw.total_tax || "0"),
+              totalAmount: parseFloat(raw.total_amount || "0"),
+              paidAmount: 0,
+              balanceDue: parseFloat(raw.total_amount || "0"),
+              isTaxEnabled: true,
+              createdAt: p.createdAt,
+              updatedAt: p.updatedAt,
+              _isPendingSync: true,
+              _pendingStatus: p.status,
+              _pendingMessage: "Saved locally — will sync when you're back online",
+            };
+          });
+        } catch {}
+      }
       return [];
     }
   },
@@ -323,6 +429,26 @@ export const InvoiceService = {
 
       const { error: invError } = await supabase.from("invoices").insert([invoicePayload]);
       if (invError) {
+        if (isNetworkError(invError)) {
+          console.warn("[InvoiceService] Network offline during invoice insert. Enqueuing to IndexedDB...");
+          const itemRows = (invoice.items || []).map((item, idx) => serializeInvoiceItemRow(item, invoiceId, idx));
+          await enqueueMutation({
+            entityType: "invoice",
+            entityId: invoiceId,
+            action: "create",
+            tenantId,
+            payload: { invoicePayload, itemRows },
+            displayTitle: `Invoice #${invoiceNumber} for ${invoice.clientName}`,
+          });
+          return {
+            ...invoice,
+            id: invoiceId,
+            invoiceNumber,
+            tenantId,
+            _isPendingSync: true,
+            _pendingMessage: "Saved locally — will sync when you're back online",
+          } as Invoice;
+        }
         console.error("Supabase insert invoice error:", invError);
         return null;
       }
@@ -346,18 +472,23 @@ export const InvoiceService = {
         }
       }
 
-      // 4. Dispatch Notification
+      // 4. Dispatch Notification (isolated, non-blocking)
       try {
         const { NotificationService } = await import("./notification.service");
         NotificationService.notifyAction({
-          type: "action_created",
+          type: "invoice_created",
           title: `Invoice Created (${invoice.currency || "₹"}${invoice.totalAmount || 0})`,
           message: `Invoice #${invoiceNumber} for ${invoice.clientName} generated.`,
           actionUrl: `/invoices/${invoiceId}`,
           clientName: invoice.clientName,
+          clientPhone: invoice.clientPhone,
           amount: invoice.totalAmount,
+          entityType: "invoice",
+          entityId: invoiceId,
         });
-      } catch {}
+      } catch (notifErr) {
+        console.warn("[InvoiceService] Notification dispatch warning:", notifErr);
+      }
 
       return {
         ...invoice,
@@ -366,7 +497,50 @@ export const InvoiceService = {
         tenantId: tenantId,
       } as Invoice;
 
-    } catch (err) {
+    } catch (err: any) {
+      if (isNetworkError(err)) {
+        console.warn("[InvoiceService] Network exception during invoice creation. Enqueuing to IndexedDB...");
+        try {
+          const tenantId = await AuthService.getActiveTenantId();
+          const invoiceId = invoice.id || `inv-${Date.now()}`;
+          const preferredNumber = invoice.invoiceNumber || `INV-${Date.now().toString().slice(-4)}`;
+          const invoicePayload = {
+            id: invoiceId,
+            tenant_id: tenantId,
+            invoice_number: preferredNumber,
+            client_id: invoice.clientId || null,
+            client_name: invoice.clientName || "Client",
+            issue_date: invoice.issueDate || new Date().toISOString().split("T")[0],
+            due_date: invoice.dueDate || new Date().toISOString().split("T")[0],
+            status: invoice.status || "due",
+            currency: invoice.currency || "INR",
+            subtotal: invoice.subtotal || 0,
+            total_tax: invoice.totalTax || 0,
+            total_amount: invoice.totalAmount || 0,
+            paid_amount: invoice.paidAmount || 0,
+            balance_due: invoice.balanceDue !== undefined ? invoice.balanceDue : invoice.totalAmount || 0,
+          };
+          const itemRows = (invoice.items || []).map((item, idx) => serializeInvoiceItemRow(item, invoiceId, idx));
+          await enqueueMutation({
+            entityType: "invoice",
+            entityId: invoiceId,
+            action: "create",
+            tenantId,
+            payload: { invoicePayload, itemRows },
+            displayTitle: `Invoice #${preferredNumber} for ${invoice.clientName}`,
+          });
+          return {
+            ...invoice,
+            id: invoiceId,
+            invoiceNumber: preferredNumber,
+            tenantId,
+            _isPendingSync: true,
+            _pendingMessage: "Saved locally — will sync when you're back online",
+          } as Invoice;
+        } catch (queueErr) {
+          console.error("Failed to enqueue offline invoice:", queueErr);
+        }
+      }
       console.error("InvoiceService.createInvoice error:", err);
       return null;
     }
@@ -405,22 +579,41 @@ export const InvoiceService = {
       if (invoice.termsAndConditions !== undefined) invPayload.terms_and_conditions = invoice.termsAndConditions || null;
       if (invoice.notes !== undefined) invPayload.notes = invoice.notes || null;
 
+      const itemRows = invoice.items && invoice.items.length > 0
+        ? invoice.items.map((item, idx) => serializeInvoiceItemRow(item, id, idx))
+        : [];
+
       const { error: invError } = await supabase
         .from("invoices")
         .update(invPayload)
         .eq("id", id);
 
       if (invError) {
+        if (isNetworkError(invError)) {
+          console.warn("[InvoiceService] Network offline during invoice update. Enqueuing mutation...");
+          const tenantId = invoice.tenantId || (await AuthService.getActiveTenantId());
+          await enqueueMutation({
+            entityType: "invoice",
+            entityId: id,
+            action: "update",
+            tenantId,
+            payload: { id, invPayload, itemRows },
+            displayTitle: `Invoice #${invoice.invoiceNumber || id}`,
+          });
+          return {
+            ...invoice,
+            id,
+            _isPendingSync: true,
+            _pendingMessage: "Saved locally — will sync when you're back online",
+          } as Invoice;
+        }
         console.error("Supabase update invoice error:", invError);
         return null;
       }
 
       // Update line items: Delete old and insert updated
-      if (invoice.items && invoice.items.length > 0) {
+      if (itemRows.length > 0) {
         await supabase.from("invoice_items").delete().eq("invoice_id", id);
-
-        const itemRows = invoice.items.map((item, idx) => serializeInvoiceItemRow(item, id, idx));
-
         const { error: itemsError } = await supabase.from("invoice_items").insert(itemRows);
         if (itemsError) {
           console.error("Supabase insert updated invoice_items error:", itemsError);
@@ -431,7 +624,27 @@ export const InvoiceService = {
         ...invoice,
         id,
       } as Invoice;
-    } catch (err) {
+    } catch (err: any) {
+      if (isNetworkError(err)) {
+        console.warn("[InvoiceService] Network exception during invoice update. Enqueuing mutation...");
+        try {
+          const tenantId = invoice.tenantId || (await AuthService.getActiveTenantId());
+          await enqueueMutation({
+            entityType: "invoice",
+            entityId: id,
+            action: "update",
+            tenantId,
+            payload: { id, invPayload: invoice, itemRows: [] },
+            displayTitle: `Invoice #${invoice.invoiceNumber || id}`,
+          });
+          return {
+            ...invoice,
+            id,
+            _isPendingSync: true,
+            _pendingMessage: "Saved locally — will sync when you're back online",
+          } as Invoice;
+        } catch {}
+      }
       console.error("InvoiceService.updateInvoice error:", err);
       return null;
     }

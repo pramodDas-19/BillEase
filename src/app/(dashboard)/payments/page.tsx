@@ -23,6 +23,7 @@ import {
   Banknote,
   Smartphone,
   Download,
+  Clock,
 } from "lucide-react";
 import { exportPaymentsToCsv } from "@/lib/export-csv";
 
@@ -39,11 +40,25 @@ export default function PaymentsPage() {
     async function loadData() {
       setIsLoading(true);
       const data = await PaymentService.getPayments();
-      setPaymentsList(data);
+      // Enforce strict tenant isolation on UI layer
+      const scoped = currentTenant?.id
+        ? data.filter((p) => p.tenantId === currentTenant.id)
+        : data;
+      setPaymentsList(scoped);
       setIsLoading(false);
     }
     loadData();
-  }, []);
+
+    const handleSync = () => {
+      loadData();
+    };
+    window.addEventListener("billease:data-synced", handleSync);
+    window.addEventListener("billease:queue-updated", handleSync);
+    return () => {
+      window.removeEventListener("billease:data-synced", handleSync);
+      window.removeEventListener("billease:queue-updated", handleSync);
+    };
+  }, [currentTenant?.id]);
 
   const handleDeletePayment = async (id: string, payNum: string) => {
     if (window.confirm(`Are you sure you want to delete payment receipt "${payNum}"?`)) {
@@ -353,7 +368,7 @@ export default function PaymentsPage() {
                   {/* Top Row: Receipt #, Method Pill & Delete */}
                   <div className="flex items-start justify-between gap-2 pb-3 border-b border-slate-100">
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-extrabold text-slate-900">
                           {p.paymentNumber}
                         </span>
@@ -368,6 +383,15 @@ export default function PaymentsPage() {
                           <MethodIcon className="h-3 w-3" />
                           <span>{methodConfig.label}</span>
                         </span>
+                        {p._isPendingSync && (
+                          <span
+                            className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-50 text-amber-800 border border-amber-300 shrink-0"
+                            title="Saved locally — will sync when you're back online"
+                          >
+                            <Clock className="h-2.5 w-2.5 animate-pulse text-amber-600" />
+                            Pending Sync
+                          </span>
+                        )}
                       </div>
                       <p className="text-[11px] text-slate-400 font-medium mt-0.5 flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
@@ -501,17 +525,28 @@ export default function PaymentsPage() {
                         {formatDate(p.paymentDate)}
                       </td>
                       <td className="py-3.5 px-4">
-                        <span
-                          className={cn(
-                            "clay-tag inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold border",
-                            methodConfig.bg,
-                            methodConfig.text,
-                            methodConfig.border
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span
+                            className={cn(
+                              "clay-tag inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold border",
+                              methodConfig.bg,
+                              methodConfig.text,
+                              methodConfig.border
+                            )}
+                          >
+                            <MethodIcon className="h-3 w-3" />
+                            <span>{methodConfig.label}</span>
+                          </span>
+                          {p._isPendingSync && (
+                            <span
+                              className="inline-flex items-center gap-1 px-1.5 py-0.2 text-[9px] font-bold rounded-full bg-amber-50 text-amber-800 border border-amber-300 shrink-0"
+                              title="Saved locally — will sync when you're back online"
+                            >
+                              <Clock className="h-2.5 w-2.5 animate-pulse text-amber-600" />
+                              Pending Sync
+                            </span>
                           )}
-                        >
-                          <MethodIcon className="h-3 w-3" />
-                          <span>{methodConfig.label}</span>
-                        </span>
+                        </div>
                       </td>
                       <td className="py-3.5 px-4 font-mono text-[11px] text-slate-500">
                         {p.transactionReference || "—"}

@@ -2,10 +2,10 @@
 
 import React from "react";
 import { usePathname } from "next/navigation";
-import { UserNav } from "@/components/layout/user-nav";
 import { NotificationDropdown } from "@/components/layout/notification-dropdown";
 import { HelpModal } from "@/components/layout/help-modal";
 import { HeaderSearch } from "@/components/layout/header-search";
+import { OfflineSyncIndicator } from "@/components/layout/offline-sync-indicator";
 import { useLayoutState } from "./dashboard-shell";
 
 import {
@@ -127,13 +127,11 @@ export function Header() {
           <HelpModal />
         </div>
 
+        {/* Optimistic Offline Sync Indicator */}
+        <OfflineSyncIndicator />
+
         {/* Interactive Notification Center */}
         <NotificationDropdown />
-
-        <div className="h-6 w-px bg-slate-200/80 mx-0.5 hidden sm:block" />
-
-        {/* User Profile */}
-        <UserNav />
       </div>
 
     </header>

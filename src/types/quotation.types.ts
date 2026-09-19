@@ -1,4 +1,4 @@
-import { CurrencyCode, TaxBreakdown } from "./common.types";
+import { CurrencyCode, TaxBreakdown, OfflinePendingMetadata } from "./common.types";
 
 export type QuotationStatus = "draft" | "sent" | "viewed" | "accepted" | "rejected" | "converted" | "expired";
 
@@ -26,7 +26,7 @@ export interface QuotationLineItem {
 }
 
 
-export interface Quotation {
+export interface Quotation extends OfflinePendingMetadata {
   id: string;
   publicToken?: string; // Secure unguessable UUID for client payment portal
   tenantId: string; // Multi-tenant isolation

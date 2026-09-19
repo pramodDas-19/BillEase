@@ -73,64 +73,104 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
   const loadTenantAndUser = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const isImpersonating =
+        typeof window !== "undefined" &&
+        (sessionStorage.getItem("billease_is_impersonating") === "true" ||
+          localStorage.getItem("billease_is_impersonating") === "true");
+      const impersonatedTenantId =
+        typeof window !== "undefined"
+          ? sessionStorage.getItem("billease_active_tenant_id") ||
+            localStorage.getItem("billease_active_tenant_id")
+          : null;
 
       let tenantId = "";
       let registeredInfo: any = null;
+      let tenantRow: any = null;
+      let authUser: any = null;
 
-      if (typeof window !== "undefined") {
-        const regStr = localStorage.getItem("billease_registered_user");
-        if (regStr) {
-          try {
-            registeredInfo = JSON.parse(regStr);
-            if (registeredInfo.tenantId) {
-              tenantId = registeredInfo.tenantId;
+      if (isImpersonating && impersonatedTenantId) {
+        tenantId = impersonatedTenantId;
+        AuthService.setActiveTenantId(tenantId);
+        try {
+          const res = await fetch(`/api/admin/impersonate?tenantId=${tenantId}`);
+          if (res.ok) {
+            const json = await res.json();
+            if (json.tenant) {
+              tenantRow = json.tenant;
             }
-          } catch (e) {}
+          }
+        } catch (e) {
+          console.warn("Could not fetch impersonated tenant via admin API:", e);
         }
+      } else {
+        const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+        authUser = supabaseUser;
+
+        if (typeof window !== "undefined") {
+          const regStr = localStorage.getItem("billease_registered_user");
+          if (regStr) {
+            try {
+              registeredInfo = JSON.parse(regStr);
+              if (registeredInfo.tenantId) {
+                tenantId = registeredInfo.tenantId;
+              }
+            } catch (e) {}
+          }
+          const activeStored = localStorage.getItem("billease_active_tenant_id");
+          if (activeStored && !tenantId) {
+            tenantId = activeStored;
+          }
+        }
+
+        if (authUser) {
+          const appMeta = authUser.app_metadata || {};
+          const userMeta = authUser.user_metadata || {};
+          tenantId =
+            appMeta.tenant_id ||
+            userMeta.tenant_id ||
+            tenantId ||
+            (registeredInfo?.tenantId) ||
+            `tenant-${authUser.id.slice(0, 8)}`;
+        }
+
+        if (!tenantId) {
+          tenantId = "tenant-royal-events";
+        }
+
+        AuthService.setActiveTenantId(tenantId);
+
+        // Fetch tenant row from supabase
+        const { data: row } = await supabase
+          .from("tenants")
+          .select("*")
+          .eq("id", tenantId)
+          .single();
+        tenantRow = row;
       }
-
-      if (user) {
-        const metadata = user.user_metadata || {};
-        tenantId = metadata.tenant_id || tenantId || `tenant-${user.id.slice(0, 8)}`;
-      }
-
-      if (!tenantId) {
-        tenantId = "tenant-royal-events";
-      }
-
-      AuthService.setActiveTenantId(tenantId);
-
-      // Fetch tenant row from supabase
-      const { data: tenantRow } = await supabase
-        .from("tenants")
-        .select("*")
-        .eq("id", tenantId)
-        .single();
 
       const businessName =
         tenantRow?.business_name ||
-        user?.user_metadata?.business_name ||
-        registeredInfo?.businessName ||
+        (!isImpersonating && registeredInfo?.businessName) ||
+        (!isImpersonating && authUser?.user_metadata?.business_name) ||
         "My Business Studio";
 
       const ownerName =
         tenantRow?.owner_name ||
-        user?.user_metadata?.owner_name ||
-        registeredInfo?.ownerName ||
-        user?.email?.split("@")[0] ||
+        (!isImpersonating && (registeredInfo?.ownerName || registeredInfo?.email?.split("@")[0])) ||
+        (!isImpersonating && authUser?.user_metadata?.owner_name) ||
+        (!isImpersonating && authUser?.email?.split("@")[0]) ||
         "Account Owner";
 
       const phone =
         tenantRow?.phone ||
-        user?.user_metadata?.phone ||
-        registeredInfo?.phone ||
+        (!isImpersonating && registeredInfo?.phone) ||
+        (!isImpersonating && authUser?.user_metadata?.phone) ||
         "";
 
       const email =
         tenantRow?.email ||
-        user?.email ||
-        registeredInfo?.email ||
+        (!isImpersonating && registeredInfo?.email) ||
+        (!isImpersonating && authUser?.email) ||
         "";
 
       const loadedTenant: Tenant = {
@@ -142,32 +182,54 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         email: email,
         phone: phone,
         gstin: tenantRow?.gstin || "",
-        logoUrl: tenantRow?.logo_url || tenantRow?.settings?.logoUrl || registeredInfo?.logoUrl || undefined,
-        signatureUrl: tenantRow?.signature_url || tenantRow?.settings?.signatureUrl || registeredInfo?.signatureUrl || undefined,
+        logoUrl: tenantRow?.logo_url || tenantRow?.settings?.logoUrl || (!isImpersonating ? registeredInfo?.logoUrl : undefined),
+        signatureUrl: tenantRow?.signature_url || tenantRow?.settings?.signatureUrl || (!isImpersonating ? registeredInfo?.signatureUrl : undefined),
         address: tenantRow?.address || DEFAULT_TENANT.address,
         bankDetails: {
           ...DEFAULT_TENANT.bankDetails,
-          ...(registeredInfo?.bankDetails || {}),
+          ...(!isImpersonating ? (registeredInfo?.bankDetails || {}) : {}),
           ...(tenantRow?.bank_details || {}),
         },
         settings: {
           ...DEFAULT_TENANT.settings,
-          ...(registeredInfo?.settings || {}),
+          ...(!isImpersonating ? (registeredInfo?.settings || {}) : {}),
           ...(tenantRow?.settings || {}),
-          logoUrl: tenantRow?.logo_url || tenantRow?.settings?.logoUrl || registeredInfo?.logoUrl || undefined,
-          signatureUrl: tenantRow?.signature_url || tenantRow?.settings?.signatureUrl || registeredInfo?.signatureUrl || undefined,
+          logoUrl: tenantRow?.logo_url || tenantRow?.settings?.logoUrl || (!isImpersonating ? registeredInfo?.logoUrl : undefined),
+          signatureUrl: tenantRow?.signature_url || tenantRow?.settings?.signatureUrl || (!isImpersonating ? registeredInfo?.signatureUrl : undefined),
         },
+        subscription: (() => {
+          const storedSub = tenantRow?.settings?.subscription;
+          if (storedSub) return storedSub;
+
+          const createdMs = tenantRow?.created_at ? new Date(tenantRow.created_at).getTime() : Date.now();
+          const trialEndMs = createdMs + 7 * 24 * 60 * 60 * 1000;
+          const graceEndMs = trialEndMs + 48 * 60 * 60 * 1000;
+          const isPastTrial = Date.now() > trialEndMs;
+
+          return {
+            plan: "trial" as const,
+            status: isPastTrial ? ("trial_expired" as const) : ("trial_active" as const),
+            trialStartDate: tenantRow?.created_at || new Date().toISOString(),
+            trialEndDate: new Date(trialEndMs).toISOString(),
+            gracePeriodEndsAt: new Date(graceEndMs).toISOString(),
+          };
+        })(),
         createdAt: tenantRow?.created_at || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
 
+      const isSuperAdmin =
+        !isImpersonating &&
+        (email.toLowerCase() === "admin@billease.com" ||
+          (typeof window !== "undefined" && localStorage.getItem("billease_super_admin_session") === "true"));
+
       const loadedUser: User = {
-        id: user?.id || registeredInfo?.tenantId || "user-active",
+        id: isImpersonating ? `user-${tenantId}` : (registeredInfo?.tenantId || "user-active"),
         tenantId: tenantId,
-        name: ownerName,
-        email: email,
-        role: "owner",
-        createdAt: user?.created_at || new Date().toISOString(),
+        name: isSuperAdmin ? "Pramod" : ownerName,
+        email: isSuperAdmin ? "admin@billease.com" : email,
+        role: isSuperAdmin ? "super_admin" : "owner",
+        createdAt: tenantRow?.created_at || new Date().toISOString(),
       };
 
       setCurrentTenant(loadedTenant);

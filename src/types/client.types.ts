@@ -1,6 +1,6 @@
-import { Address } from "./common.types";
+import { Address, OfflinePendingMetadata } from "./common.types";
 
-export interface Client {
+export interface Client extends OfflinePendingMetadata {
   id: string;
   tenantId: string; // Multi-tenant isolation
   name: string; // Contact Person or Company Name

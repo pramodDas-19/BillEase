@@ -6,3 +6,4 @@ export * from "./invoice.types";
 export * from "./payment.types";
 export * from "./service.types";
 export * from "./report.types";
+export * from "./notification.types";

@@ -1,28 +1,49 @@
 import { supabase } from "@/lib/supabase/client";
 import { Client } from "@/types";
 import { AuthService } from "./auth.service";
+import { isNetworkError } from "@/lib/network-detector";
+import { enqueueMutation, getPendingMutations } from "@/lib/offline-queue";
 
 export const ClientService = {
   // Fetch all clients for active tenant from Supabase
   async getClients(): Promise<Client[]> {
     try {
       const tenantId = await AuthService.getActiveTenantId();
-      const { data, error } = await supabase
-        .from("clients")
-        .select("*")
-        .eq("tenant_id", tenantId)
-        .order("created_at", { ascending: false });
+      let data: any[] | null = null;
 
-      if (error) {
-        console.warn("Supabase fetch clients error:", error.message);
-        return [];
+      const isImpersonating =
+        typeof window !== "undefined" &&
+        (sessionStorage.getItem("billease_is_impersonating") === "true" ||
+          localStorage.getItem("billease_is_impersonating") === "true");
+
+      if (isImpersonating) {
+        try {
+          const res = await fetch(`/api/admin/impersonate?tenantId=${tenantId}&type=clients`);
+          if (res.ok) {
+            const json = await res.json();
+            data = json.clients || [];
+          }
+        } catch (e) {
+          console.warn("Could not fetch impersonated clients via admin API:", e);
+        }
       }
 
-      if (!data || data.length === 0) {
-        return [];
+      if (data === null) {
+        const { data: queryData, error } = await supabase
+          .from("clients")
+          .select("*")
+          .eq("tenant_id", tenantId)
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          console.warn("Supabase fetch clients error:", error.message);
+          data = [];
+        } else {
+          data = queryData;
+        }
       }
 
-      return data.map((c) => ({
+      const parsed: Client[] = (data || []).map((c) => ({
         id: c.id,
         tenantId: c.tenant_id,
         name: c.name,
@@ -38,6 +59,40 @@ export const ClientService = {
         createdAt: c.created_at,
         updatedAt: c.updated_at,
       }));
+
+      // Merge pending offline clients from IndexedDB
+      if (typeof window !== "undefined") {
+        try {
+          const pending = await getPendingMutations();
+          const pendingClients = pending.filter((p) => p.entityType === "client");
+          for (const p of pendingClients) {
+            const raw = p.payload?.clientPayload;
+            if (raw && !parsed.some((c) => c.id === p.entityId)) {
+              parsed.unshift({
+                id: p.entityId,
+                tenantId: p.tenantId,
+                name: raw.name || "Client",
+                companyName: raw.company_name,
+                email: raw.email,
+                phone: raw.phone || "",
+                gstin: raw.gstin,
+                address: raw.address,
+                segmentTags: raw.segment_tags || [],
+                totalBilled: 0,
+                totalPaid: 0,
+                balanceDue: 0,
+                createdAt: p.createdAt,
+                updatedAt: p.updatedAt,
+                _isPendingSync: true,
+                _pendingStatus: p.status,
+                _pendingMessage: "Saved locally — will sync when you're back online",
+              });
+            }
+          }
+        } catch {}
+      }
+
+      return parsed;
     } catch (err) {
       console.error("ClientService.getClients error:", err);
       return [];
@@ -103,6 +158,34 @@ export const ClientService = {
         .single();
 
       if (error) {
+        if (isNetworkError(error)) {
+          console.warn("[ClientService] Network offline during client insert. Enqueuing to IndexedDB...");
+          await enqueueMutation({
+            entityType: "client",
+            entityId: clientId,
+            action: "create",
+            tenantId,
+            payload: { clientPayload: payload },
+            displayTitle: `Client: ${client.name}`,
+          });
+          return {
+            id: clientId,
+            tenantId,
+            name: client.name || "Client",
+            companyName: client.companyName,
+            email: client.email,
+            phone: client.phone || "",
+            gstin: client.gstin,
+            address: client.address,
+            segmentTags: client.segmentTags || [],
+            totalBilled: 0,
+            totalPaid: 0,
+            balanceDue: 0,
+            createdAt: new Date().toISOString(),
+            _isPendingSync: true,
+            _pendingMessage: "Saved locally — will sync when you're back online",
+          };
+        }
         console.error("Supabase insert client error:", error);
         return null;
       }
@@ -123,7 +206,50 @@ export const ClientService = {
         createdAt: data.created_at,
         updatedAt: data.updated_at,
       };
-    } catch (err) {
+    } catch (err: any) {
+      if (isNetworkError(err)) {
+        console.warn("[ClientService] Network exception during client creation. Enqueuing to IndexedDB...");
+        try {
+          const tenantId = await AuthService.getActiveTenantId();
+          const clientId = client.id || `client-${Date.now()}`;
+          const payload = {
+            id: clientId,
+            tenant_id: tenantId,
+            name: client.name || "Client",
+            company_name: client.companyName || null,
+            email: client.email || null,
+            phone: client.phone || "",
+            gstin: client.gstin || null,
+            address: client.address || null,
+            segment_tags: client.segmentTags || [],
+          };
+          await enqueueMutation({
+            entityType: "client",
+            entityId: clientId,
+            action: "create",
+            tenantId,
+            payload: { clientPayload: payload },
+            displayTitle: `Client: ${client.name}`,
+          });
+          return {
+            id: clientId,
+            tenantId,
+            name: client.name || "Client",
+            companyName: client.companyName,
+            email: client.email,
+            phone: client.phone || "",
+            gstin: client.gstin,
+            address: client.address,
+            segmentTags: client.segmentTags || [],
+            totalBilled: 0,
+            totalPaid: 0,
+            balanceDue: 0,
+            createdAt: new Date().toISOString(),
+            _isPendingSync: true,
+            _pendingMessage: "Saved locally — will sync when you're back online",
+          };
+        } catch {}
+      }
       console.error("ClientService.createClient error:", err);
       return null;
     }
@@ -155,6 +281,26 @@ export const ClientService = {
         .single();
 
       if (error) {
+        if (isNetworkError(error)) {
+          console.warn("[ClientService] Network offline during client update. Enqueuing mutation...");
+          const tenantId = updates.tenantId || (await AuthService.getActiveTenantId());
+          await enqueueMutation({
+            entityType: "client",
+            entityId: id,
+            action: "update",
+            tenantId,
+            payload: { id, clientPayload: payload },
+            displayTitle: `Client: ${updates.name || id}`,
+          });
+          return {
+            id,
+            tenantId,
+            name: updates.name || "Client",
+            ...updates,
+            _isPendingSync: true,
+            _pendingMessage: "Saved locally — will sync when you're back online",
+          } as Client;
+        }
         console.error("Supabase update client error:", error);
         return null;
       }
@@ -175,7 +321,29 @@ export const ClientService = {
         createdAt: data.created_at,
         updatedAt: data.updated_at,
       };
-    } catch (err) {
+    } catch (err: any) {
+      if (isNetworkError(err)) {
+        console.warn("[ClientService] Network exception during client update. Enqueuing mutation...");
+        try {
+          const tenantId = updates.tenantId || (await AuthService.getActiveTenantId());
+          await enqueueMutation({
+            entityType: "client",
+            entityId: id,
+            action: "update",
+            tenantId,
+            payload: { id, clientPayload: updates },
+            displayTitle: `Client: ${updates.name || id}`,
+          });
+          return {
+            id,
+            tenantId,
+            name: updates.name || "Client",
+            ...updates,
+            _isPendingSync: true,
+            _pendingMessage: "Saved locally — will sync when you're back online",
+          } as Client;
+        } catch {}
+      }
       console.error("ClientService.updateClient error:", err);
       return null;
     }

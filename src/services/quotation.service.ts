@@ -3,6 +3,8 @@ import { Quotation, QuotationLineItem, QuotationStatus, TaxBreakdown } from "@/t
 import { AuthService } from "./auth.service";
 import { getSafeSequentialQuotationNumber } from "@/lib/numbering-safety";
 import { calculateDocumentTotals } from "@/lib/calculation";
+import { isNetworkError } from "@/lib/network-detector";
+import { enqueueMutation, getPendingMutations } from "@/lib/offline-queue";
 
 function parseQuotationItemRow(item: any): QuotationLineItem {
   const rawNotes = item.detailed_notes || "";
@@ -74,25 +76,47 @@ export const QuotationService = {
   async getQuotations(): Promise<Quotation[]> {
     try {
       const tenantId = await AuthService.getActiveTenantId();
-      const { data, error } = await supabase
-        .from("quotations")
-        .select(`
-          *,
-          quotation_items (*)
-        `)
-        .eq("tenant_id", tenantId)
-        .order("created_at", { ascending: false });
+      let data: any[] | null = null;
 
-      if (error) {
-        console.warn("Supabase fetch quotations error:", error.message);
-        return [];
+      const isImpersonating =
+        typeof window !== "undefined" &&
+        (sessionStorage.getItem("billease_is_impersonating") === "true" ||
+          localStorage.getItem("billease_is_impersonating") === "true");
+
+      if (isImpersonating) {
+        try {
+          const res = await fetch(`/api/admin/impersonate?tenantId=${tenantId}&type=quotations`);
+          if (res.ok) {
+            const json = await res.json();
+            data = json.quotations || [];
+          }
+        } catch (e) {
+          console.warn("Could not fetch impersonated quotations via admin API:", e);
+        }
+      }
+
+      if (data === null) {
+        const { data: queryData, error } = await supabase
+          .from("quotations")
+          .select(`
+            *,
+            quotation_items (*)
+          `)
+          .eq("tenant_id", tenantId)
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          console.warn("Supabase fetch quotations error:", error.message);
+          return [];
+        }
+        data = queryData;
       }
 
       if (!data || data.length === 0) {
         return [];
       }
 
-      return data.map((q: any) => {
+      const parsed: Quotation[] = data.map((q: any) => {
         const rawNotes = q.notes || "";
         const isInterState = rawNotes.includes("[IGST]");
         const advMatch = rawNotes.match(/\[ADVANCE:([a-z]+):([0-9.]+):([0-9.]+)\]/i);
@@ -184,8 +208,78 @@ export const QuotationService = {
         };
       });
 
+      // Merge pending offline quotations from IndexedDB
+      if (typeof window !== "undefined") {
+        try {
+          const pending = await getPendingMutations();
+          const pendingQuotes = pending.filter((p) => p.entityType === "quotation");
+          for (const p of pendingQuotes) {
+            const raw = p.payload?.quotePayload;
+            if (raw && !parsed.some((q) => q.id === p.entityId)) {
+              parsed.unshift({
+                id: p.entityId,
+                tenantId: p.tenantId,
+                quotationNumber: raw.quotation_number || "QT-PENDING",
+                clientId: raw.client_id || "",
+                clientName: raw.client_name || "Client",
+                clientEmail: raw.client_email,
+                clientPhone: raw.client_phone,
+                clientAddress: raw.client_address,
+                clientGstin: raw.client_gstin,
+                date: raw.date || new Date().toISOString().split("T")[0],
+                validUntil: raw.valid_until || new Date().toISOString().split("T")[0],
+                status: "draft",
+                currency: raw.currency || "INR",
+                items: [],
+                subtotal: parseFloat(raw.subtotal || "0"),
+                totalTax: parseFloat(raw.total_tax || "0"),
+                totalAmount: parseFloat(raw.total_amount || "0"),
+                isTaxEnabled: true,
+                createdAt: p.createdAt,
+                updatedAt: p.updatedAt,
+                _isPendingSync: true,
+                _pendingStatus: p.status,
+                _pendingMessage: "Saved locally — will sync when you're back online",
+              });
+            }
+          }
+        } catch {}
+      }
+
+      return parsed;
+
     } catch (err) {
       console.error("QuotationService.getQuotations error:", err);
+      if (typeof window !== "undefined") {
+        try {
+          const pending = await getPendingMutations();
+          const pendingQuotes = pending.filter((p) => p.entityType === "quotation");
+          return pendingQuotes.map((p) => {
+            const raw = p.payload?.quotePayload || {};
+            return {
+              id: p.entityId,
+              tenantId: p.tenantId,
+              quotationNumber: raw.quotation_number || "QT-PENDING",
+              clientId: raw.client_id || "",
+              clientName: raw.client_name || "Client",
+              date: raw.date || new Date().toISOString().split("T")[0],
+              validUntil: raw.valid_until || new Date().toISOString().split("T")[0],
+              status: "draft",
+              currency: raw.currency || "INR",
+              items: [],
+              subtotal: parseFloat(raw.subtotal || "0"),
+              totalTax: parseFloat(raw.total_tax || "0"),
+              totalAmount: parseFloat(raw.total_amount || "0"),
+              isTaxEnabled: true,
+              createdAt: p.createdAt,
+              updatedAt: p.updatedAt,
+              _isPendingSync: true,
+              _pendingStatus: p.status,
+              _pendingMessage: "Saved locally — will sync when you're back online",
+            };
+          });
+        } catch {}
+      }
       return [];
     }
   },
@@ -318,10 +412,28 @@ export const QuotationService = {
         .update(payload)
         .eq("id", id);
 
-      if (error) {
+        if (error) {
         console.error("Supabase update quotation status error:", error);
         return false;
       }
+
+      // Dispatch notification for quotation status changes (converted/accepted)
+      if (status === "converted" || status === "accepted") {
+        try {
+          const { NotificationService } = await import("./notification.service");
+          NotificationService.notifyAction({
+            type: "quote_accepted",
+            title: status === "converted" ? "Quotation Converted" : "Quotation Accepted",
+            message: `Quotation #${id} was marked as ${status}.`,
+            actionUrl: convertedInvoiceId ? `/invoices/${convertedInvoiceId}` : `/quotations/${id}`,
+            entityType: "quotation",
+            entityId: id,
+          });
+        } catch (notifErr) {
+          console.warn("[QuotationService] Status notification dispatch warning:", notifErr);
+        }
+      }
+
       return true;
     } catch (err) {
       console.error("QuotationService.updateQuotationStatus error:", err);
@@ -376,6 +488,26 @@ export const QuotationService = {
 
       const { error: quoteError } = await supabase.from("quotations").insert([quotePayload]);
       if (quoteError) {
+        if (isNetworkError(quoteError)) {
+          console.warn("[QuotationService] Network offline during quotation insert. Enqueuing to IndexedDB...");
+          const itemRows = (quotation.items || []).map((item, idx) => serializeQuotationItemRow(item, quoteId, idx));
+          await enqueueMutation({
+            entityType: "quotation",
+            entityId: quoteId,
+            action: "create",
+            tenantId,
+            payload: { quotePayload, itemRows },
+            displayTitle: `Quotation #${quoteNumber} for ${quotation.clientName}`,
+          });
+          return {
+            ...quotation,
+            id: quoteId,
+            quotationNumber: quoteNumber,
+            tenantId,
+            _isPendingSync: true,
+            _pendingMessage: "Saved locally — will sync when you're back online",
+          } as Quotation;
+        }
         console.error("Supabase insert quotation error:", quoteError);
         return null;
       }
@@ -390,19 +522,23 @@ export const QuotationService = {
         }
       }
 
-
-      // 3. Dispatch Notification
+      // 3. Dispatch Notification (isolated, non-blocking)
       try {
         const { NotificationService } = await import("./notification.service");
         NotificationService.notifyAction({
-          type: "action_created",
+          type: "quotation_created",
           title: `Quotation Created (${quotation.currency || "₹"}${quotation.totalAmount || 0})`,
           message: `Quotation #${quoteNumber} for ${quotation.clientName} generated.`,
           actionUrl: `/quotations/${quoteId}`,
           clientName: quotation.clientName,
+          clientPhone: quotation.clientPhone,
           amount: quotation.totalAmount,
+          entityType: "quotation",
+          entityId: quoteId,
         });
-      } catch {}
+      } catch (notifErr) {
+        console.warn("[QuotationService] Notification dispatch warning:", notifErr);
+      }
 
       return {
         ...quotation,
@@ -410,7 +546,46 @@ export const QuotationService = {
         quotationNumber: quoteNumber,
         tenantId: tenantId,
       } as Quotation;
-    } catch (err) {
+    } catch (err: any) {
+      if (isNetworkError(err)) {
+        console.warn("[QuotationService] Network exception during quote creation. Enqueuing to IndexedDB...");
+        try {
+          const tenantId = await AuthService.getActiveTenantId();
+          const quoteId = quotation.id || `qt-${Date.now()}`;
+          const quoteNumber = quotation.quotationNumber || `QT-${Date.now().toString().slice(-4)}`;
+          const quotePayload = {
+            id: quoteId,
+            tenant_id: tenantId,
+            quotation_number: quoteNumber,
+            client_id: quotation.clientId || null,
+            client_name: quotation.clientName || "Client",
+            date: quotation.date || new Date().toISOString().split("T")[0],
+            valid_until: quotation.validUntil || new Date().toISOString().split("T")[0],
+            status: quotation.status || "draft",
+            currency: quotation.currency || "INR",
+            subtotal: quotation.subtotal || 0,
+            total_tax: quotation.totalTax || 0,
+            total_amount: quotation.totalAmount || 0,
+          };
+          const itemRows = (quotation.items || []).map((item, idx) => serializeQuotationItemRow(item, quoteId, idx));
+          await enqueueMutation({
+            entityType: "quotation",
+            entityId: quoteId,
+            action: "create",
+            tenantId,
+            payload: { quotePayload, itemRows },
+            displayTitle: `Quotation #${quoteNumber} for ${quotation.clientName}`,
+          });
+          return {
+            ...quotation,
+            id: quoteId,
+            quotationNumber: quoteNumber,
+            tenantId,
+            _isPendingSync: true,
+            _pendingMessage: "Saved locally — will sync when you're back online",
+          } as Quotation;
+        } catch {}
+      }
       console.error("QuotationService.createQuotation error:", err);
       return null;
     }
@@ -456,22 +631,41 @@ export const QuotationService = {
         quotePayload.notes = finalUpdateNotes;
       }
 
+      const itemRows = quotation.items && quotation.items.length > 0
+        ? quotation.items.map((item, idx) => serializeQuotationItemRow(item, id, idx))
+        : [];
+
       const { error: quoteError } = await supabase
         .from("quotations")
         .update(quotePayload)
         .eq("id", id);
 
       if (quoteError) {
+        if (isNetworkError(quoteError)) {
+          console.warn("[QuotationService] Network offline during quotation update. Enqueuing mutation...");
+          const tenantId = quotation.tenantId || (await AuthService.getActiveTenantId());
+          await enqueueMutation({
+            entityType: "quotation",
+            entityId: id,
+            action: "update",
+            tenantId,
+            payload: { id, quotePayload, itemRows },
+            displayTitle: `Quotation #${quotation.quotationNumber || id}`,
+          });
+          return {
+            ...quotation,
+            id,
+            _isPendingSync: true,
+            _pendingMessage: "Saved locally — will sync when you're back online",
+          } as Quotation;
+        }
         console.error("Supabase update quotation error:", quoteError);
         return null;
       }
 
       // Update line items: Delete old and insert updated
-      if (quotation.items && quotation.items.length > 0) {
+      if (itemRows.length > 0) {
         await supabase.from("quotation_items").delete().eq("quotation_id", id);
-
-        const itemRows = quotation.items.map((item, idx) => serializeQuotationItemRow(item, id, idx));
-
         const { error: itemsError } = await supabase.from("quotation_items").insert(itemRows);
         if (itemsError) {
           console.error("Supabase insert updated quotation_items error:", itemsError);
@@ -482,7 +676,27 @@ export const QuotationService = {
         ...quotation,
         id,
       } as Quotation;
-    } catch (err) {
+    } catch (err: any) {
+      if (isNetworkError(err)) {
+        console.warn("[QuotationService] Network exception during quote update. Enqueuing mutation...");
+        try {
+          const tenantId = quotation.tenantId || (await AuthService.getActiveTenantId());
+          await enqueueMutation({
+            entityType: "quotation",
+            entityId: id,
+            action: "update",
+            tenantId,
+            payload: { id, quotePayload: quotation, itemRows: [] },
+            displayTitle: `Quotation #${quotation.quotationNumber || id}`,
+          });
+          return {
+            ...quotation,
+            id,
+            _isPendingSync: true,
+            _pendingMessage: "Saved locally — will sync when you're back online",
+          } as Quotation;
+        } catch {}
+      }
       console.error("QuotationService.updateQuotation error:", err);
       return null;
     }

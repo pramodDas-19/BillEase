@@ -146,18 +146,16 @@ export function HelpModal() {
               </div>
             </div>
 
-            {/* Direct WhatsApp Support */}
+            {/* Direct Support */}
             <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
               <span className="text-[10px] text-slate-400 font-medium">Need live assistance?</span>
 
               <a
-                href="https://wa.me/919820145890?text=Hi%20BillEase%20Support,%20I%20have%20a%20question%20regarding%20the%20billing%20software."
-                target="_blank"
-                rel="noopener noreferrer"
-                className="clay-tag inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 shadow-2xs transition-colors cursor-pointer"
+                href="mailto:billeasesupport@gmail.com?subject=BillEase%20Support%20Request"
+                className="clay-tag inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-2xs transition-colors cursor-pointer"
               >
-                <MessageSquare className="h-3 w-3 text-teal-600" />
-                <span>WhatsApp Support</span>
+                <MessageSquare className="h-3 w-3 text-emerald-600" />
+                <span>Email Support</span>
               </a>
             </div>
           </div>

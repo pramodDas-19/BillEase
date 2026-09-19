@@ -1,8 +1,8 @@
-import { CurrencyCode, PaymentMethod } from "./common.types";
+import { CurrencyCode, PaymentMethod, OfflinePendingMetadata } from "./common.types";
 
 export type PaymentStatus = "completed" | "pending" | "failed" | "refunded";
 
-export interface Payment {
+export interface Payment extends OfflinePendingMetadata {
   id: string;
   tenantId: string; // Multi-tenant isolation
   paymentNumber: string; // e.g. "PAY-2026-001"
