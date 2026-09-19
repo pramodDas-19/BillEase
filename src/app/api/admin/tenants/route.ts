@@ -1,11 +1,12 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
+import { verifyAdminSession } from "@/lib/admin-auth";
 
 export async function GET(request: NextRequest) {
   try {
-    const adminCookie = request.cookies.get("billease_admin_session")?.value;
-    if (adminCookie !== "true") {
+    const auth = await verifyAdminSession(request);
+    if (!auth.valid) {
       return NextResponse.json({ error: "Unauthorized. Admin session required." }, { status: 401 });
     }
 
@@ -144,8 +145,8 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const adminCookie = request.cookies.get("billease_admin_session")?.value;
-    if (adminCookie !== "true") {
+    const auth = await verifyAdminSession(request);
+    if (!auth.valid) {
       return NextResponse.json({ error: "Unauthorized. Admin session required." }, { status: 401 });
     }
 
@@ -233,8 +234,8 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const adminCookie = request.cookies.get("billease_admin_session")?.value;
-    if (adminCookie !== "true") {
+    const auth = await verifyAdminSession(request);
+    if (!auth.valid) {
       return NextResponse.json({ error: "Unauthorized. Admin session required." }, { status: 401 });
     }
 

@@ -220,8 +220,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
       const isSuperAdmin =
         !isImpersonating &&
-        (email.toLowerCase() === "admin@billease.com" ||
-          (typeof window !== "undefined" && localStorage.getItem("billease_super_admin_session") === "true"));
+        email.toLowerCase() === "admin@billease.com";
 
       const loadedUser: User = {
         id: isImpersonating ? `user-${tenantId}` : (registeredInfo?.tenantId || "user-active"),

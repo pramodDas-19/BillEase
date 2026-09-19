@@ -55,19 +55,13 @@ export function Sidebar() {
 
   const isSuperAdmin =
     currentUser?.role === "super_admin" ||
-    currentUser?.email?.toLowerCase() === "admin@billease.com" ||
-    (typeof window !== "undefined" &&
-      (localStorage.getItem("billease_super_admin_session") === "true" ||
-        sessionStorage.getItem("billease_admin_session") === "true" ||
-        document.cookie.includes("billease_admin_session=true")));
+    currentUser?.email?.toLowerCase() === "admin@billease.com";
 
   const handleSignOut = async () => {
     setIsUserMenuOpen(false);
-    if (typeof window !== "undefined") {
-      document.cookie = "billease_admin_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-      localStorage.removeItem("billease_super_admin_session");
-      sessionStorage.removeItem("billease_admin_session");
-    }
+    try {
+      await fetch("/api/admin/auth/logout", { method: "POST" });
+    } catch (e) {}
     await AuthService.signOut();
     router.push("/login");
   };

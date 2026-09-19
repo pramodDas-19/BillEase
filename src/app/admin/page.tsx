@@ -94,8 +94,10 @@ function AdminConsoleContent() {
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPass, setAdminPass] = useState("");
+  const [totpCode, setTotpCode] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [authError, setAuthError] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Suspended tenants tracker in state/storage
   const [suspendedTenantIds, setSuspendedTenantIds] = useState<string[]>([]);
@@ -151,66 +153,79 @@ function AdminConsoleContent() {
     }
   };
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const isAuthed =
-        sessionStorage.getItem("billease_admin_session") === "true" ||
-        localStorage.getItem("billease_super_admin_session") === "true" ||
-        document.cookie.includes("billease_admin_session=true");
-
-      setIsAuthenticated(isAuthed);
-      setIsAuthChecking(false);
-
-      if (isAuthed) {
-        document.cookie = "billease_admin_session=true; path=/; max-age=604800; SameSite=Lax";
-        loadTenants();
-
-        // Load persisted audit logs
-        try {
-          const rawLogs = localStorage.getItem("billease_admin_audit_logs");
-          if (rawLogs) {
-            setAuditLogs(JSON.parse(rawLogs));
-          } else {
-            const initialLog: AuditLogEntry = {
-              id: "log-init",
-              adminId: "Pramod",
-              action: "PLATFORM_INIT",
-              targetBusiness: "BillEase Platform",
-              targetTenantId: "system",
-              timestamp: new Date().toISOString(),
-              details: "Connected to live Supabase PostgreSQL database.",
-            };
-            setAuditLogs([initialLog]);
-            localStorage.setItem("billease_admin_audit_logs", JSON.stringify([initialLog]));
-          }
-        } catch (e) {}
-
-        // Load live platform config & active broadcast from Supabase
-        fetch("/api/admin/broadcast")
-          .then((r) => r.json())
-          .then((d) => {
-            if (d.broadcast) {
-              setActiveBroadcast(d.broadcast);
-            }
-            if (d.platformConfig) {
-              setPlatformConfig(d.platformConfig);
-            }
-          })
-          .catch((e) => console.warn("Could not fetch broadcast/config from Supabase:", e));
-
-        // Load suspended tenants
-        try {
-          const rawSuspended = localStorage.getItem("billease_suspended_tenants");
-          if (rawSuspended) setSuspendedTenantIds(JSON.parse(rawSuspended));
-        } catch (e) {}
+  const loadPlatformData = () => {
+    // Load persisted audit logs
+    try {
+      const rawLogs = localStorage.getItem("billease_admin_audit_logs");
+      if (rawLogs) {
+        setAuditLogs(JSON.parse(rawLogs));
+      } else {
+        const initialLog: AuditLogEntry = {
+          id: "log-init",
+          adminId: "Super-Admin",
+          action: "PLATFORM_INIT",
+          targetBusiness: "BillEase Platform",
+          targetTenantId: "system",
+          timestamp: new Date().toISOString(),
+          details: "Connected to live Supabase PostgreSQL database.",
+        };
+        setAuditLogs([initialLog]);
+        localStorage.setItem("billease_admin_audit_logs", JSON.stringify([initialLog]));
       }
-    }
+    } catch (e) {}
+
+    // Load live platform config & active broadcast from Supabase
+    fetch("/api/admin/broadcast")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.broadcast) {
+          setActiveBroadcast(d.broadcast);
+        }
+        if (d.platformConfig) {
+          setPlatformConfig(d.platformConfig);
+        }
+      })
+      .catch((e) => console.warn("Could not fetch broadcast/config from Supabase:", e));
+
+    // Load suspended tenants
+    try {
+      const rawSuspended = localStorage.getItem("billease_suspended_tenants");
+      if (rawSuspended) setSuspendedTenantIds(JSON.parse(rawSuspended));
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    let mounted = true;
+    const checkSession = async () => {
+      try {
+        const res = await fetch("/api/admin/auth/session");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.authenticated && mounted) {
+            setIsAuthenticated(true);
+            await loadTenants();
+            loadPlatformData();
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn("Admin session verification error:", e);
+      } finally {
+        if (mounted) setIsAuthChecking(false);
+      }
+    };
+
+    checkSession();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const addAuditLog = (action: string, tenantName: string, tenantId: string, details: string) => {
     const entry: AuditLogEntry = {
       id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      adminId: "Pramod",
+      adminId: "Super-Admin",
       action,
       targetBusiness: tenantName,
       targetTenantId: tenantId,
@@ -226,21 +241,36 @@ function AdminConsoleContent() {
     });
   };
 
-  const handleAdminLogin = (e: React.FormEvent) => {
+  const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError("");
-    const cleanEmail = adminEmail.trim().toLowerCase();
-    if ((cleanEmail === "admin@billease.com" || cleanEmail === "pramod") && adminPass === "123456789") {
-      if (typeof window !== "undefined") {
-        document.cookie = "billease_admin_session=true; path=/; max-age=604800; SameSite=Lax";
-        sessionStorage.setItem("billease_admin_session", "true");
-        localStorage.setItem("billease_super_admin_session", "true");
-        sessionStorage.removeItem("billease_is_impersonating");
+    setIsLoggingIn(true);
+
+    try {
+      const res = await fetch("/api/admin/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: adminEmail,
+          password: adminPass,
+          totp: totpCode,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setAuthError(data.error || "Authentication failed. Access restricted.");
+        return;
       }
+
       setIsAuthenticated(true);
-      loadTenants();
-    } else {
-      setAuthError("Invalid master credentials. Access restricted to platform owner.");
+      await loadTenants();
+      loadPlatformData();
+    } catch (err: any) {
+      setAuthError(err.message || "Failed to reach authentication server.");
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -293,7 +323,6 @@ function AdminConsoleContent() {
 
   const handleImpersonate = (tenant: Tenant) => {
     if (typeof window !== "undefined") {
-      document.cookie = "billease_admin_session=true; path=/; max-age=604800; SameSite=Lax";
       sessionStorage.setItem("billease_is_impersonating", "true");
       localStorage.setItem("billease_is_impersonating", "true");
       sessionStorage.setItem("billease_impersonating_tenant_name", tenant.businessName);
@@ -627,12 +656,43 @@ function AdminConsoleContent() {
               </div>
             </div>
 
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-300 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+                  <span>Authenticator 2FA Code</span>
+                </span>
+                <span className="text-[10px] text-slate-400">6 digits from Authenticator</span>
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                required
+                maxLength={6}
+                value={totpCode}
+                onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ""))}
+                placeholder="000000"
+                className="w-full h-11 px-3.5 rounded-xl bg-slate-950 border border-slate-700/80 text-center font-mono text-base tracking-widest text-emerald-400 font-bold placeholder:text-slate-600 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+              />
+            </div>
+
             <button
               type="submit"
-              className="w-full mt-2 h-11 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-md transition-all active:scale-98 cursor-pointer flex items-center justify-center gap-2"
+              disabled={isLoggingIn}
+              className="w-full mt-2 h-11 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm shadow-md transition-all active:scale-98 cursor-pointer flex items-center justify-center gap-2"
             >
-              <Lock className="h-4 w-4" />
-              <span>Unlock Admin Console</span>
+              {isLoggingIn ? (
+                <>
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  <span>Verifying Credentials & 2FA...</span>
+                </>
+              ) : (
+                <>
+                  <Lock className="h-4 w-4" />
+                  <span>Unlock Admin Console</span>
+                </>
+              )}
             </button>
           </form>
 

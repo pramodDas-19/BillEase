@@ -24,13 +24,14 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const currentTab = searchParams.get("tab") || "tenants";
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
-  const handleAdminLogout = () => {
+  const handleAdminLogout = async () => {
+    try {
+      await fetch("/api/admin/auth/logout", { method: "POST" });
+    } catch (e) {}
+
     if (typeof window !== "undefined") {
-      document.cookie = "billease_admin_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-      sessionStorage.removeItem("billease_admin_session");
       sessionStorage.removeItem("billease_is_impersonating");
-      localStorage.removeItem("billease_super_admin_session");
-      window.location.href = "/login";
+      window.location.href = "/admin";
     }
   };
 

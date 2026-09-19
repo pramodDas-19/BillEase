@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { verifyAdminSession } from "@/lib/admin-auth";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -26,15 +27,18 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 3. Fast cookie inspection to avoid blocking cloud roundtrips
+  // 3. Cryptographically verify Super-Admin session token
+  const adminAuth = await verifyAdminSession(request);
+  const hasAdminSession = adminAuth.valid;
+
+  // 4. Fast Supabase auth cookie inspection
   const allCookies = request.cookies.getAll();
   const hasAuthCookie = allCookies.some(
     (c) => c.name.startsWith("sb-") && c.name.includes("-auth-token")
   );
-  const hasAdminCookie = request.cookies.get("billease_admin_session")?.value === "true";
 
   // If user has neither an admin session nor a Supabase auth cookie, they are definitively unauthenticated
-  if (!hasAuthCookie && !hasAdminCookie) {
+  if (!hasAuthCookie && !hasAdminSession) {
     const isProtectedPath =
       pathname.startsWith("/dashboard") ||
       pathname.startsWith("/clients") ||
@@ -43,8 +47,7 @@ export async function middleware(request: NextRequest) {
       pathname.startsWith("/invoices") ||
       pathname.startsWith("/payments") ||
       pathname.startsWith("/reports") ||
-      pathname.startsWith("/settings") ||
-      pathname.startsWith("/admin");
+      pathname.startsWith("/settings");
 
     if (isProtectedPath) {
       const loginUrl = new URL("/login", request.url);
@@ -56,6 +59,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
 
+    // Allow /admin to load so unauthenticated users can access the Super-Admin 2FA login form
     return NextResponse.next();
   }
 
@@ -93,16 +97,12 @@ export async function middleware(request: NextRequest) {
     user = data?.user || null;
   }
 
-  const isAuthenticated = !!user || hasAdminCookie;
+  const isAuthenticated = !!user || hasAdminSession;
 
-
-
-  // Admin routes protection
+  // Admin routes: allow /admin to render login form or console, redirect subpaths to /admin if unauthenticated
   const isAdminPath = pathname.startsWith("/admin");
-  if (isAdminPath && !hasAdminCookie) {
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("redirectTo", pathname);
-    return NextResponse.redirect(loginUrl);
+  if (isAdminPath && pathname !== "/admin" && !hasAdminSession) {
+    return NextResponse.redirect(new URL("/admin", request.url));
   }
 
   // Protected application routes
@@ -133,7 +133,7 @@ export async function middleware(request: NextRequest) {
 
   // B. If already authenticated and trying to visit login/signup
   if (isAuthPage && isAuthenticated) {
-    if (hasAdminCookie) {
+    if (hasAdminSession) {
       return NextResponse.redirect(new URL("/admin", request.url));
     }
     return NextResponse.redirect(new URL("/dashboard", request.url));
@@ -141,7 +141,7 @@ export async function middleware(request: NextRequest) {
 
   // C. Root redirect: "/" -> "/admin" if admin, "/dashboard" if authenticated, else "/login"
   if (pathname === "/") {
-    if (hasAdminCookie) {
+    if (hasAdminSession) {
       return NextResponse.redirect(new URL("/admin", request.url));
     }
     if (isAuthenticated) {
