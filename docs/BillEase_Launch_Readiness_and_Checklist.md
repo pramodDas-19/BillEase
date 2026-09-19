@@ -21,10 +21,17 @@ This document serves as the master launch checklist and operational playbook for
 - [x] **Authentication & Access Control**:
   - [x] Verify email/password login and signup flows with Supabase Auth.
   - [x] Route protection enforced via `src/middleware.ts` for all `/dashboard`, `/clients`, `/invoices`, `/quotations`, `/payments`, `/reports`, `/settings` routes.
-  - [x] Admin console guarded by session cookie and super-admin validation.
+  - [x] **Super-Admin Zero-Trust Cryptographic Authentication & 2FA** *(Hardened & Verified)*:
+    - [x] **Complete elimination of forgeable client-side cookies**: Replaced `billease_admin_session=true` and `localStorage`/`sessionStorage` flags with server-verified cryptographic JWT (`billease_admin_token`).
+    - [x] **12-Hour Signed JWT**: Generated with `jose` (HS256) and delivered via `HttpOnly; SameSite=Strict; Secure; Path=/` cookie.
+    - [x] **Mandatory RFC 6238 TOTP 2FA**: Validated with `otplib` including a `[-30s, +30s]` clock-drift tolerance window.
+    - [x] **Salted Bcrypt Password Hashing**: Server-side comparison with robust string normalization (`s.split("\\$").join("$")` and `cleanEnv`) ensuring seamless support across `.env.local` and Vercel Dashboard.
+    - [x] **Brute-Force Rate Limiting**: Max 5 failed attempts per 15 minutes per IP address.
+    - [x] **Structured Security Audit Logging**: Timestamped logging of `LOGIN_SUCCESS`, `LOGIN_FAILED`, `SESSION_VERIFICATION_FAILED`, and `LOGOUT` events with client IP.
+    - [x] **Centralized Server Verification**: `verifyAdminSession(request)` enforced at the top of `src/middleware.ts` and all `/api/admin/*` routes (`tenants`, `impersonate`, `broadcast`, `export`).
 - [x] **Environment Variable & Secrets Hygiene**:
   - [x] Confirmed `.env*.local` and `.env` are strictly excluded in `.gitignore`.
-  - [x] `.env.example` documents all required production keys (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`).
+  - [x] `.env.example` documents all required production keys (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH`, `ADMIN_TOTP_SECRET`, `ADMIN_SESSION_SECRET`).
 
 ---
 
@@ -89,14 +96,18 @@ This document serves as the master launch checklist and operational playbook for
   - [x] Executed `npm run build` locally: **0 errors, 49/49 pages & APIs compiled cleanly**.
   - [x] Executed `vitest run`: **9/9 test files, 79/79 tests passing**.
 - [ ] **Hosting & CDN Configuration (Final Step)**:
-  - [ ] Connect production repository branch to hosting platform (Vercel).
+  - [x] Connected production repository branch to hosting platform (Vercel).
   - [ ] Configure custom production domain (e.g., `app.billease.in` or Vercel production URL).
-  - [ ] Configure production environment variables in Vercel project settings:
+  - [x] Configure production environment variables in Vercel project settings:
     - `NEXT_PUBLIC_SUPABASE_URL`
     - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
     - `SUPABASE_SERVICE_ROLE_KEY`
     - `NEXT_PUBLIC_VAPID_PUBLIC_KEY`
     - `VAPID_PRIVATE_KEY`
+    - `ADMIN_EMAIL`
+    - `ADMIN_PASSWORD_HASH`
+    - `ADMIN_TOTP_SECRET`
+    - `ADMIN_SESSION_SECRET`
 - [ ] **Database Connection Pooling**:
   - [ ] Ensure Supabase Transaction Pooler (port 6543) is used for serverless connection stability.
 
@@ -105,15 +116,45 @@ This document serves as the master launch checklist and operational playbook for
 ## 7. Launch Execution Countdown Summary
 
 ### Architecture, Quality & Security Lock
-- [x] Full automated test suite passes (79 tests across GST, templates, UPI, offline queue, notifications, trial lifecycle, onboarding, WhatsApp).
-- [x] Next.js production bundle build successfully compiles with zero TypeScript / lint warnings.
-- [x] Row Level Security (RLS) policies audited and verified across all 11 database tables.
+- [x] Full automated test suite passes: **87/87 tests across all 11 test suites** (GST, templates, UPI, offline queue, notifications, trial lifecycle, onboarding, WhatsApp, admin security).
+- [x] Next.js production bundle build successfully compiles with zero TypeScript (`npx tsc --noEmit` code: 0).
+- [x] Row Level Security (RLS) policies audited and verified across all database tables.
+- [x] Super-Admin security locked down with server-verified JWT and mandatory RFC 6238 TOTP 2FA.
 - [x] WhatsApp direct messaging and Indian phone normalization verified.
 
-### Remaining Deployment Steps for Go-Live 🚀
-1. Push latest commits to GitHub repository.
-2. Link project to Vercel (or preferred host) and set production environment variables.
-3. Apply Supabase migrations (`supabase/schema.sql`, `supabase/rls_policies.sql`, `supabase/migrations/20260915_notifications_and_web_push.sql`) on your production database.
-4. Run a live smoke test invoice on production domain.
-5. Open registration & celebrate launch!
+---
+
+## 8. Tomorrow's Pre-Launch Final Execution Action Plan 🚀
+
+This is the focused sprint roadmap to complete before the official public launch:
+
+### 1. 📱 Mobile View & Responsiveness (Top Priority)
+- [ ] **Viewport & Layouts**: Audit mobile screen viewports (360px - 430px) across iOS Safari & Android Chrome.
+- [ ] **Forms & Inputs**: Ensure quotation/invoice creation inputs, numeric fields, and sticky action buttons don't clip, jitter, or trigger auto-zoom.
+- [ ] **Tables to Cards**: Transform wide desktop tables into tactile mobile cards on small screens.
+- [ ] **Navigation & Drawers**: Ensure sidebar slide-out drawer, bottom nav, and modals feel snappy and touch-friendly.
+
+### 2. 🧾 Document Templates Perfection
+- [ ] **1-to-1 Live Preview Fidelity**: Verify that on-screen Live Preview matches the actual Print / PDF dialog output (`Ctrl + P`).
+- [ ] **Template Switching**: Confirm all 15 formats (A4, A5, Thermal POS) render taxes, HSN/SAC, bank details, and UPI QR cleanly without overlap.
+- [ ] **Print Margins**: Clean page breaks and margins for multi-page bills.
+
+### 3. 🔔 Notification System Polish
+- [ ] **In-App Notification Bell**: Real-time unread count badge, marking read, and deduplication.
+- [ ] **WhatsApp & Email Triggers**: Instant dispatch on invoice generation, quote acceptance, and payment recording.
+- [ ] **Subscription & Trial Alerts**: Grace period and expiration countdown banners.
+
+### 4. 💎 Pricing Page & Upgrade Journey
+- [ ] **Plan Presentation**: Clean, high-converting tier breakdown (7-Day Trial, Pro Monthly ₹1,499, Pro Annual).
+- [ ] **Feature Matrix**: Visual comparison (GST compliance, DPDP Act readiness, unlimited bills, multi-device).
+- [ ] **Razorpay Checkout Flow**: End-to-end subscription upgrade verification.
+
+### 5. 🔄 Complete End-to-End Flow Smoke Test
+- [ ] **Step 1**: New user registration & business onboarding setup.
+- [ ] **Step 2**: Add Client & Catalog Service item.
+- [ ] **Step 3**: Generate Quotation & test WhatsApp share.
+- [ ] **Step 4**: Convert Quotation to Invoice.
+- [ ] **Step 5**: Record Payment (UPI / Cash / Bank) & verify balance zeroing.
+- [ ] **Step 6**: Super-Admin panel inspection & audit trail verification.
+
 
