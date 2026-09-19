@@ -38,9 +38,10 @@ export async function POST(request: NextRequest) {
     const password = body.password || "";
     const totpCode = (body.totp || body.totpCode || "").toString().trim();
 
-    const expectedEmail = (process.env.ADMIN_EMAIL || "").trim().toLowerCase();
-    const passwordHash = process.env.ADMIN_PASSWORD_HASH || "";
-    const totpSecret = process.env.ADMIN_TOTP_SECRET || "";
+    const expectedEmail = (process.env.ADMIN_EMAIL || "").trim().toLowerCase().replace(/^['"]|['"]$/g, "");
+    const rawHash = (process.env.ADMIN_PASSWORD_HASH || "").trim().replace(/^['"]|['"]$/g, "");
+    const passwordHash = rawHash.replace(/\\$/g, "$");
+    const totpSecret = (process.env.ADMIN_TOTP_SECRET || "").trim().replace(/^['"]|['"]$/g, "").replace(/\s+/g, "");
 
     if (!expectedEmail || !passwordHash || !totpSecret) {
       logAdminAudit("SERVER_MISCONFIGURATION", {
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }
 
-    // 4. Validate TOTP 2FA code (RFC 6238)
+    // 4. Validate TOTP 2FA code (RFC 6238 with clock-drift window)
     if (!totpCode || !/^\d{6}$/.test(totpCode)) {
       recordAdminFailedAttempt(ip);
       logAdminAudit("LOGIN_FAILED", { ip, email, reason: "Missing or malformed 2FA TOTP code" });
@@ -78,12 +79,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const totpResult = verifySync({
-      token: totpCode,
-      secret: totpSecret,
-    });
+    const nowSec = Math.floor(Date.now() / 1000);
+    let isTotpValid = false;
+    for (const offset of [0, -30, 30]) {
+      const res = verifySync({
+        token: totpCode,
+        secret: totpSecret,
+        epoch: nowSec + offset,
+      });
+      if (res && res.valid) {
+        isTotpValid = true;
+        break;
+      }
+    }
 
-    if (!totpResult || !totpResult.valid) {
+    if (!isTotpValid) {
       recordAdminFailedAttempt(ip);
       logAdminAudit("LOGIN_FAILED", { ip, email, reason: "Invalid 2FA TOTP code" });
       return NextResponse.json(
