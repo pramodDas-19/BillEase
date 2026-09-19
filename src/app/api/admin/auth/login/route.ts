@@ -38,10 +38,22 @@ export async function POST(request: NextRequest) {
     const password = body.password || "";
     const totpCode = (body.totp || body.totpCode || "").toString().trim();
 
-    const expectedEmail = (process.env.ADMIN_EMAIL || "").trim().toLowerCase().replace(/^['"]|['"]$/g, "");
-    const rawHash = (process.env.ADMIN_PASSWORD_HASH || "").trim().replace(/^['"]|['"]$/g, "");
-    const passwordHash = rawHash.replace(/\\$/g, "$");
-    const totpSecret = (process.env.ADMIN_TOTP_SECRET || "").trim().replace(/^['"]|['"]$/g, "").replace(/\s+/g, "");
+    function cleanEnv(val: string | undefined): string {
+      if (!val) return "";
+      let s = val.trim();
+      if (s.includes("=")) s = s.split("=").slice(1).join("=");
+      return s.replace(/^['"]|['"]$/g, "").trim();
+    }
+
+    function cleanHash(val: string | undefined): string {
+      const s = cleanEnv(val);
+      // Unescape any backslashes before dollar signs (e.g. from .env.local escaping)
+      return s.split("\\$").join("$");
+    }
+
+    const expectedEmail = cleanEnv(process.env.ADMIN_EMAIL).toLowerCase();
+    const passwordHash = cleanHash(process.env.ADMIN_PASSWORD_HASH);
+    const totpSecret = cleanEnv(process.env.ADMIN_TOTP_SECRET).replace(/\s+/g, "");
 
     if (!expectedEmail || !passwordHash || !totpSecret) {
       logAdminAudit("SERVER_MISCONFIGURATION", {

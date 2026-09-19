@@ -13,7 +13,9 @@ export const ADMIN_COOKIE_OPTIONS = {
 };
 
 function getSecretKey(): Uint8Array {
-  const secret = process.env.ADMIN_SESSION_SECRET;
+  let secret = (process.env.ADMIN_SESSION_SECRET || "").trim();
+  if (secret.includes("=")) secret = secret.split("=").slice(1).join("=");
+  secret = secret.replace(/^['"]|['"]$/g, "").trim();
   if (!secret) {
     throw new Error("ADMIN_SESSION_SECRET is not configured in environment variables");
   }
