@@ -128,7 +128,11 @@ This document serves as the master launch checklist and operational playbook for
 - [x] **Clients & Directory Verification**:
   - [x] **Phone Normalization**: Applied `formatWhatsAppPhoneNumber` across both Grid and Table views so 10-digit Indian numbers open WhatsApp without error.
   - [x] **Overdue 1-Click Reminder**: Added direct `BellRing` reminder button on Grid view cards for clients with unpaid balances.
-  - [x] **Complete Client Ledger Profile (`/clients/[id]`)**: Full financial metrics (Total Billed, Total Paid, Balance Due), Invoices & Quotations segmented tabs, direct Call/WhatsApp actions, and inline profile editing.
+- [x] **Services & Catalog Verification**:
+  - [x] **Rule 1 Compliance**: Replaced hardcoded niche category styles with dynamic `getCategoryInfo` supporting all business models (Services, Products/Goods, Consulting, Tech, Retail, Maintenance, Creative, etc.).
+  - [x] **Standard Business Categories**: Provided curated standard categories in `/services/new` and `ServiceEditDialog` alongside custom categories.
+  - [x] **Mobile Pricing Strip & Filter Pills**: Responsive touch-scrolling filter tabs and flex-wrapping price blocks.
+  - [x] **Builder Integration**: Verified 1-click `+ Quote` and `+ Invoice` pre-filling selected item, unit, rate, and tax rate.
 - [x] Row Level Security (RLS) policies audited and verified across all database tables.
 - [x] Super-Admin security locked down with server-verified JWT and mandatory RFC 6238 TOTP 2FA.
 - [x] WhatsApp direct messaging and Indian phone normalization verified.
