@@ -33,7 +33,7 @@ import { useTenant } from "@/hooks/use-tenant";
 export default function ReportsPage() {
   const { currentTenant } = useTenant();
   const [viewTab, setViewTab] = useState<"analytics" | "gst">("analytics");
-  const [timeframe, setTimeframe] = useState<"month" | "quarter" | "year">("month");
+  const [timeframe, setTimeframe] = useState<"month" | "quarter" | "year" | "all">("all");
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -41,6 +41,8 @@ export default function ReportsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const exportRef = React.useRef<HTMLDivElement>(null);
+
+  const currency = currentTenant?.settings?.defaultCurrency || "INR";
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -52,7 +54,6 @@ export default function ReportsPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-
   useEffect(() => {
     async function loadData() {
       try {
@@ -62,10 +63,11 @@ export default function ReportsPage() {
           ClientService.getClients(),
           PaymentService.getPayments(),
         ]);
-        setInvoices(invs || []);
-        setQuotations(quotes || []);
-        setClients(cls || []);
-        setPayments(pays || []);
+        const tenantId = currentTenant?.id;
+        setInvoices(tenantId ? (invs || []).filter((i) => !i.tenantId || i.tenantId === tenantId) : (invs || []));
+        setQuotations(tenantId ? (quotes || []).filter((q) => !q.tenantId || q.tenantId === tenantId) : (quotes || []));
+        setClients(tenantId ? (cls || []).filter((c) => !c.tenantId || c.tenantId === tenantId) : (cls || []));
+        setPayments(tenantId ? (pays || []).filter((p) => !p.tenantId || p.tenantId === tenantId) : (pays || []));
       } catch (err) {
         console.error("Failed to load reports data:", err);
       } finally {
@@ -73,20 +75,110 @@ export default function ReportsPage() {
       }
     }
     loadData();
-  }, []);
+
+    const handleSync = () => {
+      loadData();
+    };
+    window.addEventListener("billease:data-synced", handleSync);
+    window.addEventListener("billease:queue-updated", handleSync);
+    return () => {
+      window.removeEventListener("billease:data-synced", handleSync);
+      window.removeEventListener("billease:queue-updated", handleSync);
+    };
+  }, [currentTenant?.id]);
+
+  // Dynamic timeframe filter for invoices
+  const filteredInvoices = useMemo(() => {
+    if (timeframe === "all") return invoices;
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    return invoices.filter((inv) => {
+      const dateStr = inv.issueDate || inv.createdAt;
+      if (!dateStr) return true;
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return true;
+
+      if (timeframe === "month") {
+        return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+      }
+      if (timeframe === "quarter") {
+        const currentQ =
+          currentMonth >= 3 && currentMonth <= 5
+            ? 1
+            : currentMonth >= 6 && currentMonth <= 8
+            ? 2
+            : currentMonth >= 9 && currentMonth <= 11
+            ? 3
+            : 4;
+        const m = d.getMonth();
+        const itemQ =
+          m >= 3 && m <= 5 ? 1 : m >= 6 && m <= 8 ? 2 : m >= 9 && m <= 11 ? 3 : 4;
+        return itemQ === currentQ;
+      }
+      if (timeframe === "year") {
+        const fyStartYear = currentMonth >= 3 ? currentYear : currentYear - 1;
+        const fyStart = new Date(fyStartYear, 3, 1);
+        const fyEnd = new Date(fyStartYear + 1, 2, 31, 23, 59, 59);
+        return d >= fyStart && d <= fyEnd;
+      }
+      return true;
+    });
+  }, [invoices, timeframe]);
+
+  // Dynamic timeframe filter for quotations
+  const filteredQuotations = useMemo(() => {
+    if (timeframe === "all") return quotations;
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    return quotations.filter((q) => {
+      const dateStr = q.date || q.createdAt;
+      if (!dateStr) return true;
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return true;
+
+      if (timeframe === "month") {
+        return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+      }
+      if (timeframe === "quarter") {
+        const currentQ =
+          currentMonth >= 3 && currentMonth <= 5
+            ? 1
+            : currentMonth >= 6 && currentMonth <= 8
+            ? 2
+            : currentMonth >= 9 && currentMonth <= 11
+            ? 3
+            : 4;
+        const m = d.getMonth();
+        const itemQ =
+          m >= 3 && m <= 5 ? 1 : m >= 6 && m <= 8 ? 2 : m >= 9 && m <= 11 ? 3 : 4;
+        return itemQ === currentQ;
+      }
+      if (timeframe === "year") {
+        const fyStartYear = currentMonth >= 3 ? currentYear : currentYear - 1;
+        const fyStart = new Date(fyStartYear, 3, 1);
+        const fyEnd = new Date(fyStartYear + 1, 2, 31, 23, 59, 59);
+        return d >= fyStart && d <= fyEnd;
+      }
+      return true;
+    });
+  }, [quotations, timeframe]);
 
   // 1. Calculate Real Quotation Win Rate
-  const totalQuotations = quotations.length;
-  const acceptedQuotations = quotations.filter(
+  const totalQuotations = filteredQuotations.length;
+  const acceptedQuotations = filteredQuotations.filter(
     (q) => q.status === "accepted" || q.status === "converted"
   ).length;
   const winRatePercentage =
     totalQuotations > 0 ? ((acceptedQuotations / totalQuotations) * 100).toFixed(1) : "0.0";
 
   // 2. Calculate Real Collection Rate
-  const totalInvoiced = invoices.reduce((sum, i) => sum + (i.totalAmount || 0), 0);
-  const totalCollected = invoices.reduce((sum, i) => sum + (i.paidAmount || 0), 0);
-  const totalOutstanding = invoices.reduce((sum, i) => sum + (i.balanceDue || 0), 0);
+  const totalInvoiced = filteredInvoices.reduce((sum, i) => sum + (i.totalAmount || 0), 0);
+  const totalCollected = filteredInvoices.reduce((sum, i) => sum + (i.paidAmount || 0), 0);
+  const totalOutstanding = filteredInvoices.reduce((sum, i) => sum + (i.balanceDue || 0), 0);
   const collectionRatePercentage =
     totalInvoiced > 0 ? ((totalCollected / totalInvoiced) * 100).toFixed(1) : "100.0";
 
@@ -95,7 +187,7 @@ export default function ReportsPage() {
     const itemMap: Record<string, number> = {};
     let totalItemsRevenue = 0;
 
-    invoices.forEach((inv) => {
+    filteredInvoices.forEach((inv) => {
       (inv.items || []).forEach((item) => {
         const desc = item.description || "General Services";
         itemMap[desc] = (itemMap[desc] || 0) + (item.amount || 0);
@@ -113,7 +205,7 @@ export default function ReportsPage() {
       percentage: totalItemsRevenue > 0 ? Math.round((amount / totalItemsRevenue) * 100) : 0,
       color: colors[index % colors.length],
     }));
-  }, [invoices]);
+  }, [filteredInvoices]);
 
   const topService =
     serviceDistribution.length > 0 ? serviceDistribution[0] : null;
@@ -232,7 +324,7 @@ export default function ReportsPage() {
 
         {/* Print-Only Report Summary Badge */}
         <div className="hidden print:flex items-center gap-3 text-xs font-bold text-slate-700 bg-slate-100 px-3.5 py-2 rounded-xl border border-slate-300">
-          <span>Period: {timeframe === "month" ? "This Month" : timeframe === "quarter" ? "This Quarter" : "FY 2026-27"}</span>
+          <span>Period: {timeframe === "month" ? "This Month" : timeframe === "quarter" ? "This Quarter" : timeframe === "year" ? "FY 2026-27" : "All Time"}</span>
           <span className="text-slate-400">•</span>
           <span>Date: {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
         </div>
@@ -241,6 +333,17 @@ export default function ReportsPage() {
         <div className="flex items-center gap-2.5 flex-wrap print:hidden">
 
           <div className="flex items-center rounded-xl bg-slate-100 p-1 border border-slate-200/60 shadow-inner">
+            <button
+              onClick={() => setTimeframe("all")}
+              className={cn(
+                "px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer",
+                timeframe === "all"
+                  ? "clay-pill-active text-slate-900"
+                  : "text-slate-500 hover:text-slate-900"
+              )}
+            >
+              All Time
+            </button>
             <button
               onClick={() => setTimeframe("month")}
               className={cn(
@@ -389,7 +492,7 @@ export default function ReportsPage() {
               {collectionRatePercentage}%
             </h3>
             <p className="text-[11px] text-emerald-700 font-bold mt-1">
-              {formatCurrency(totalCollected, "INR")} collected of {formatCurrency(totalInvoiced, "INR")}
+              {formatCurrency(totalCollected, currency)} collected of {formatCurrency(totalInvoiced, currency)}
             </p>
           </div>
         </div>
@@ -406,7 +509,7 @@ export default function ReportsPage() {
           </div>
           <div className="mt-3">
             <h3 className="text-2xl sm:text-[28px] font-extrabold text-amber-800">
-              {formatCurrency(totalOutstanding, "INR")}
+              {formatCurrency(totalOutstanding, currency)}
             </h3>
             <p className="text-[11px] text-amber-700 font-bold mt-1">
               {invoices.filter((i) => i.balanceDue > 0).length} bills pending settlement
@@ -476,10 +579,10 @@ export default function ReportsPage() {
                     <span className="text-slate-800">{row.month}</span>
                     <div className="flex items-center gap-3 text-xs">
                       <span className="text-slate-400 font-semibold">
-                        Billed: {formatCurrency(row.invoiced, "INR")}
+                        Billed: {formatCurrency(row.invoiced, currency)}
                       </span>
                       <span className="text-emerald-700 font-extrabold">
-                        Collected: {formatCurrency(row.collected, "INR")} ({row.percentage}%)
+                        Collected: {formatCurrency(row.collected, currency)} ({row.percentage}%)
                       </span>
                     </div>
                   </div>
@@ -533,7 +636,7 @@ export default function ReportsPage() {
                     />
                   </div>
                   <p className="text-[11px] text-slate-400 font-medium text-right">
-                    {formatCurrency(cat.amount, "INR")}
+                    {formatCurrency(cat.amount, currency)}
                   </p>
                 </div>
               ))}
@@ -596,11 +699,11 @@ export default function ReportsPage() {
                       {client.name}
                     </td>
                     <td className="py-3.5 px-4 text-right font-extrabold text-slate-900 text-sm">
-                      {formatCurrency(client.totalBilled || 0, "INR")}
+                      {formatCurrency(client.totalBilled || 0, currency)}
                     </td>
                     <td className="py-3.5 px-4 text-right font-extrabold text-sm">
                       <span className={(client.balanceDue || 0) > 0 ? "text-amber-700" : "text-emerald-700"}>
-                        {(client.balanceDue || 0) > 0 ? formatCurrency(client.balanceDue || 0, "INR") : "Settled"}
+                        {(client.balanceDue || 0) > 0 ? formatCurrency(client.balanceDue || 0, currency) : "Settled"}
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-center">
