@@ -1,4 +1,4 @@
-import * as XLSX from "xlsx";
+import type { WorkBook } from "xlsx";
 import { ServiceItem } from "@/types";
 
 export interface ParsedCatalogItem {
@@ -35,10 +35,13 @@ function findMatchingHeader(headers: string[], regex: RegExp): string | null {
 }
 
 /**
-/**
  * Parses a loaded XLSX WorkBook object into validated catalog items
  */
-export function parseCatalogWorkbook(workbook: XLSX.WorkBook, fileName: string = "catalog.xlsx"): CatalogImportResult {
+export function parseCatalogWorkbook(
+  workbook: WorkBook,
+  fileName: string = "catalog.xlsx",
+  xlsxLib?: any
+): CatalogImportResult {
   try {
     if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
       return {
@@ -53,8 +56,26 @@ export function parseCatalogWorkbook(workbook: XLSX.WorkBook, fileName: string =
     const firstSheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[firstSheetName];
 
+    // Resolve XLSX utils dynamically or from passed module
+    const xlsx =
+      xlsxLib ||
+      (typeof window === "undefined"
+        ? // eslint-disable-next-line @typescript-eslint/no-require-imports
+          require("xlsx")
+        : null);
+
+    if (!xlsx?.utils?.sheet_to_json) {
+      return {
+        validItems: [],
+        invalidItems: [],
+        totalRows: 0,
+        fileName,
+        error: "Spreadsheet parser could not be initialized.",
+      };
+    }
+
     // Convert sheet to JSON rows as objects with headers
-    const rawRows: Record<string, any>[] = XLSX.utils.sheet_to_json(worksheet, {
+    const rawRows: Record<string, any>[] = xlsx.utils.sheet_to_json(worksheet, {
       defval: "",
       raw: false,
     });
@@ -208,10 +229,18 @@ export function parseCatalogWorkbook(workbook: XLSX.WorkBook, fileName: string =
 /**
  * Parses a binary ArrayBuffer or Uint8Array representing an Excel or CSV file
  */
-export function parseCatalogBuffer(buffer: ArrayBuffer | Uint8Array, fileName: string = "catalog.xlsx"): CatalogImportResult {
+export async function parseCatalogBuffer(
+  buffer: ArrayBuffer | Uint8Array,
+  fileName: string = "catalog.xlsx"
+): Promise<CatalogImportResult> {
   try {
+    const XLSX =
+      typeof window === "undefined"
+        ? // eslint-disable-next-line @typescript-eslint/no-require-imports
+          require("xlsx")
+        : await import("xlsx");
     const workbook = XLSX.read(buffer, { type: "array" });
-    return parseCatalogWorkbook(workbook, fileName);
+    return parseCatalogWorkbook(workbook, fileName, XLSX);
   } catch (err: any) {
     console.error("parseCatalogBuffer error:", err);
     return {
@@ -230,7 +259,7 @@ export function parseCatalogBuffer(buffer: ArrayBuffer | Uint8Array, fileName: s
 export async function parseCatalogSpreadsheet(file: File): Promise<CatalogImportResult> {
   try {
     const arrayBuffer = await file.arrayBuffer();
-    return parseCatalogBuffer(arrayBuffer, file.name);
+    return await parseCatalogBuffer(arrayBuffer, file.name);
   } catch (err: any) {
     console.error("parseCatalogSpreadsheet error:", err);
     return {
@@ -246,7 +275,8 @@ export async function parseCatalogSpreadsheet(file: File): Promise<CatalogImport
 /**
  * Generates and downloads a clean starter sample Excel template
  */
-export function downloadSampleCatalogExcel() {
+export async function downloadSampleCatalogExcel() {
+  const XLSX = await import("xlsx");
   const sampleData = [
     {
       "Item Name": "Laptop Stand Aluminum",
@@ -296,3 +326,4 @@ export function downloadSampleCatalogExcel() {
   // Trigger browser download
   XLSX.writeFile(workbook, "BillEase_Catalog_Import_Template.xlsx");
 }
+

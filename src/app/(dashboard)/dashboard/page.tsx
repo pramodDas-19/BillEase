@@ -8,7 +8,12 @@ import {
   RecentQuotationsCard,
   RecentInvoicesCard,
 } from "@/components/dashboard";
-import { WelcomeModal } from "@/components/onboarding/welcome-modal";
+import dynamic from "next/dynamic";
+
+const WelcomeModal = dynamic(
+  () => import("@/components/onboarding/welcome-modal").then((mod) => mod.WelcomeModal),
+  { ssr: false }
+);
 
 export default function DashboardPage() {
   return (

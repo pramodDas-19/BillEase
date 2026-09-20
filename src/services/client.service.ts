@@ -3,13 +3,15 @@ import { Client } from "@/types";
 import { AuthService } from "./auth.service";
 import { isNetworkError } from "@/lib/network-detector";
 import { enqueueMutation, getPendingMutations } from "@/lib/offline-queue";
+import { DataCache } from "@/lib/data-cache";
 
 export const ClientService = {
-  // Fetch all clients for active tenant from Supabase
+  // Fetch all clients for active tenant from Supabase (cached & deduplicated)
   async getClients(): Promise<Client[]> {
-    try {
-      const tenantId = await AuthService.getActiveTenantId();
-      let data: any[] | null = null;
+    const tenantId = await AuthService.getActiveTenantId();
+    return DataCache.fetch(`clients:${tenantId}`, async () => {
+      try {
+        let data: any[] | null = null;
 
       const isImpersonating =
         typeof window !== "undefined" &&
@@ -97,6 +99,7 @@ export const ClientService = {
       console.error("ClientService.getClients error:", err);
       return [];
     }
+    });
   },
 
   // Get a single client by ID
@@ -189,6 +192,8 @@ export const ClientService = {
         console.error("Supabase insert client error:", error);
         return null;
       }
+
+      DataCache.invalidate("clients");
 
       return {
         id: data.id,
@@ -305,6 +310,9 @@ export const ClientService = {
         return null;
       }
 
+      DataCache.invalidate("clients");
+      DataCache.invalidate(`client:${id}`);
+
       return {
         id: data.id,
         tenantId: data.tenant_id,
@@ -357,6 +365,8 @@ export const ClientService = {
         console.error("Supabase delete client error:", error);
         return false;
       }
+      DataCache.invalidate("clients");
+      DataCache.invalidate(`client:${id}`);
       return true;
     } catch (err) {
       console.error("ClientService.deleteClient error:", err);

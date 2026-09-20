@@ -6,6 +6,7 @@ import { getSafeSequentialInvoiceNumber } from "@/lib/numbering-safety";
 import { calculateDocumentTotals } from "@/lib/calculation";
 import { isNetworkError } from "@/lib/network-detector";
 import { enqueueMutation, getPendingMutations } from "@/lib/offline-queue";
+import { DataCache } from "@/lib/data-cache";
 
 function parseInvoiceItemRow(item: any): InvoiceLineItem {
   const rawNotes = item.detailed_notes || "";
@@ -76,11 +77,12 @@ function serializeInvoiceItemRow(item: InvoiceLineItem, invoiceId: string, idx: 
 }
 
 export const InvoiceService = {
-  // Fetch all invoices with line items for active tenant from Supabase
+  // Fetch all invoices with line items for active tenant from Supabase (deduplicated & cached)
   async getInvoices(): Promise<Invoice[]> {
-    try {
-      const tenantId = await AuthService.getActiveTenantId();
-      let data: any[] | null = null;
+    const tenantId = await AuthService.getActiveTenantId();
+    return DataCache.fetch(`invoices:${tenantId}`, async () => {
+      try {
+        let data: any[] | null = null;
 
       const isImpersonating =
         typeof window !== "undefined" &&
@@ -277,7 +279,8 @@ export const InvoiceService = {
       }
       return [];
     }
-  },
+  }, 8000);
+},
 
   // Fetch single invoice by ID
   async getInvoiceById(id: string): Promise<Invoice | null> {
@@ -379,6 +382,10 @@ export const InvoiceService = {
         })
         .eq("id", id);
 
+      if (!error) {
+        DataCache.invalidate("invoices");
+        DataCache.invalidate(`invoice:${id}`);
+      }
       return !error;
     } catch (err) {
       return false;
@@ -510,6 +517,7 @@ export const InvoiceService = {
         console.warn("[InvoiceService] Notification dispatch warning:", notifErr);
       }
 
+      DataCache.invalidate("invoices");
       return {
         ...invoice,
         id: invoiceId,
@@ -640,6 +648,8 @@ export const InvoiceService = {
         }
       }
 
+      DataCache.invalidate("invoices");
+      DataCache.invalidate(`invoice:${id}`);
       return {
         ...invoice,
         id,
@@ -657,6 +667,8 @@ export const InvoiceService = {
             payload: { id, invPayload: invoice, itemRows: [] },
             displayTitle: `Invoice #${invoice.invoiceNumber || id}`,
           });
+          DataCache.invalidate("invoices");
+          DataCache.invalidate(`invoice:${id}`);
           return {
             ...invoice,
             id,
@@ -679,6 +691,8 @@ export const InvoiceService = {
         console.error("Supabase delete invoice error:", error);
         return false;
       }
+      DataCache.invalidate("invoices");
+      DataCache.invalidate(`invoice:${id}`);
       return true;
     } catch (err) {
       console.error("InvoiceService.deleteInvoice error:", err);

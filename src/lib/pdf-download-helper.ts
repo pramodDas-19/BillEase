@@ -1,6 +1,3 @@
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
-
 export interface PdfExportOptions {
   filename?: string;
   orientation?: "portrait" | "landscape";
@@ -19,6 +16,14 @@ export async function downloadElementAsPdf(
   try {
     const orientation = options?.orientation || "portrait";
     const format = options?.format || "a4";
+
+    // Lazy load heavy PDF generation libraries on-demand
+    const [html2canvasModule, jsPdfModule] = await Promise.all([
+      import("html2canvas"),
+      import("jspdf"),
+    ]);
+    const html2canvas = html2canvasModule.default || html2canvasModule;
+    const jsPDF = jsPdfModule.default || jsPdfModule;
 
     // 1. Capture element canvas at 2x resolution for crisp text & borders
     const canvas = await html2canvas(element, {

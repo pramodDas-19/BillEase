@@ -5,8 +5,16 @@ import Link from "next/link";
 import { CatalogService } from "@/services/service.service";
 import { ServiceItem } from "@/types";
 import { formatCurrency, cn } from "@/lib/utils";
-import { ServiceEditDialog } from "@/components/services/service-edit-dialog";
-import { CatalogImportModal } from "@/components/services/catalog-import-modal";
+import dynamic from "next/dynamic";
+
+const ServiceEditDialog = dynamic(
+  () => import("@/components/services/service-edit-dialog").then((mod) => mod.ServiceEditDialog),
+  { ssr: false }
+);
+const CatalogImportModal = dynamic(
+  () => import("@/components/services/catalog-import-modal").then((mod) => mod.CatalogImportModal),
+  { ssr: false }
+);
 import {
   Package,
   Plus,

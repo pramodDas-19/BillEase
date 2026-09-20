@@ -2,8 +2,10 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  poweredByHeader: false,
+  compress: true,
   experimental: {
-    // Keep Next.js optimized for fast modular builds
+    optimizePackageImports: ["lucide-react", "qrcode", "clsx", "tailwind-merge"],
   },
 };
 

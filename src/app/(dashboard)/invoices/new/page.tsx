@@ -35,7 +35,12 @@ import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import { UnsavedChangesDialog } from "@/components/ui/unsaved-changes-dialog";
 import { useTrial } from "@/hooks/use-trial";
 import { RoutePaywallBlocker } from "@/components/layout/route-paywall-blocker";
-import { FirstInvoiceSuccess } from "@/components/invoices/first-invoice-success";
+import dynamic from "next/dynamic";
+
+const FirstInvoiceSuccess = dynamic(
+  () => import("@/components/invoices/first-invoice-success").then((mod) => mod.FirstInvoiceSuccess),
+  { ssr: false }
+);
 
 const GST_STATE_CODES: Record<string, string> = {
   "01": "Jammu & Kashmir",

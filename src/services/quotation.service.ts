@@ -5,6 +5,7 @@ import { getSafeSequentialQuotationNumber } from "@/lib/numbering-safety";
 import { calculateDocumentTotals } from "@/lib/calculation";
 import { isNetworkError } from "@/lib/network-detector";
 import { enqueueMutation, getPendingMutations } from "@/lib/offline-queue";
+import { DataCache } from "@/lib/data-cache";
 
 function parseQuotationItemRow(item: any): QuotationLineItem {
   const rawNotes = item.detailed_notes || "";
@@ -75,11 +76,12 @@ function serializeQuotationItemRow(item: QuotationLineItem, quoteId: string, idx
 }
 
 export const QuotationService = {
-  // Fetch all quotations for active tenant from Supabase
+  // Fetch all quotations for active tenant from Supabase (cached & deduplicated)
   async getQuotations(): Promise<Quotation[]> {
-    try {
-      const tenantId = await AuthService.getActiveTenantId();
-      let data: any[] | null = null;
+    const tenantId = await AuthService.getActiveTenantId();
+    return DataCache.fetch(`quotations:${tenantId}`, async () => {
+      try {
+        let data: any[] | null = null;
 
       const isImpersonating =
         typeof window !== "undefined" &&
@@ -285,6 +287,7 @@ export const QuotationService = {
       }
       return [];
     }
+    });
   },
 
   // Get a single quotation by ID
@@ -420,6 +423,9 @@ export const QuotationService = {
         return false;
       }
 
+      DataCache.invalidate("quotations");
+      DataCache.invalidate(`quotation:${id}`);
+
       // Dispatch notification for quotation status changes (converted/accepted)
       if (status === "converted" || status === "accepted") {
         try {
@@ -542,6 +548,8 @@ export const QuotationService = {
       } catch (notifErr) {
         console.warn("[QuotationService] Notification dispatch warning:", notifErr);
       }
+
+      DataCache.invalidate("quotations");
 
       return {
         ...quotation,
@@ -675,6 +683,9 @@ export const QuotationService = {
         }
       }
 
+      DataCache.invalidate("quotations");
+      DataCache.invalidate(`quotation:${id}`);
+
       return {
         ...quotation,
         id,
@@ -714,6 +725,8 @@ export const QuotationService = {
         console.error("Supabase delete quotation error:", error);
         return false;
       }
+      DataCache.invalidate("quotations");
+      DataCache.invalidate(`quotation:${id}`);
       return true;
     } catch (err) {
       console.error("QuotationService.deleteQuotation error:", err);

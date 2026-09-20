@@ -3,6 +3,7 @@ import { Payment } from "@/types";
 import { AuthService } from "./auth.service";
 import { isNetworkError } from "@/lib/network-detector";
 import { enqueueMutation, getPendingMutations } from "@/lib/offline-queue";
+import { DataCache } from "@/lib/data-cache";
 
 const getLocalPayments = (tenantId?: string): Payment[] => {
   if (typeof window === "undefined") return [];
@@ -49,19 +50,18 @@ const saveLocalPayments = (tenantId: string, payments: Payment[]) => {
 };
 
 export const PaymentService = {
-  // Fetch all payment receipts for active tenant from Supabase & localStorage fallback
+  // Fetch all payment receipts for active tenant from Supabase & localStorage fallback (cached & deduplicated)
   async getPayments(): Promise<Payment[]> {
-    let remotePayments: Payment[] = [];
-    const isImpersonating =
-      typeof window !== "undefined" &&
-      (sessionStorage.getItem("billease_is_impersonating") === "true" ||
-        localStorage.getItem("billease_is_impersonating") === "true");
+    const tenantId = await AuthService.getActiveTenantId();
+    return DataCache.fetch(`payments:${tenantId}`, async () => {
+      let remotePayments: Payment[] = [];
+      const isImpersonating =
+        typeof window !== "undefined" &&
+        (sessionStorage.getItem("billease_is_impersonating") === "true" ||
+          localStorage.getItem("billease_is_impersonating") === "true");
 
-    let tenantId = "";
-    try {
-      tenantId = await AuthService.getActiveTenantId();
-
-      if (isImpersonating) {
+      try {
+        if (isImpersonating) {
         try {
           const res = await fetch(`/api/admin/impersonate?tenantId=${tenantId}&type=payments`);
           if (res.ok) {
@@ -201,6 +201,7 @@ export const PaymentService = {
     }
 
     return tenantId ? resultList.filter((p) => p.tenantId === tenantId) : resultList;
+    });
   },
 
   // Create payment alias
@@ -237,6 +238,8 @@ export const PaymentService = {
       // Always persist to tenant-scoped localStorage for instant client responsiveness
       const existingLocal = getLocalPayments(tenantId);
       saveLocalPayments(tenantId, [newPayment, ...existingLocal.filter((p) => p.id !== paymentId)]);
+      DataCache.invalidate("payments");
+      DataCache.invalidate("invoices");
 
       // 1. Prepare payment record payload
       const payload = {
@@ -369,6 +372,8 @@ export const PaymentService = {
       const tenantId = await AuthService.getActiveTenantId();
       const existingLocal = getLocalPayments(tenantId);
       saveLocalPayments(tenantId, existingLocal.filter((p) => p.id !== id));
+      DataCache.invalidate("payments");
+      DataCache.invalidate("invoices");
 
       await supabase.from("payments").delete().eq("id", id).eq("tenant_id", tenantId);
       return true;
