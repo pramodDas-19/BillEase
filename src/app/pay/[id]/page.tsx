@@ -180,26 +180,27 @@ export default function ClientPayPortalPage({
         : Math.round(totalAmount * 0.5))
     : balanceDue;
   const upiId = bankDetails?.upiId || "payments@upi";
+  const payeeName = bankDetails?.accountName || businessName;
 
   // Universal UPI Intent URI
   const upiUri = generateUpiIntentUrl({
     upiId,
-    businessName,
+    businessName: payeeName,
     amount: payableAmount,
     transactionRef: invoiceNumber,
     note: isQuotation ? `Advance for Quote #${invoiceNumber}` : `Invoice #${invoiceNumber}`,
   });
 
   const gpayUri = `gpay://upi/pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(
-    businessName
+    payeeName
   )}&am=${payableAmount}&tr=${encodeURIComponent(invoiceNumber)}&cu=INR`;
 
   const phonepeUri = `phonepe://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(
-    businessName
+    payeeName
   )}&am=${payableAmount}&tr=${encodeURIComponent(invoiceNumber)}&cu=INR`;
 
   const paytmUri = `paytmmp://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(
-    businessName
+    payeeName
   )}&am=${payableAmount}&tr=${encodeURIComponent(invoiceNumber)}&cu=INR`;
 
   return (

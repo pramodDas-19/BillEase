@@ -132,7 +132,7 @@ export function normalizeDocument(
 
   const upiUri = generateUpiIntentUrl({
     upiId: bankDetails.upiId || "business@upi",
-    businessName: tenant?.businessName || "Business",
+    businessName: bankDetails.accountName || tenant?.businessName || "Business",
     amount: balanceDue > 0 ? balanceDue : doc.totalAmount,
     transactionRef: documentNumber,
     note: `${documentTitle} ${documentNumber}`,

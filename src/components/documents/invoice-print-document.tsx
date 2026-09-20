@@ -44,7 +44,7 @@ export function InvoicePrintDocument({ invoice, tenant }: InvoicePrintDocumentPr
   // Generate dynamic QR code URL with invoice balance embedded
   const upiUri = generateUpiIntentUrl({
     upiId: upiId || "business@upi",
-    businessName: tenant?.businessName || "Business",
+    businessName: bankDetails.accountName || tenant?.businessName || "Business",
     amount: invoice.balanceDue > 0 ? invoice.balanceDue : invoice.totalAmount,
     transactionRef: invoice.invoiceNumber,
     note: `Invoice ${invoice.invoiceNumber}`,

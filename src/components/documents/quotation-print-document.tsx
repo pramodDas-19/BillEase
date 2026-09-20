@@ -46,7 +46,7 @@ export function QuotationPrintDocument({ quotation, tenant }: QuotationPrintDocu
   // Generate dynamic QR code URL for quotation advance payment
   const upiUri = generateUpiIntentUrl({
     upiId: upiId || "business@upi",
-    businessName: tenant?.businessName || "Business",
+    businessName: bankDetails.accountName || tenant?.businessName || "Business",
     amount: payableAmount,
     transactionRef: quotation.quotationNumber,
     note: quotation.advanceAmount !== undefined && quotation.advanceAmount > 0

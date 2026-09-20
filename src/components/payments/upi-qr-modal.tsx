@@ -30,14 +30,17 @@ export function UpiQrModal({
 
   if (!isOpen) return null;
 
-  const activeBusinessName =
-    businessName || currentTenant?.businessName || "Business Studio";
+  const activePayeeName =
+    currentTenant?.bankDetails?.accountName ||
+    businessName ||
+    currentTenant?.businessName ||
+    "Business";
   const activeUpiId =
     upiId || currentTenant?.bankDetails?.upiId || "business@upi";
 
   const upiIntentUrl = generateUpiIntentUrl({
     upiId: activeUpiId,
-    businessName: activeBusinessName,
+    businessName: activePayeeName,
     amount: balanceDue,
     transactionRef: invoiceNumber,
     note: `Invoice ${invoiceNumber}`,
