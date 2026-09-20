@@ -116,8 +116,15 @@ This document serves as the master launch checklist and operational playbook for
 ## 7. Launch Execution Countdown Summary
 
 ### Architecture, Quality & Security Lock
-- [x] Full automated test suite passes: **87/87 tests across all 11 test suites** (GST, templates, UPI, offline queue, notifications, trial lifecycle, onboarding, WhatsApp, admin security).
+- [x] Full automated test suite passes: **89/89 tests across all 11 test suites** (GST, templates, UPI, offline queue, notifications, trial lifecycle, onboarding, WhatsApp, dashboard summary & ISO dates, admin security).
 - [x] Next.js production bundle build successfully compiles with zero TypeScript (`npx tsc --noEmit` code: 0).
+- [x] **Dashboard Integrity & Verification**:
+  - [x] **Revenue Overview Graph**: Calendar date aggregation across 7D, 30D, 3M, 6M, 1Y with zero-activity empty state & create invoice CTA.
+  - [x] **Due Date Filtering**: ISO timestamp parsing (`dueDate.split("T")[0] <= today`) in both Dashboard Header and Payment Attention Radar.
+  - [x] **Responsive Layouts**: Added `xs: 480px` screen breakpoint to `tailwind.config.ts` for all mobile views.
+  - [x] **Rule 1 Compliance**: Removed all niche assumptions (e.g. "events or printing") to support any business model.
+  - [x] **Cancelled Transaction Filtering**: Cancelled invoices and failed/refunded payments excluded from active summaries.
+  - [x] **Phone Fallback**: Graceful navigation to invoice preview when client phone number is missing.
 - [x] Row Level Security (RLS) policies audited and verified across all database tables.
 - [x] Super-Admin security locked down with server-verified JWT and mandatory RFC 6238 TOTP 2FA.
 - [x] WhatsApp direct messaging and Indian phone normalization verified.
