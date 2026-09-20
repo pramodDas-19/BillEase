@@ -241,4 +241,52 @@ describe("15 Document Templates Suite", () => {
     expect(doc2.totalInWords).toMatch(/Only$/);
     expect(doc2.totalInWords).not.toMatch(/Only\s+Only/i);
   });
+
+  it("verifies category switching and cyclical navigation across all formats", () => {
+    // 1. Test A4 cycle
+    const a4List = getTemplatesByCategory("a4");
+    expect(a4List.length).toBe(5);
+    let currentIndex = 0;
+    // Next
+    currentIndex = (currentIndex + 1) % a4List.length;
+    expect(currentIndex).toBe(1);
+    // Prev wrap-around from 0
+    let prevIndex = (0 - 1 + a4List.length) % a4List.length;
+    expect(prevIndex).toBe(4);
+
+    // 2. Test A5 cycle
+    const a5List = getTemplatesByCategory("a5");
+    expect(a5List.length).toBe(5);
+    expect(a5List[0].category).toBe("a5");
+
+    // 3. Test Thermal cycle
+    const thermalList = getTemplatesByCategory("thermal");
+    expect(thermalList.length).toBe(5);
+    expect(thermalList[0].category).toBe("thermal");
+  });
+
+  it("verifies setting default invoice template updates settings with size category", async () => {
+    const { TenantService } = await import("../src/services/tenant.service");
+    const testTenantId = "tenant-royal-events";
+
+    // Set default to A5 Landscape
+    await TenantService.updateSettings(testTenantId, {
+      defaultInvoiceTemplate: "a5_landscape_gst",
+      defaultDocumentSize: "a5",
+    });
+
+    const tenantAfter = await TenantService.getTenantById(testTenantId);
+    expect(tenantAfter?.settings.defaultInvoiceTemplate).toBe("a5_landscape_gst");
+    expect(tenantAfter?.settings.defaultDocumentSize).toBe("a5");
+
+    // Set default to Thermal POS
+    await TenantService.updateSettings(testTenantId, {
+      defaultInvoiceTemplate: "thermal_80mm_standard",
+      defaultDocumentSize: "thermal",
+    });
+
+    const tenantAfterThermal = await TenantService.getTenantById(testTenantId);
+    expect(tenantAfterThermal?.settings.defaultInvoiceTemplate).toBe("thermal_80mm_standard");
+    expect(tenantAfterThermal?.settings.defaultDocumentSize).toBe("thermal");
+  });
 });

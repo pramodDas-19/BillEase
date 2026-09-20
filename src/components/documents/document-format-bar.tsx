@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   DocumentSizeCategory,
   DOCUMENT_TEMPLATES,
@@ -9,6 +9,7 @@ import {
 } from "@/config/document-templates";
 import { FileText, Printer, Check, Star, Sparkles, Layout } from "lucide-react";
 import { TenantService } from "@/services/tenant.service";
+import { useTenant } from "@/hooks/use-tenant";
 
 interface DocumentFormatBarProps {
   currentTemplateId: string;
@@ -17,6 +18,8 @@ interface DocumentFormatBarProps {
   tenantId?: string;
   defaultTemplateId?: string;
   onSavedAsDefault?: () => void;
+  onSaveDefault?: (templateId: string, category: DocumentSizeCategory) => Promise<void>;
+  hideCardsOnMobile?: boolean;
 }
 
 export function DocumentFormatBar({
@@ -26,7 +29,10 @@ export function DocumentFormatBar({
   tenantId,
   defaultTemplateId,
   onSavedAsDefault,
+  onSaveDefault,
+  hideCardsOnMobile = true,
 }: DocumentFormatBarProps) {
+  const { updateTenantSettings } = useTenant();
   const currentMeta = getTemplateById(currentTemplateId);
   const [activeCategory, setActiveCategory] = useState<DocumentSizeCategory>(
     currentMeta.category || "a4"
@@ -34,17 +40,33 @@ export function DocumentFormatBar({
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
+  // Synchronize category tabs whenever currentTemplateId changes externally (e.g., via < or > arrows)
+  useEffect(() => {
+    if (currentMeta?.category && currentMeta.category !== activeCategory) {
+      setActiveCategory(currentMeta.category);
+    }
+  }, [currentMeta?.category, activeCategory]);
+
   const categoryTemplates = getTemplatesByCategory(activeCategory);
 
   const handleSetDefault = async () => {
-    if (!tenantId) return;
     setIsSaving(true);
     try {
-      const field = documentType === "invoice" ? "defaultInvoiceTemplate" : "defaultQuotationTemplate";
-      await TenantService.updateSettings(tenantId, {
-        [field]: currentTemplateId,
-        defaultDocumentSize: activeCategory,
-      });
+      if (onSaveDefault) {
+        await onSaveDefault(currentTemplateId, activeCategory);
+      } else {
+        const field = documentType === "invoice" ? "defaultInvoiceTemplate" : "defaultQuotationTemplate";
+        await updateTenantSettings({
+          [field]: currentTemplateId,
+          defaultDocumentSize: activeCategory,
+        });
+        if (tenantId) {
+          await TenantService.updateSettings(tenantId, {
+            [field]: currentTemplateId,
+            defaultDocumentSize: activeCategory,
+          });
+        }
+      }
       setSavedSuccess(true);
       if (onSavedAsDefault) onSavedAsDefault();
       setTimeout(() => setSavedSuccess(false), 2500);
@@ -57,7 +79,7 @@ export function DocumentFormatBar({
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-sm space-y-4 print:hidden">
-      {/* 1. Category Switcher Tabs (Matches Reference App) */}
+      {/* 1. Category Switcher Tabs (Matches Reference App Image 5) */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
         <div>
           <h2 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
@@ -69,8 +91,8 @@ export function DocumentFormatBar({
           </p>
         </div>
 
-        {/* 3 Size Tabs */}
-        <div className="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200 self-start sm:self-auto">
+        {/* 3 Size Tabs matching Image 5 */}
+        <div className="inline-flex flex-wrap gap-1.5 p-1 bg-slate-100/90 rounded-2xl border border-slate-200 self-start sm:self-auto">
           <button
             type="button"
             onClick={() => {
@@ -80,14 +102,14 @@ export function DocumentFormatBar({
                 onSelectTemplate(a4Templates[0].id);
               }
             }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
               activeCategory === "a4"
-                ? "bg-white text-indigo-700 shadow-xs border border-slate-200"
+                ? "bg-white text-indigo-700 shadow-xs border border-indigo-200 ring-1 ring-indigo-500/20"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
             <FileText className="h-3.5 w-3.5" />
-            <span>A4 Size (5)</span>
+            <span>A4 Size</span>
           </button>
 
           <button
@@ -99,14 +121,14 @@ export function DocumentFormatBar({
                 onSelectTemplate(a5Templates[0].id);
               }
             }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
               activeCategory === "a5"
-                ? "bg-white text-indigo-700 shadow-xs border border-slate-200"
+                ? "bg-white text-indigo-700 shadow-xs border border-indigo-200 ring-1 ring-indigo-500/20"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
             <FileText className="h-3.5 w-3.5" />
-            <span>A5 Size (5)</span>
+            <span>A5 Size</span>
           </button>
 
           <button
@@ -118,20 +140,20 @@ export function DocumentFormatBar({
                 onSelectTemplate(thermalTemplates[0].id);
               }
             }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
               activeCategory === "thermal"
-                ? "bg-white text-indigo-700 shadow-xs border border-slate-200"
+                ? "bg-white text-indigo-700 shadow-xs border border-indigo-200 ring-1 ring-indigo-500/20"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
             <Printer className="h-3.5 w-3.5" />
-            <span>Thermal Roll (5)</span>
+            <span>Thermal Printer Size</span>
           </button>
         </div>
       </div>
 
-      {/* 2. Horizontal Cards Carousel / Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2.5">
+      {/* 2. Desktop Grid Cards (Hidden on mobile to match Image 5 clean layout) */}
+      <div className={`${hideCardsOnMobile ? "hidden sm:grid" : "grid"} grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2.5`}>
         {categoryTemplates.map((tmpl) => {
           const isSelected = tmpl.id === currentTemplateId;
           const isCurrentDefault = tmpl.id === defaultTemplateId;
@@ -188,7 +210,7 @@ export function DocumentFormatBar({
       </div>
 
       {/* 3. Action Footer: Save as Default for this Tenant */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100 text-xs">
+      <div className="hidden sm:flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100 text-xs">
         <div className="flex items-center gap-2">
           <span className="text-[11px] text-slate-500">Active Format:</span>
           <span className="font-bold text-indigo-900 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200">
@@ -196,32 +218,35 @@ export function DocumentFormatBar({
           </span>
         </div>
 
-        {tenantId && (
-          <button
-            type="button"
-            disabled={isSaving || currentTemplateId === defaultTemplateId}
-            onClick={handleSetDefault}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              savedSuccess
-                ? "bg-emerald-600 text-white"
-                : currentTemplateId === defaultTemplateId
-                ? "bg-slate-100 text-slate-400 cursor-default"
-                : "clay-btn-secondary text-slate-700 hover:text-slate-900"
-            }`}
-          >
-            {savedSuccess ? (
-              <>
-                <Check className="h-3.5 w-3.5" />
-                <span>Saved as Default Format</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                <span>Set as Business Default</span>
-              </>
-            )}
-          </button>
-        )}
+        <button
+          type="button"
+          disabled={isSaving || currentTemplateId === defaultTemplateId}
+          onClick={handleSetDefault}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            savedSuccess
+              ? "bg-emerald-600 text-white shadow-xs"
+              : currentTemplateId === defaultTemplateId
+              ? "bg-slate-100 text-slate-400 cursor-default"
+              : "clay-btn-secondary text-slate-700 hover:text-slate-900"
+          }`}
+        >
+          {savedSuccess ? (
+            <>
+              <Check className="h-3.5 w-3.5" />
+              <span>Saved as Default Format</span>
+            </>
+          ) : currentTemplateId === defaultTemplateId ? (
+            <>
+              <Check className="h-3.5 w-3.5 text-emerald-600" />
+              <span>Current Default Format</span>
+            </>
+          ) : (
+            <>
+              <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+              <span>Set as Business Default</span>
+            </>
+          )}
+        </button>
       </div>
     </div>
   );
