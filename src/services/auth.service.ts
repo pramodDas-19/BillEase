@@ -49,10 +49,22 @@ export class AuthService {
         }
       }
 
+      // Fast check from local Supabase session cache (0ms)
+      const { data: sessionData } = await supabase.auth.getSession();
+      const sessionUser = sessionData?.session?.user;
+      const sessionTenantId =
+        sessionUser?.app_metadata?.tenant_id || sessionUser?.user_metadata?.tenant_id;
+      if (sessionTenantId) {
+        if (typeof window !== "undefined") {
+          localStorage.setItem("billease_active_tenant_id", sessionTenantId);
+        }
+        return sessionTenantId;
+      }
+
       const authUserPromise = supabase.auth.getUser();
       const res: any = await Promise.race([
         authUserPromise,
-        new Promise((resolve) => setTimeout(() => resolve({ data: { user: null } }), 1200)),
+        new Promise((resolve) => setTimeout(() => resolve({ data: { user: null } }), 3500)),
       ]);
 
       const user = res?.data?.user;

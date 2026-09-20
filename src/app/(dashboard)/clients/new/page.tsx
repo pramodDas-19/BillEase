@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ClientService } from "@/services/client.service";
+import { useTenant } from "@/hooks/use-tenant";
 import { cn } from "@/lib/utils";
 
 import {
@@ -18,10 +19,12 @@ import {
   Tag,
   Plus,
   X,
+  AlertCircle,
 } from "lucide-react";
 
 export default function NewClientPage() {
   const router = useRouter();
+  const { currentTenant } = useTenant();
 
   // Form State
   const [name, setName] = useState("");
@@ -36,6 +39,7 @@ export default function NewClientPage() {
   const [customTagInput, setCustomTagInput] = useState("");
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorNotice, setErrorNotice] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadExistingTags() {
@@ -80,9 +84,11 @@ export default function NewClientPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setErrorNotice(null);
 
     try {
-      await ClientService.createClient({
+      const created = await ClientService.createClient({
+        tenantId: currentTenant?.id,
         name,
         companyName: companyName || undefined,
         phone,
@@ -95,9 +101,16 @@ export default function NewClientPage() {
         balanceDue: 0,
       });
 
+      if (!created) {
+        setErrorNotice("Could not save client to database. Please verify your connection and try again.");
+        setIsSubmitting(false);
+        return;
+      }
+
       router.push("/clients");
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to create client:", err);
+      setErrorNotice(err.message || "Failed to create client");
       setIsSubmitting(false);
     }
   };
@@ -123,6 +136,24 @@ export default function NewClientPage() {
           </div>
         </div>
       </div>
+
+      {/* Error Alert Banner */}
+      {errorNotice && (
+        <div className="rounded-2xl border border-rose-500/30 bg-rose-50 p-4 flex items-start gap-3 text-rose-800 text-xs font-semibold animate-in fade-in-50">
+          <AlertCircle className="h-5 w-5 text-rose-500 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="font-bold text-rose-900">Could not save client</p>
+            <p className="mt-0.5">{errorNotice}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setErrorNotice(null)}
+            className="text-rose-500 hover:text-rose-700 text-xs underline cursor-pointer"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Main Form Card */}
       <form onSubmit={handleSubmit} className="clay-card p-6 sm:p-8 space-y-6">

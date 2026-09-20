@@ -137,7 +137,7 @@ export const ClientService = {
   // Create a new client in Supabase
   async createClient(client: Partial<Client>): Promise<Client | null> {
     try {
-      const tenantId = await AuthService.getActiveTenantId();
+      const tenantId = client.tenantId || (await AuthService.getActiveTenantId());
       const clientId = client.id || `client-${Date.now()}`;
       const payload = {
         id: clientId,

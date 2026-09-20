@@ -77,7 +77,7 @@ export default function ClientsPage() {
         });
 
         const scopedClients = currentTenant?.id
-          ? enrichedClients.filter((c) => c.tenantId === currentTenant.id)
+          ? enrichedClients.filter((c) => !c.tenantId || c.tenantId === currentTenant.id)
           : enrichedClients;
         setClientsList(scopedClients);
       } catch (err) {
