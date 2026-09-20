@@ -599,7 +599,7 @@ export default function PricingPage() {
             Ready to Take Control of Your Billing?
           </h2>
           <p className="text-xs sm:text-sm text-emerald-100 max-w-md mx-auto font-medium">
-            Join thousands of event planners, agencies, and businesses across India. Start your 7-day free trial in 60 seconds.
+            Join thousands of service providers, agencies, freelancers, consultants, contractors, retail shops, and SMBs across India. Start your 7-day free trial in 60 seconds.
           </p>
           <div className="pt-2">
             <Link
