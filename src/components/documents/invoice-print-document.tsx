@@ -53,7 +53,17 @@ export function InvoicePrintDocument({ invoice, tenant }: InvoicePrintDocumentPr
   const qrImageUrl = getUpiQrImageUrl(upiUri, 220);
 
   return (
-    <div className="mx-auto max-w-4xl bg-white p-4 sm:p-8 text-slate-900 shadow-sm print:p-0 print:shadow-none print:max-w-none text-xs">
+    <div className="mx-auto max-w-4xl bg-white p-4 sm:p-8 text-slate-900 shadow-sm print:p-0 print:shadow-none print:max-w-none text-xs relative overflow-hidden">
+      {/* Official Paid Stamp */}
+      {isFullyPaid && (
+        <div className="absolute top-4 right-60 sm:top-5 sm:right-68 md:right-76 z-20 pointer-events-none select-none print:top-4 print:right-60">
+          <img
+            src="/assets/logo/paid-stamp.png"
+            alt="Paid in Full Stamp"
+            className="w-32 sm:w-42 print:w-32 h-auto object-contain opacity-95 drop-shadow-xs"
+          />
+        </div>
+      )}
       {/* 1. Header */}
       <DocumentHeader
         tenant={tenant}
@@ -331,12 +341,13 @@ export function InvoicePrintDocument({ invoice, tenant }: InvoicePrintDocumentPr
             PAY ONLINE
           </p>
           {isFullyPaid ? (
-            <div className="flex flex-col items-center justify-center p-2 rounded-xl bg-emerald-50 border-2 border-dashed border-emerald-600 text-center min-w-[120px]">
-              <CheckCircle2 className="h-6 w-6 text-emerald-600 mb-0.5" />
-              <span className="text-[11px] font-black text-emerald-900 uppercase tracking-wider">
-                PAID IN FULL
-              </span>
-              <span className="text-[9px] font-bold text-emerald-700 uppercase tracking-tight">
+            <div className="flex flex-col items-center justify-center p-1 text-center min-w-[120px]">
+              <img
+                src="/assets/logo/paid-stamp.png"
+                alt="PAID Stamp"
+                className="h-16 w-auto object-contain drop-shadow-xs"
+              />
+              <span className="text-[9px] font-extrabold text-emerald-800 uppercase tracking-tight mt-0.5">
                 Receipt Settled
               </span>
             </div>

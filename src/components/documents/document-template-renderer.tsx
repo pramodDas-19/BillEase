@@ -2,6 +2,7 @@ import React from "react";
 import { Invoice, Quotation, Tenant } from "@/types";
 import { normalizeDocument } from "./templates/shared/template-adapter";
 import { getTemplateById } from "@/config/document-templates";
+import { cn } from "@/lib/utils";
 
 // 5 A4 Templates
 import { A4AdvancedGstTemplate } from "./templates/a4/a4-advanced-gst";
@@ -93,5 +94,28 @@ export function DocumentTemplateRenderer({
     }
   };
 
-  return <div className={wrapperClass}>{renderTemplateContent()}</div>;
+  return (
+    <div className={cn(wrapperClass, "relative overflow-hidden")}>
+      {/* Official Paid Rubber Stamp when invoice is settled */}
+      {type === "invoice" && normDoc.isFullyPaid && (
+        <div
+          className={cn(
+            "absolute pointer-events-none select-none z-30 transition-all",
+            meta.category === "thermal"
+              ? "top-8 right-2 w-20 opacity-90 print:w-16 print:top-6 print:right-2"
+              : meta.category === "a5"
+              ? "top-4 right-44 sm:top-5 sm:right-52 w-26 sm:w-34 opacity-95 print:w-26 print:top-4 print:right-44"
+              : "top-4 right-60 sm:top-5 sm:right-68 md:right-76 w-32 sm:w-42 opacity-95 print:w-32 print:top-4 print:right-60"
+          )}
+        >
+          <img
+            src="/assets/logo/paid-stamp.png"
+            alt="PAID Stamp"
+            className="w-full h-auto object-contain drop-shadow-xs"
+          />
+        </div>
+      )}
+      {renderTemplateContent()}
+    </div>
+  );
 }

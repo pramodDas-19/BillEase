@@ -100,6 +100,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     : "";
 
   const isOverdue = invoice.status === "overdue" || (invoice.balanceDue > 0 && new Date(invoice.dueDate).getTime() < Date.now());
+  const isPaid = (invoice.balanceDue ?? 0) <= 0 || invoice.status === "paid";
 
   const getMethodBadge = (method?: string) => {
     const m = (method || "other").toLowerCase();
@@ -192,11 +193,29 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             {formatCurrency(invoice.paidAmount, invoice.currency)}
           </p>
         </Card>
-        <Card className="clay-card p-5">
-          <p className="text-xs text-amber-700 font-bold uppercase tracking-wider">Balance Due</p>
-          <p className="text-2xl font-black text-amber-800 mt-1">
+        <Card className={cn("clay-card p-5 relative overflow-hidden transition-all", isPaid ? "bg-gradient-to-br from-emerald-50/60 via-white to-teal-50/40 border-emerald-200" : "")}>
+          <div className="flex items-center justify-between">
+            <p className={cn("text-xs font-bold uppercase tracking-wider", isPaid ? "text-emerald-700" : "text-amber-700")}>
+              {isPaid ? "Settlement Status" : "Balance Due"}
+            </p>
+            {isPaid && (
+              <span className="clay-tag text-[10px] font-black uppercase tracking-wider px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300">
+                Settled in Full
+              </span>
+            )}
+          </div>
+          <p className={cn("text-2xl font-black mt-1", isPaid ? "text-emerald-800" : "text-amber-800")}>
             {formatCurrency(invoice.balanceDue, invoice.currency)}
           </p>
+          {isPaid && (
+            <div className="absolute right-1 -bottom-2 pointer-events-none select-none opacity-85">
+              <img
+                src="/assets/logo/paid-stamp.png"
+                alt="Paid in Full Stamp"
+                className="h-16 w-auto object-contain drop-shadow-xs"
+              />
+            </div>
+          )}
         </Card>
       </div>
 

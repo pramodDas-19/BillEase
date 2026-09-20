@@ -427,7 +427,11 @@ export function A4ModernTemplate({ doc }: { doc: NormalizedDocument }) {
             </div>
           </div>
 
-          {qrImageUrl && (
+          {doc.isFullyPaid ? (
+            <div className="pt-2 border-t border-slate-100 flex items-center gap-2 text-emerald-800">
+              <span className="text-[10px] font-bold">✓ Invoice Settled in Full — No Payment Due</span>
+            </div>
+          ) : qrImageUrl ? (
             <div className="pt-2 border-t border-slate-100 flex items-center gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -440,7 +444,7 @@ export function A4ModernTemplate({ doc }: { doc: NormalizedDocument }) {
                 <p className="text-[9px] text-slate-500">Google Pay, PhonePe, Paytm, BHIM, Cred</p>
               </div>
             </div>
-          )}
+          ) : null}
         </div>
 
         {/* Right: Authorized Signature */}
