@@ -6,6 +6,7 @@ import { CatalogService } from "@/services/service.service";
 import { ServiceItem } from "@/types";
 import { formatCurrency, cn } from "@/lib/utils";
 import { ServiceEditDialog } from "@/components/services/service-edit-dialog";
+import { CatalogImportModal } from "@/components/services/catalog-import-modal";
 import {
   Package,
   Plus,
@@ -25,6 +26,7 @@ import {
   Code,
   Wrench,
   Layers,
+  FileSpreadsheet,
 } from "lucide-react";
 
 export default function ServicesPage() {
@@ -38,13 +40,17 @@ export default function ServicesPage() {
   const [editingService, setEditingService] = useState<ServiceItem | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
+  // Bulk Import state
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+
+  const loadData = async () => {
+    setIsLoading(true);
+    const data = await CatalogService.getServices();
+    setServicesList(data);
+    setIsLoading(false);
+  };
+
   useEffect(() => {
-    async function loadData() {
-      setIsLoading(true);
-      const data = await CatalogService.getServices();
-      setServicesList(data);
-      setIsLoading(false);
-    }
     loadData();
   }, []);
 
@@ -191,6 +197,14 @@ export default function ServicesPage() {
         </div>
 
         <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => setIsImportModalOpen(true)}
+            className="clay-btn-secondary inline-flex items-center gap-2 h-11 px-4 font-bold text-xs sm:text-sm rounded-2xl cursor-pointer bg-white text-slate-700 hover:text-emerald-700 hover:border-emerald-300 border border-slate-200 transition-all shadow-sm"
+          >
+            <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+            <span>Import Items</span>
+          </button>
           <Link href="/services/new">
             <button className="clay-btn-emerald inline-flex items-center gap-2 h-11 px-5 font-bold text-xs sm:text-sm rounded-2xl cursor-pointer">
               <Plus className="h-4 w-4" />
@@ -287,12 +301,22 @@ export default function ServicesPage() {
               : "Add your standard services and items with pre-set pricing for lightning-fast quotation and invoice creation."}
           </p>
           {!searchQuery && (
-            <Link href="/services/new" className="mt-5">
-              <button className="clay-btn-emerald inline-flex items-center gap-2 h-10 px-4 text-xs font-bold rounded-xl cursor-pointer">
-                <Plus className="h-4 w-4" />
-                <span>Create Your First Service</span>
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => setIsImportModalOpen(true)}
+                className="clay-btn-secondary inline-flex items-center gap-2 h-10 px-4 text-xs font-bold rounded-xl cursor-pointer bg-white text-slate-700 hover:text-emerald-700 border border-slate-200 shadow-sm"
+              >
+                <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+                <span>Import from Excel / CSV</span>
               </button>
-            </Link>
+              <Link href="/services/new">
+                <button className="clay-btn-emerald inline-flex items-center gap-2 h-10 px-4 text-xs font-bold rounded-xl cursor-pointer">
+                  <Plus className="h-4 w-4" />
+                  <span>Create Your First Service</span>
+                </button>
+              </Link>
+            </div>
           )}
         </div>
       ) : viewMode === "grid" ? (
@@ -524,6 +548,13 @@ export default function ServicesPage() {
         onClose={() => setIsEditDialogOpen(false)}
         service={editingService}
         onServiceUpdated={handleServiceUpdated}
+      />
+
+      {/* Bulk Catalog Import Modal */}
+      <CatalogImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onImportSuccess={() => loadData()}
       />
     </div>
   );

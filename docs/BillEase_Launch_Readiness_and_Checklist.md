@@ -50,6 +50,12 @@ This document serves as the master launch checklist and operational playbook for
   - [x] Company logo, GSTIN, signature, and bank details render cleanly in print dialog (`Ctrl + P`) and PDF preview.
 - [x] **Quotation to Invoice Conversion**:
   - [x] One-click conversion from accepted quotation into active invoice verified in `src/app/(dashboard)/invoices/new/page.tsx` (`fromQuoteId` query prefilling client, items, rates, taxes, and state detection).
+- [x] **Bulk Services & Product Catalog Excel/CSV Importer**:
+  - [x] 1-click import modal supporting `.xlsx`, `.xls`, and `.csv` files.
+  - [x] Smart Indian column header auto-detection (`Item Name`, `Particulars`, `Rate`, `MRP`, `Unit`, `HSN/SAC`, `GST %`, `Description`).
+  - [x] Built-in downloadable sample template (`BillEase_Catalog_Import_Template.xlsx`) with real-world examples for physical goods, consulting services, and retail.
+  - [x] Interactive validation preview modal with live error reporting before database commitment.
+  - [x] High-performance chunked batch insert (100 items/chunk) preserving multi-tenant isolation. *(Verified in `tests/catalog-import.test.ts`)*
 
 ---
 
@@ -94,7 +100,7 @@ This document serves as the master launch checklist and operational playbook for
 
 - [x] **Build Validation**:
   - [x] Executed `npm run build` locally: **0 errors, 49/49 pages & APIs compiled cleanly**.
-  - [x] Executed `vitest run`: **9/9 test files, 79/79 tests passing**.
+  - [x] Executed `vitest run`: **12/12 test files, 96/96 tests passing**.
 - [ ] **Hosting & CDN Configuration (Final Step)**:
   - [x] Connected production repository branch to hosting platform (Vercel).
   - [ ] Configure custom production domain (e.g., `app.billease.in` or Vercel production URL).

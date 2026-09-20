@@ -162,4 +162,62 @@ export const CatalogService = {
       return false;
     }
   },
+
+  // Batch insert multiple services into Supabase (up to 100 items per chunk)
+  async createBatchServices(
+    items: Partial<ServiceItem>[]
+  ): Promise<{ successCount: number; failedCount: number; error?: string }> {
+    try {
+      if (!items || items.length === 0) {
+        return { successCount: 0, failedCount: 0 };
+      }
+
+      const tenantId = await AuthService.getActiveTenantId();
+      if (!tenantId) {
+        return { successCount: 0, failedCount: items.length, error: "Authentication required" };
+      }
+
+      const rowsToInsert = items.map((item, idx) => {
+        const srvId = item.id || `srv-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`;
+        const parsedRate = item.rate !== undefined ? Number(item.rate) : 0;
+        const parsedGstRate = item.gstRate !== undefined ? Number(item.gstRate) : 0;
+
+        return {
+          id: srvId,
+          tenant_id: tenantId,
+          name: (item.name || "Item").trim(),
+          category: (item.category || "General").trim(),
+          description: item.description?.trim() || null,
+          rate: isNaN(parsedRate) || parsedRate < 0 ? 0 : parsedRate,
+          unit: item.unit?.trim() || "",
+          hsn_sac: item.hsnSac?.trim() || item.hsnSacCode?.trim() || null,
+          gst_rate: isNaN(parsedGstRate) || parsedGstRate < 0 ? 0 : parsedGstRate,
+          is_active: item.isActive ?? true,
+        };
+      });
+
+      // Insert in chunks of 100 to prevent payload limits
+      const CHUNK_SIZE = 100;
+      let totalInserted = 0;
+
+      for (let i = 0; i < rowsToInsert.length; i += CHUNK_SIZE) {
+        const chunk = rowsToInsert.slice(i, i + CHUNK_SIZE);
+        const { error } = await supabase.from("services").insert(chunk);
+        if (error) {
+          console.error("Batch insert chunk error:", error);
+          return {
+            successCount: totalInserted,
+            failedCount: rowsToInsert.length - totalInserted,
+            error: error.message,
+          };
+        }
+        totalInserted += chunk.length;
+      }
+
+      return { successCount: totalInserted, failedCount: 0 };
+    } catch (err: any) {
+      console.error("CatalogService.createBatchServices exception:", err);
+      return { successCount: 0, failedCount: items.length, error: err?.message || "Unknown error" };
+    }
+  },
 };
