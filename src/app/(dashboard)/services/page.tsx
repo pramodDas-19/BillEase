@@ -19,6 +19,12 @@ import {
   List,
   Trash2,
   Edit3,
+  Briefcase,
+  ShoppingBag,
+  Lightbulb,
+  Code,
+  Wrench,
+  Layers,
 } from "lucide-react";
 
 export default function ServicesPage() {
@@ -63,41 +69,77 @@ export default function ServicesPage() {
   // Metrics computation
   const totalServices = servicesList.length;
 
-  const categoryIcons: Record<string, React.ElementType> = {
-    event: Sparkles,
-    printing: Printer,
-    design: Palette,
-    custom: Package,
-  };
-
-  const categoryStyles: Record<
-    string,
-    { iconBg: string; text: string; tagBg: string; border: string }
-  > = {
-    event: {
-      iconBg: "bg-purple-50 text-purple-700 border-purple-200/80",
-      text: "text-purple-700",
-      tagBg: "bg-purple-50 text-purple-800 border-purple-200/80",
-      border: "border-purple-200",
-    },
-    printing: {
-      iconBg: "bg-blue-50 text-blue-700 border-blue-200/80",
-      text: "text-blue-700",
-      tagBg: "bg-blue-50 text-blue-800 border-blue-200/80",
-      border: "border-blue-200",
-    },
-    design: {
-      iconBg: "bg-pink-50 text-pink-700 border-pink-200/80",
-      text: "text-pink-700",
-      tagBg: "bg-pink-50 text-pink-800 border-pink-200/80",
-      border: "border-pink-200",
-    },
-    custom: {
+  // Category resolution supporting all business types (Rule 1)
+  const getCategoryInfo = (categoryName?: string) => {
+    const cat = (categoryName || "general").toLowerCase().trim();
+    if (cat.includes("service") || cat.includes("profession")) {
+      return {
+        icon: Briefcase,
+        iconBg: "bg-emerald-50 text-emerald-700 border-emerald-200/80",
+        tagBg: "bg-emerald-50 text-emerald-800 border-emerald-200/80",
+      };
+    }
+    if (cat.includes("product") || cat.includes("good") || cat.includes("item") || cat.includes("material")) {
+      return {
+        icon: Package,
+        iconBg: "bg-amber-50 text-amber-700 border-amber-200/80",
+        tagBg: "bg-amber-50 text-amber-800 border-amber-200/80",
+      };
+    }
+    if (cat.includes("consult") || cat.includes("advis")) {
+      return {
+        icon: Lightbulb,
+        iconBg: "bg-yellow-50 text-yellow-700 border-yellow-200/80",
+        tagBg: "bg-yellow-50 text-yellow-800 border-yellow-200/80",
+      };
+    }
+    if (cat.includes("design") || cat.includes("creat") || cat.includes("brand")) {
+      return {
+        icon: Palette,
+        iconBg: "bg-pink-50 text-pink-700 border-pink-200/80",
+        tagBg: "bg-pink-50 text-pink-800 border-pink-200/80",
+      };
+    }
+    if (cat.includes("print")) {
+      return {
+        icon: Printer,
+        iconBg: "bg-blue-50 text-blue-700 border-blue-200/80",
+        tagBg: "bg-blue-50 text-blue-800 border-blue-200/80",
+      };
+    }
+    if (cat.includes("event") || cat.includes("celebrat")) {
+      return {
+        icon: Sparkles,
+        iconBg: "bg-purple-50 text-purple-700 border-purple-200/80",
+        tagBg: "bg-purple-50 text-purple-800 border-purple-200/80",
+      };
+    }
+    if (cat.includes("tech") || cat.includes("soft") || cat.includes("code") || cat.includes("dev") || cat.includes("it")) {
+      return {
+        icon: Code,
+        iconBg: "bg-indigo-50 text-indigo-700 border-indigo-200/80",
+        tagBg: "bg-indigo-50 text-indigo-800 border-indigo-200/80",
+      };
+    }
+    if (cat.includes("repair") || cat.includes("maint") || cat.includes("fix")) {
+      return {
+        icon: Wrench,
+        iconBg: "bg-orange-50 text-orange-700 border-orange-200/80",
+        tagBg: "bg-orange-50 text-orange-800 border-orange-200/80",
+      };
+    }
+    if (cat.includes("retail") || cat.includes("shop") || cat.includes("trade")) {
+      return {
+        icon: ShoppingBag,
+        iconBg: "bg-teal-50 text-teal-700 border-teal-200/80",
+        tagBg: "bg-teal-50 text-teal-800 border-teal-200/80",
+      };
+    }
+    return {
+      icon: Layers,
       iconBg: "bg-slate-50 text-slate-700 border-slate-200/80",
-      text: "text-slate-700",
       tagBg: "bg-slate-50 text-slate-800 border-slate-200/80",
-      border: "border-slate-200",
-    },
+    };
   };
 
   const userCategories = useMemo(() => {
@@ -259,8 +301,7 @@ export default function ServicesPage() {
         /* ============================================================ */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredServices.map((item) => {
-            const Icon = categoryIcons[item.category] || Package;
-            const style = categoryStyles[item.category] || categoryStyles.custom;
+            const { icon: Icon, iconBg, tagBg } = getCategoryInfo(item.category);
             const displayRate = item.rate !== undefined ? item.rate : (item.defaultRate ?? 0);
             const displayUnit = item.unit || item.defaultUnit || "";
             const displayGst = item.gstRate !== undefined ? item.gstRate : (item.defaultTaxRate ?? 18);
@@ -277,7 +318,7 @@ export default function ServicesPage() {
                       <div
                         className={cn(
                           "clay-icon-squircle p-2 border",
-                          style.iconBg
+                          iconBg
                         )}
                       >
                         <Icon className="h-4 w-4" />
@@ -285,7 +326,7 @@ export default function ServicesPage() {
                       <span
                         className={cn(
                           "clay-tag inline-block px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider border",
-                          style.tagBg
+                          tagBg
                         )}
                       >
                         {item.category}
@@ -335,12 +376,12 @@ export default function ServicesPage() {
                 {/* Bottom Pricing Strip & Quick Actions */}
                 <div className="mt-5 pt-3.5 border-t border-slate-100">
                   {/* Price & Unit Display */}
-                  <div className="flex items-baseline justify-between mb-3">
+                  <div className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
                     <div>
                       <span className="text-[10px] uppercase font-bold text-slate-400 block">
                         Base Rate
                       </span>
-                      <div className="flex items-baseline gap-1 mt-0.5">
+                      <div className="flex items-baseline gap-1 mt-0.5 flex-wrap">
                         <span className="text-lg font-extrabold text-slate-900">
                           {displayRate > 0 ? formatCurrency(displayRate, "INR") : "Custom"}
                         </span>
@@ -353,7 +394,7 @@ export default function ServicesPage() {
                     </div>
 
                     {displayGst !== undefined && (
-                      <span className="text-[11px] font-bold text-slate-500 bg-slate-50 border border-slate-200/60 px-2 py-0.5 rounded-lg">
+                      <span className="text-[11px] font-bold text-slate-500 bg-slate-50 border border-slate-200/60 px-2 py-0.5 rounded-lg shrink-0">
                         {displayGst}% GST
                       </span>
                     )}

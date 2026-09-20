@@ -16,12 +16,22 @@ import {
   Percent,
 } from "lucide-react";
 
+const STANDARD_CATEGORIES = [
+  "Standard Services",
+  "Physical Products / Goods",
+  "Consulting & Advisory",
+  "Design & Creative",
+  "Technical / Development",
+  "Maintenance & Repair",
+  "General",
+];
+
 export default function NewServicePage() {
   const router = useRouter();
 
   // Dynamic Category state
-  const [categories, setCategories] = useState<string[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [categories, setCategories] = useState<string[]>(STANDARD_CATEGORIES);
+  const [selectedCategory, setSelectedCategory] = useState<string>(STANDARD_CATEGORIES[0]);
   const [isAddingCustomCategory, setIsAddingCustomCategory] = useState<boolean>(false);
   const [customCategoryInput, setCustomCategoryInput] = useState<string>("");
 
@@ -40,7 +50,6 @@ export default function NewServicePage() {
   const [isAddingCustomUnit, setIsAddingCustomUnit] = useState<boolean>(false);
   const [customUnitInput, setCustomUnitInput] = useState<string>("");
 
-
   // Form fields
   const [serviceName, setServiceName] = useState("");
   const [defaultRate, setDefaultRate] = useState("");
@@ -53,15 +62,9 @@ export default function NewServicePage() {
     async function loadCategories() {
       try {
         const services = await CatalogService.getServices();
-        const cats = Array.from(
-          new Set(services.map((s) => s.category).filter(Boolean))
-        ) as string[];
-        setCategories(cats);
-        if (cats.length > 0) {
-          setSelectedCategory(cats[0]);
-        } else {
-          setIsAddingCustomCategory(true);
-        }
+        const existingCats = services.map((s) => s.category).filter(Boolean);
+        const merged = Array.from(new Set([...STANDARD_CATEGORIES, ...existingCats])) as string[];
+        setCategories(merged);
       } catch (err) {
         console.warn("Could not load categories:", err);
       }

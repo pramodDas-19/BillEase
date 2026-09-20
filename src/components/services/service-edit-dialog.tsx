@@ -23,6 +23,16 @@ const DEFAULT_UNITS = [
   "Month",
 ];
 
+const STANDARD_CATEGORIES = [
+  "Standard Services",
+  "Physical Products / Goods",
+  "Consulting & Advisory",
+  "Design & Creative",
+  "Technical / Development",
+  "Maintenance & Repair",
+  "General",
+];
+
 export function ServiceEditDialog({
   isOpen,
   onClose,
@@ -30,7 +40,7 @@ export function ServiceEditDialog({
   onServiceUpdated,
 }: ServiceEditDialogProps) {
   const [name, setName] = useState("");
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<string[]>(STANDARD_CATEGORIES);
   const [category, setCategory] = useState("");
   const [isCustomCategory, setIsCustomCategory] = useState(false);
   const [customCategoryInput, setCustomCategoryInput] = useState("");
@@ -48,10 +58,9 @@ export function ServiceEditDialog({
     async function loadAllCategories() {
       try {
         const allServices = await CatalogService.getServices();
-        const cats = Array.from(
-          new Set(allServices.map((s) => s.category).filter(Boolean))
-        ) as string[];
-        setCategories(cats);
+        const existingCats = allServices.map((s) => s.category).filter(Boolean);
+        const merged = Array.from(new Set([...STANDARD_CATEGORIES, ...existingCats])) as string[];
+        setCategories(merged);
       } catch (err) {
         console.warn("Could not load categories in edit dialog:", err);
       }
