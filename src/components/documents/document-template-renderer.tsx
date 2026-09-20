@@ -25,11 +25,14 @@ import { Thermal58mmCompactTemplate } from "./templates/thermal/thermal-58mm-com
 import { ThermalBoutiqueCafeTemplate } from "./templates/thermal/thermal-boutique-cafe";
 import { ThermalGroceryRetailTemplate } from "./templates/thermal/thermal-grocery-retail";
 
+import { ResponsiveDocumentSheet } from "./responsive-document-sheet";
+
 export interface DocumentTemplateRendererProps {
   document: Invoice | Quotation;
   type: "invoice" | "quotation";
   tenant: Tenant | null | undefined;
   templateId?: string;
+  responsiveScale?: boolean;
 }
 
 export function DocumentTemplateRenderer({
@@ -37,11 +40,21 @@ export function DocumentTemplateRenderer({
   type,
   tenant,
   templateId = "a4_modern",
+  responsiveScale = true,
 }: DocumentTemplateRendererProps) {
   const normDoc = normalizeDocument(document, type, tenant);
   const meta = getTemplateById(templateId);
 
-  // Determine wrapper styling for desktop screen preview
+  // Determine base width and wrapper styling for preview
+  const baseWidth =
+    meta.category === "thermal"
+      ? 380
+      : meta.category === "a5" && meta.orientation === "landscape"
+      ? 794
+      : meta.category === "a5"
+      ? 560
+      : 800;
+
   const wrapperClass =
     meta.category === "thermal"
       ? "max-w-sm mx-auto shadow-md rounded-xl bg-white border border-slate-200 overflow-hidden print:shadow-none print:border-none print:m-0 print:p-0 print:max-w-none"
@@ -94,7 +107,7 @@ export function DocumentTemplateRenderer({
     }
   };
 
-  return (
+  const templateElement = (
     <div className={cn(wrapperClass, "relative overflow-hidden")}>
       {/* Official Paid Rubber Stamp when invoice is settled */}
       {type === "invoice" && normDoc.isFullyPaid && (
@@ -118,4 +131,14 @@ export function DocumentTemplateRenderer({
       {renderTemplateContent()}
     </div>
   );
+
+  if (responsiveScale) {
+    return (
+      <ResponsiveDocumentSheet baseWidth={baseWidth} paperEffect={false}>
+        {templateElement}
+      </ResponsiveDocumentSheet>
+    );
+  }
+
+  return templateElement;
 }

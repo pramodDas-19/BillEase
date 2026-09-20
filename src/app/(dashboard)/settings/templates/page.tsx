@@ -8,9 +8,11 @@ import {
   DocumentTemplateRenderer,
 } from "@/components/documents";
 import { Invoice } from "@/types";
-import { ArrowLeft, Check, Sparkles, Layout, Printer } from "lucide-react";
+import { ArrowLeft, Check, Sparkles, Layout, Printer, ChevronLeft, ChevronRight } from "lucide-react";
 import { triggerDocumentPrint } from "@/lib/print-page-helper";
 import { Button } from "@/components/ui/button";
+import { getTemplateById, getTemplatesByCategory } from "@/config/document-templates";
+import { TenantService } from "@/services/tenant.service";
 
 // High-fidelity sample invoice for live preview in Settings
 const SAMPLE_PREVIEW_INVOICE: Invoice = {
@@ -81,6 +83,40 @@ export default function SettingsTemplatesPage() {
     currentTenant?.settings?.defaultInvoiceTemplate || "a4_advanced_gst";
   const [selectedTemplateId, setSelectedTemplateId] =
     useState<string>(defaultTemplateId);
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedSuccess, setSavedSuccess] = useState(false);
+
+  const currentMeta = getTemplateById(selectedTemplateId);
+  const categoryTemplates = getTemplatesByCategory(currentMeta.category);
+  const currentIndex = categoryTemplates.findIndex((t) => t.id === selectedTemplateId);
+
+  const handlePrevTemplate = () => {
+    const prevIndex = (currentIndex - 1 + categoryTemplates.length) % categoryTemplates.length;
+    setSelectedTemplateId(categoryTemplates[prevIndex].id);
+  };
+
+  const handleNextTemplate = () => {
+    const nextIndex = (currentIndex + 1) % categoryTemplates.length;
+    setSelectedTemplateId(categoryTemplates[nextIndex].id);
+  };
+
+  const handleSetDefault = async () => {
+    if (!currentTenant?.id) return;
+    setIsSaving(true);
+    try {
+      await TenantService.updateSettings(currentTenant.id, {
+        defaultInvoiceTemplate: selectedTemplateId,
+        defaultDocumentSize: currentMeta.category,
+      });
+      setSavedSuccess(true);
+      if (refreshTenantData) refreshTenantData();
+      setTimeout(() => setSavedSuccess(false), 2500);
+    } catch (err) {
+      console.error("Failed to save default template:", err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handlePrintSample = () => {
     triggerDocumentPrint(
@@ -108,7 +144,7 @@ export default function SettingsTemplatesPage() {
           </div>
           <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
             <Layout className="h-6 w-6 text-indigo-600" />
-            <span>Invoice &amp; Quotation Templates</span>
+            <span>Select your Invoice Format</span>
           </h1>
           <p className="text-xs text-slate-600 mt-1">
             Browse and test all 15 Indian-style templates. Choose your default format for A4, A5, or Thermal POS rolls.
@@ -137,24 +173,84 @@ export default function SettingsTemplatesPage() {
         onSavedAsDefault={refreshTenantData}
       />
 
-      {/* 3. Live Preview Container */}
-      <div className="space-y-2">
+      {/* 3. Live Preview Container with Mobile Navigation (Matches Image 5) */}
+      <div className="space-y-3">
         <div className="flex items-center justify-between px-1 print:hidden">
           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
             Live Template Preview
           </span>
-          <span className="text-[11px] text-slate-500">
+          <span className="text-[11px] text-slate-500 hidden sm:inline">
             Rendered with your business profile &amp; UPI details
           </span>
         </div>
 
-        <div className="rounded-2xl border border-slate-200/90 bg-white p-2 sm:p-6 shadow-md print:p-0 print:m-0 print:border-none print:shadow-none print:overflow-visible print:rounded-none">
-          <DocumentTemplateRenderer
-            document={SAMPLE_PREVIEW_INVOICE}
-            type="invoice"
-            tenant={currentTenant}
-            templateId={selectedTemplateId}
-          />
+        <div className="relative w-full flex items-center justify-center">
+          {/* Mobile Prev Arrow Button (Left edge of preview) */}
+          <button
+            type="button"
+            onClick={handlePrevTemplate}
+            aria-label="Previous template"
+            className="sm:hidden absolute left-0 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-white/95 text-slate-700 shadow-lg border border-slate-200 active:scale-90 transition-all cursor-pointer"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+
+          {/* Centered Scaled Document Sheet */}
+          <div className="w-full flex justify-center py-1 print:p-0 print:m-0 print:border-none print:shadow-none print:overflow-visible">
+            <DocumentTemplateRenderer
+              document={SAMPLE_PREVIEW_INVOICE}
+              type="invoice"
+              tenant={currentTenant}
+              templateId={selectedTemplateId}
+            />
+          </div>
+
+          {/* Mobile Next Arrow Button (Right edge of preview) */}
+          <button
+            type="button"
+            onClick={handleNextTemplate}
+            aria-label="Next template"
+            className="sm:hidden absolute right-0 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-white/95 text-slate-700 shadow-lg border border-slate-200 active:scale-90 transition-all cursor-pointer"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Mobile Info & "Select this format" Button (Matches Image 5) */}
+        <div className="sm:hidden flex flex-col items-center gap-3 pt-3 pb-8 print:hidden">
+          <div className="text-center">
+            <h4 className="font-extrabold text-slate-900 text-base">{currentMeta.name}</h4>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
+              {currentIndex + 1} / {categoryTemplates.length} • {currentMeta.category.toUpperCase()} ({currentMeta.orientation})
+            </p>
+          </div>
+
+          <Button
+            size="lg"
+            onClick={handleSetDefault}
+            disabled={isSaving || selectedTemplateId === defaultTemplateId}
+            className={`w-full py-3.5 rounded-2xl text-sm font-black shadow-md cursor-pointer transition-all ${
+              savedSuccess
+                ? "bg-emerald-600 text-white"
+                : selectedTemplateId === defaultTemplateId
+                ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-default"
+                : "bg-indigo-600 hover:bg-indigo-700 text-white active:scale-98"
+            }`}
+          >
+            {savedSuccess ? (
+              <span className="flex items-center gap-2">
+                <Check className="h-4 w-4" /> Format Selected as Default
+              </span>
+            ) : selectedTemplateId === defaultTemplateId ? (
+              <span className="flex items-center gap-2">
+                <Check className="h-4 w-4 text-emerald-500" /> Current Default Format
+              </span>
+            ) : (
+              <span className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-amber-300" /> Select this format
+              </span>
+            )}
+          </Button>
         </div>
       </div>
     </div>

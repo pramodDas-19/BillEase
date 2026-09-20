@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { ClientSearchCombobox } from "@/components/clients/client-search-combobox";
 import { InvoicePrintDocument } from "@/components/documents/invoice-print-document";
+import { ResponsiveDocumentSheet } from "@/components/documents/responsive-document-sheet";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import { UnsavedChangesDialog } from "@/components/ui/unsaved-changes-dialog";
 import { useTrial } from "@/hooks/use-trial";
@@ -1209,8 +1210,8 @@ function NewInvoiceContent() {
             </div>
 
             {/* Document Content Container (Scrollable) */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-100/50 custom-scrollbar">
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-2 sm:p-4">
+            <div className="flex-1 overflow-y-auto p-2 sm:p-6 bg-slate-100/50 custom-scrollbar">
+              <ResponsiveDocumentSheet baseWidth={800} paperEffect={true}>
                 <InvoicePrintDocument
                   invoice={{
                     id: "preview",
@@ -1263,7 +1264,7 @@ function NewInvoiceContent() {
                     updatedAt: new Date().toISOString(),
                   }}
                 />
-              </div>
+              </ResponsiveDocumentSheet>
             </div>
 
             {/* Modal Footer */}

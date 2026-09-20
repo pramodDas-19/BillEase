@@ -27,6 +27,24 @@ export async function downloadElementAsPdf(
       logging: false,
       backgroundColor: "#ffffff",
       windowWidth: 800,
+      onclone: (_clonedDoc, clonedElement) => {
+        // Ensure scaled mobile previews are reset to full native 800px unscaled layout in PDF
+        const inners = clonedElement.querySelectorAll<HTMLElement>(".responsive-sheet-inner");
+        inners.forEach((el) => {
+          el.style.transform = "none";
+          el.style.width = "800px";
+        });
+        const outers = clonedElement.querySelectorAll<HTMLElement>(".responsive-sheet-outer");
+        outers.forEach((el) => {
+          el.style.transform = "none";
+          el.style.width = "800px";
+          el.style.height = "auto";
+        });
+        const controls = clonedElement.querySelectorAll<HTMLElement>(".responsive-sheet-controls");
+        controls.forEach((el) => {
+          el.style.display = "none";
+        });
+      },
     });
 
     // 2. Initialize jsPDF

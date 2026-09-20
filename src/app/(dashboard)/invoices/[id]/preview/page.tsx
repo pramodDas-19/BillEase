@@ -133,13 +133,14 @@ export default function InvoicePreviewPage({ params }: { params: Promise<{ id: s
           <span>Back to Invoices</span>
         </Link>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
           <Link
             href="/settings/templates"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 text-xs font-bold shadow-xs transition-colors"
           >
             <Palette className="h-3.5 w-3.5 text-[#0C9484]" />
-            <span>Customize Template</span>
+            <span className="hidden xs:inline">Customize Template</span>
+            <span className="xs:hidden">Customize</span>
           </Link>
 
           <Button
@@ -176,7 +177,7 @@ export default function InvoicePreviewPage({ params }: { params: Promise<{ id: s
       {/* 2. Live Preview & Official Document Print Container */}
       <div
         ref={documentRef}
-        className="rounded-2xl border border-slate-200/80 bg-white p-2 sm:p-4 shadow-md print:p-0 print:m-0 print:border-none print:shadow-none print:overflow-visible print:rounded-none"
+        className="w-full flex justify-center py-2 sm:py-4 print:p-0 print:m-0 print:border-none print:shadow-none print:overflow-visible"
       >
         <DocumentTemplateRenderer
           document={invoice}
