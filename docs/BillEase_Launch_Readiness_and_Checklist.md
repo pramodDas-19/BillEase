@@ -125,6 +125,10 @@ This document serves as the master launch checklist and operational playbook for
   - [x] **Rule 1 Compliance**: Removed all niche assumptions (e.g. "events or printing") to support any business model.
   - [x] **Cancelled Transaction Filtering**: Cancelled invoices and failed/refunded payments excluded from active summaries.
   - [x] **Phone Fallback**: Graceful navigation to invoice preview when client phone number is missing.
+- [x] **Clients & Directory Verification**:
+  - [x] **Phone Normalization**: Applied `formatWhatsAppPhoneNumber` across both Grid and Table views so 10-digit Indian numbers open WhatsApp without error.
+  - [x] **Overdue 1-Click Reminder**: Added direct `BellRing` reminder button on Grid view cards for clients with unpaid balances.
+  - [x] **Complete Client Ledger Profile (`/clients/[id]`)**: Full financial metrics (Total Billed, Total Paid, Balance Due), Invoices & Quotations segmented tabs, direct Call/WhatsApp actions, and inline profile editing.
 - [x] Row Level Security (RLS) policies audited and verified across all database tables.
 - [x] Super-Admin security locked down with server-verified JWT and mandatory RFC 6238 TOTP 2FA.
 - [x] WhatsApp direct messaging and Indian phone normalization verified.
