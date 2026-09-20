@@ -12,7 +12,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Printer, Loader2, Palette, Download } from "lucide-react";
 import { triggerDocumentPrint } from "@/lib/print-page-helper";
-import { downloadElementAsPdf } from "@/lib/pdf-download-helper";
 
 export default function InvoicePreviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -64,30 +63,15 @@ export default function InvoicePreviewPage({ params }: { params: Promise<{ id: s
     );
   };
 
-  const handleDownloadPdf = async () => {
-    if (!invoice || !documentRef.current || isDownloading) return;
-    setIsDownloading(true);
-    try {
-      const cleanNum = invoice.invoiceNumber.replace(/[^a-zA-Z0-9_-]/g, "_");
-      await downloadElementAsPdf(
-        documentRef.current,
-        `BillEase_Invoice_${cleanNum}.pdf`
-      );
-    } finally {
-      setIsDownloading(false);
-    }
+  const handleDownloadPdf = () => {
+    handlePrint();
   };
 
-  // Direct download if query parameter has ?download=true
+  // Direct print/download if query parameter has ?download=true or ?autoPrint=true
   useEffect(() => {
     if (invoice && typeof window !== "undefined") {
       const sp = new URLSearchParams(window.location.search);
-      if (sp.get("download") === "true") {
-        const t = setTimeout(() => {
-          handleDownloadPdf();
-        }, 500);
-        return () => clearTimeout(t);
-      } else if (sp.get("autoPrint") === "true") {
+      if (sp.get("download") === "true" || sp.get("autoPrint") === "true") {
         const t = setTimeout(() => {
           handlePrint();
         }, 450);
