@@ -9,6 +9,7 @@ import { useTenant } from "@/hooks/use-tenant";
 import { ClientService } from "@/services/client.service";
 import { QuotationService } from "@/services/quotation.service";
 import { InvoiceService } from "@/services/invoice.service";
+import { PaymentService } from "@/services/payment.service";
 import { CatalogService } from "@/services/service.service";
 import { Client, Quotation, CurrencyCode, Invoice } from "@/types";
 import { QuotationItemRow } from "@/components/quotations";
@@ -91,6 +92,10 @@ function NewInvoiceContent() {
   const [isFirstEverInvoice, setIsFirstEverInvoice] = useState(false);
   const [createdInvoiceForSuccess, setCreatedInvoiceForSuccess] = useState<Invoice | null>(null);
   const { isLocked } = useTrial();
+  const [advancePaymentMethod, setAdvancePaymentMethod] = useState<
+    "cash" | "upi" | "bank_transfer" | "cheque"
+  >("cash");
+  const [advanceReference, setAdvanceReference] = useState("");
 
   useEffect(() => {
     setMounted(true);
@@ -324,6 +329,7 @@ function NewInvoiceContent() {
               defaultTaxRate: quote.defaultTaxRate || prev.defaultTaxRate,
               termsAndConditions: quote.termsAndConditions || prev.termsAndConditions,
               notes: quote.notes || prev.notes,
+              paidAmount: quote.advanceAmount || prev.paidAmount || 0,
             }));
           }
 
@@ -462,6 +468,33 @@ function NewInvoiceContent() {
         termsAndConditions: state.termsAndConditions,
         notes: state.notes,
       });
+
+      // Automatically generate official payment receipt in Payments & Receipts ledger for Advance Paid
+      if (createdInvoice && state.paidAmount && state.paidAmount > 0) {
+        try {
+          await PaymentService.recordPayment({
+            invoiceId: createdInvoice.id,
+            invoiceNumber: createdInvoice.invoiceNumber,
+            clientId: finalClientId || createdInvoice.clientId,
+            clientName: createdInvoice.clientName,
+            amount: state.paidAmount,
+            currency: state.currency,
+            paymentDate: state.issueDate || new Date().toISOString().split("T")[0],
+            paymentMethod: advancePaymentMethod,
+            transactionReference:
+              advanceReference.trim() ||
+              (sourceQuote
+                ? `Advance for Quote #${sourceQuote.quotationNumber}`
+                : `Advance for Invoice #${createdInvoice.invoiceNumber}`),
+            notes: `Advance payment recorded upon issuing Invoice #${createdInvoice.invoiceNumber}${
+              sourceQuote ? ` (converted from Quote #${sourceQuote.quotationNumber})` : ""
+            }.`,
+            status: "completed",
+          });
+        } catch (payErr) {
+          console.warn("Failed to auto-record advance payment receipt:", payErr);
+        }
+      }
 
       bypassWarning();
 
@@ -1103,10 +1136,17 @@ function NewInvoiceContent() {
               </div>
 
               {/* Advance Paid Deposit */}
-              <div className="pt-3 border-t border-slate-100 space-y-1.5">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
-                  Advance Paid Amount ({CURRENCIES[state.currency]?.symbol || "₹"})
-                </label>
+              <div className="pt-3 border-t border-slate-100 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                    Advance Paid Amount ({CURRENCIES[state.currency]?.symbol || "₹"})
+                  </label>
+                  {(state.paidAmount || 0) > 0 && (
+                    <span className="text-[9px] font-black uppercase text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md">
+                      Receipt Will Be Recorded
+                    </span>
+                  )}
+                </div>
                 <input
                   type="number"
                   placeholder="0.00"
@@ -1116,6 +1156,52 @@ function NewInvoiceContent() {
                   }
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 focus:bg-white focus:border-emerald-500 focus:outline-none"
                 />
+
+                {/* When client paid an advance amount, show Payment Mode Selector */}
+                {(state.paidAmount || 0) > 0 && (
+                  <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl space-y-2.5 animate-in fade-in-50 duration-200">
+                    <div>
+                      <span className="text-[10px] font-black uppercase text-emerald-900 tracking-wider block mb-1.5">
+                        Advance Payment Mode
+                      </span>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                        {[
+                          { id: "cash", label: "Cash" },
+                          { id: "upi", label: "UPI" },
+                          { id: "bank_transfer", label: "Bank (NEFT)" },
+                          { id: "cheque", label: "Cheque" },
+                        ].map((m) => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => setAdvancePaymentMethod(m.id as any)}
+                            className={`py-1.5 px-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer text-center border ${
+                              advancePaymentMethod === m.id
+                                ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                            }`}
+                          >
+                            {m.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <input
+                        type="text"
+                        placeholder="Reference / Notes (e.g. Cash in hand, GPay ref)"
+                        value={advanceReference}
+                        onChange={(e) => setAdvanceReference(e.target.value)}
+                        className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
+                      />
+                    </div>
+
+                    <p className="text-[10px] text-emerald-800 font-semibold leading-tight flex items-center gap-1">
+                      <span>✓ Auto-generates a payment receipt in Payments &amp; Receipts ledger.</span>
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Balance Due */}

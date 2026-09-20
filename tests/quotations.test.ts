@@ -96,4 +96,29 @@ describe("Quotations & Estimates Engine", () => {
     const sanitizedInvTitle = `BillEase_Invoice_${invNum.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
     expect(sanitizedInvTitle).toBe("BillEase_Invoice_INV_2026-1045");
   });
+
+  it("verifies advance payment receipt recording upon invoice creation", async () => {
+    const { PaymentService } = await import("@/services/payment.service");
+
+    const paymentReceipt = await PaymentService.recordPayment({
+      invoiceId: "inv-test-advance-1",
+      invoiceNumber: "INV-2026-0042",
+      clientId: "client-test-1",
+      clientName: "Pramod Das",
+      amount: 10000,
+      currency: "INR",
+      paymentMethod: "cash",
+      transactionReference: "Cash Advance on Quote Conversion",
+      notes: "Advance payment recorded upon issuing Invoice #INV-2026-0042 from Quotation #QT-2026-001.",
+      status: "completed",
+    });
+
+    expect(paymentReceipt).not.toBeNull();
+    expect(paymentReceipt?.amount).toBe(10000);
+    expect(paymentReceipt?.paymentMethod).toBe("cash");
+    expect(paymentReceipt?.invoiceNumber).toBe("INV-2026-0042");
+    expect(paymentReceipt?.clientName).toBe("Pramod Das");
+    expect(paymentReceipt?.transactionReference).toBe("Cash Advance on Quote Conversion");
+    expect(paymentReceipt?.status).toBe("completed");
+  });
 });

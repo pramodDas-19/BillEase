@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useInvoiceBuilder } from "@/hooks/use-invoice-builder";
 import { InvoiceService } from "@/services/invoice.service";
 import { ClientService } from "@/services/client.service";
+import { PaymentService } from "@/services/payment.service";
 import { Client, Invoice } from "@/types";
 import { QuotationItemRow } from "@/components/quotations";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,10 @@ export default function EditInvoicePage({
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [advancePaymentMethod, setAdvancePaymentMethod] = useState<
+    "cash" | "upi" | "bank_transfer" | "cheque"
+  >("cash");
+  const [advanceReference, setAdvanceReference] = useState("");
 
   const {
     state,
@@ -189,8 +194,32 @@ export default function EditInvoicePage({
         totalAmount: totals.totalAmount,
         paidAmount: state.paidAmount || 0,
         balanceDue: totals.balanceDue,
-
       });
+
+      const oldPaid = invoice?.paidAmount || 0;
+      const newPaid = state.paidAmount || 0;
+      const deltaPaid = newPaid - oldPaid;
+
+      if (deltaPaid > 0) {
+        try {
+          await PaymentService.recordPayment({
+            invoiceId: id,
+            invoiceNumber: state.invoiceNumber,
+            clientId: resolvedClientId || undefined,
+            clientName: state.clientName,
+            amount: deltaPaid,
+            currency: state.currency,
+            paymentDate: new Date().toISOString().split("T")[0],
+            paymentMethod: advancePaymentMethod,
+            transactionReference:
+              advanceReference.trim() || `Payment on Invoice #${state.invoiceNumber}`,
+            notes: `Payment of ₹${deltaPaid} recorded while updating Invoice #${state.invoiceNumber}.`,
+            status: "completed",
+          });
+        } catch (payErr) {
+          console.warn("Failed to record payment in edit invoice:", payErr);
+        }
+      }
 
       router.push("/invoices");
     } catch (err) {
@@ -643,10 +672,17 @@ export default function EditInvoicePage({
               </div>
 
               {/* Advance Paid Deposit */}
-              <div className="pt-3 border-t border-slate-100 space-y-1.5">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
-                  Advance Paid Amount (₹)
-                </label>
+              <div className="pt-3 border-t border-slate-100 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                    Advance Paid Amount (₹)
+                  </label>
+                  {(state.paidAmount || 0) > (invoice?.paidAmount || 0) && (
+                    <span className="text-[9px] font-black uppercase text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md">
+                      +₹{((state.paidAmount || 0) - (invoice?.paidAmount || 0)).toFixed(2)} Receipt
+                    </span>
+                  )}
+                </div>
                 <input
                   type="number"
                   placeholder="0.00"
@@ -656,6 +692,52 @@ export default function EditInvoicePage({
                   }
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 focus:bg-white focus:border-emerald-500 focus:outline-none"
                 />
+
+                {/* When additional payment is entered, show Payment Mode Selector */}
+                {(state.paidAmount || 0) > (invoice?.paidAmount || 0) && (
+                  <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl space-y-2.5 animate-in fade-in-50 duration-200">
+                    <div>
+                      <span className="text-[10px] font-black uppercase text-emerald-900 tracking-wider block mb-1.5">
+                        Payment Mode for ₹{((state.paidAmount || 0) - (invoice?.paidAmount || 0)).toFixed(2)}
+                      </span>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                        {[
+                          { id: "cash", label: "Cash" },
+                          { id: "upi", label: "UPI" },
+                          { id: "bank_transfer", label: "Bank (NEFT)" },
+                          { id: "cheque", label: "Cheque" },
+                        ].map((m) => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => setAdvancePaymentMethod(m.id as any)}
+                            className={`py-1.5 px-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer text-center border ${
+                              advancePaymentMethod === m.id
+                                ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                            }`}
+                          >
+                            {m.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <input
+                        type="text"
+                        placeholder="Reference / Notes (e.g. Cash in hand, Cheque #)"
+                        value={advanceReference}
+                        onChange={(e) => setAdvanceReference(e.target.value)}
+                        className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
+                      />
+                    </div>
+
+                    <p className="text-[10px] text-emerald-800 font-semibold leading-tight flex items-center gap-1">
+                      <span>✓ Auto-generates a payment receipt in Payments &amp; Receipts ledger.</span>
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Balance Due */}
