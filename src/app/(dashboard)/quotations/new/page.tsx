@@ -49,14 +49,12 @@ const GST_STATE_CODES: Record<string, string> = {
   "36": "Telangana",
   "37": "Andhra Pradesh",
 };
+import {
+  STANDARD_QUOTATION_PRESETS,
+  insertClauseToTerms,
+  insertAllStandardTerms as insertAllStandardTermsHelper,
+} from "@/lib/terms-helper";
 
-const STANDARD_TERMS_PRESETS = [
-  { label: "50% Advance", text: "50% advance payment required to commence work, balance upon delivery." },
-  { label: "15 Days Validity", text: "Prices quoted are valid for 15 days from the quotation date." },
-  { label: "Delivery 7-10 Days", text: "Delivery timeline: 7 to 10 working days from confirmation and advance payment." },
-  { label: "GST Extra", text: "GST and statutory taxes applicable extra as per government rates." },
-  { label: "100% Advance", text: "100% advance payment required to confirm booking / dispatch." },
-];
 
 function NewQuotationContent() {
   const router = useRouter();
@@ -158,21 +156,16 @@ function NewQuotationContent() {
   };
 
   const insertTermClause = (clauseText: string) => {
-    setState((prev) => {
-      const current = prev.termsAndConditions.trim();
-      if (!current) return { ...prev, termsAndConditions: `• ${clauseText}` };
-      if (current.includes(clauseText)) return prev;
-      return { ...prev, termsAndConditions: `${current}\n• ${clauseText}` };
-    });
+    setState((prev) => ({
+      ...prev,
+      termsAndConditions: insertClauseToTerms(prev.termsAndConditions, clauseText),
+    }));
   };
 
   const insertAllStandardTerms = () => {
-    const fullText = STANDARD_TERMS_PRESETS.map((p) => `• ${p.text}`).join("\n");
     setState((prev) => ({
       ...prev,
-      termsAndConditions: prev.termsAndConditions.trim()
-        ? `${prev.termsAndConditions.trim()}\n${fullText}`
-        : fullText,
+      termsAndConditions: insertAllStandardTermsHelper(prev.termsAndConditions, "quotation"),
     }));
   };
 
@@ -719,7 +712,7 @@ function NewQuotationContent() {
 
             {/* Quick-insert Terms Chips */}
             <div className="flex items-center gap-1.5 flex-wrap pb-1">
-              {STANDARD_TERMS_PRESETS.map((preset) => (
+              {STANDARD_QUOTATION_PRESETS.map((preset) => (
                 <button
                   key={preset.label}
                   type="button"

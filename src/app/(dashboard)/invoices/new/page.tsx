@@ -60,14 +60,12 @@ const GST_STATE_CODES: Record<string, string> = {
   "36": "Telangana",
   "37": "Andhra Pradesh",
 };
+import {
+  STANDARD_INVOICE_PRESETS,
+  insertClauseToTerms,
+  insertAllStandardTerms as insertAllStandardTermsHelper,
+} from "@/lib/terms-helper";
 
-const STANDARD_INVOICE_TERMS_PRESETS = [
-  { label: "Due on Receipt", text: "Payment is due immediately upon receipt of this tax invoice." },
-  { label: "Net 15 Days", text: "Payment is due within 15 days from the date of this invoice." },
-  { label: "Net 30 Days", text: "Payment is due within 30 days from the date of this invoice." },
-  { label: "Late Fee 18%", text: "Interest @ 18% p.a. will be charged on all payments delayed beyond the due date." },
-  { label: "Bank Remittance", text: "Please remit all payments via NEFT/RTGS/IMPS/UPI to the designated company bank account." },
-];
 
 function NewInvoiceContent() {
   const router = useRouter();
@@ -172,23 +170,17 @@ function NewInvoiceContent() {
   };
 
   const insertTermClause = (clause: string) => {
-    setState((p) => {
-      const current = p.termsAndConditions.trim();
-      if (!current) return { ...p, termsAndConditions: clause };
-      if (current.includes(clause)) return p;
-      return { ...p, termsAndConditions: `${current}\n• ${clause}` };
-    });
+    setState((p) => ({
+      ...p,
+      termsAndConditions: insertClauseToTerms(p.termsAndConditions, clause),
+    }));
   };
 
   const insertAllStandardTerms = () => {
-    const combined = STANDARD_INVOICE_TERMS_PRESETS.map((p) => `• ${p.text}`).join("\n");
-    setState((p) => {
-      const current = p.termsAndConditions.trim();
-      return {
-        ...p,
-        termsAndConditions: current ? `${current}\n${combined}` : combined,
-      };
-    });
+    setState((p) => ({
+      ...p,
+      termsAndConditions: insertAllStandardTermsHelper(p.termsAndConditions, "invoice"),
+    }));
   };
 
   // Determine if there are unsaved changes
@@ -870,7 +862,7 @@ function NewInvoiceContent() {
 
             {/* Quick-insert Terms Chips */}
             <div className="flex items-center gap-1.5 flex-wrap pb-1">
-              {STANDARD_INVOICE_TERMS_PRESETS.map((preset) => (
+              {STANDARD_INVOICE_PRESETS.map((preset) => (
                 <button
                   key={preset.label}
                   type="button"
