@@ -30,7 +30,6 @@ export default function NewClientPage() {
   const [email, setEmail] = useState("");
   const [gstin, setGstin] = useState("");
   const [city, setCity] = useState("");
-  const [state, setState] = useState("");
   const [address, setAddress] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [availableTags, setAvailableTags] = useState<string[]>([]);
@@ -89,7 +88,7 @@ export default function NewClientPage() {
         phone,
         email: email || undefined,
         gstin: gstin || undefined,
-        address: address || (city ? `${city}, ${state}` : undefined),
+        address: address.trim() || city.trim() || undefined,
         segmentTags: selectedTags,
         totalBilled: 0,
         totalPaid: 0,

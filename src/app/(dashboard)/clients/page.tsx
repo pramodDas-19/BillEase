@@ -7,7 +7,7 @@ import { ClientService } from "@/services/client.service";
 import { InvoiceService } from "@/services/invoice.service";
 import { ClientEditDialog } from "@/components/clients/client-edit-dialog";
 import { Client, Invoice } from "@/types";
-import { getWhatsAppReminderUrl } from "@/lib/whatsapp";
+import { getWhatsAppReminderUrl, formatWhatsAppPhoneNumber } from "@/lib/whatsapp";
 import { useTenant } from "@/hooks/use-tenant";
 
 import { cn, formatCurrency } from "@/lib/utils";
@@ -344,7 +344,7 @@ export default function ClientsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredClients.map((client) => {
             const hasDue = (client.balanceDue || 0) > 0;
-            const cleanPhone = client.phone ? client.phone.replace(/\D/g, "") : "";
+            const cleanPhone = formatWhatsAppPhoneNumber(client.phone);
 
             return (
               <div
@@ -406,6 +406,26 @@ export default function ClientsPage() {
                       >
                         <MessageSquare className="h-3.5 w-3.5" />
                       </a>
+
+                      {/* WhatsApp Reminder for Overdue Clients */}
+                      {hasDue && (
+                        <a
+                          href={getWhatsAppReminderUrl({
+                            clientPhone: client.phone,
+                            clientName: client.name,
+                            balanceDue: client.balanceDue || 0,
+                            businessName: currentTenant?.businessName,
+                            currency: currentTenant?.settings?.defaultCurrency || "INR",
+                            customTemplate: currentTenant?.settings?.whatsappReminderTemplate,
+                          })}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={`Send WhatsApp Payment Reminder (${formatCurrency(client.balanceDue || 0, "INR")} due)`}
+                          className="clay-icon-squircle flex h-8 w-8 items-center justify-center rounded-xl bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-600 hover:text-white hover:border-amber-600 shadow-2xs transition-all cursor-pointer"
+                        >
+                          <BellRing className="h-3.5 w-3.5" />
+                        </a>
+                      )}
 
                       {/* Edit Client Button */}
                       <button
@@ -549,7 +569,7 @@ export default function ClientsPage() {
               <tbody className="divide-y divide-slate-100">
                 {filteredClients.map((client) => {
                   const hasDue = (client.balanceDue || 0) > 0;
-                  const cleanPhone = client.phone ? client.phone.replace(/\D/g, "") : "";
+                  const cleanPhone = formatWhatsAppPhoneNumber(client.phone);
 
                   return (
                     <tr key={client.id} className="hover:bg-slate-50/70 transition-colors group">
