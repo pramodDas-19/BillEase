@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, Suspense, useMemo } from "react";
+import React, { useState, useEffect, useRef, Suspense, useMemo } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -84,6 +84,7 @@ function NewInvoiceContent() {
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [sourceQuote, setSourceQuote] = useState<Quotation | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
   const [isInitialLoading, setIsInitialLoading] = useState(!!fromQuoteId);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -269,6 +270,13 @@ function NewInvoiceContent() {
             (await QuotationService.getQuotationById(fromQuoteId));
 
           if (quote) {
+            // Guard: If quotation is already converted, redirect to the existing invoice
+            if (quote.status === "converted" && quote.convertedToInvoiceId) {
+              console.info(`Quotation #${quote.quotationNumber} is already converted to Invoice #${quote.convertedToInvoiceId}. Redirecting...`);
+              router.replace(`/invoices/${quote.convertedToInvoiceId}`);
+              return;
+            }
+
             setSourceQuote(quote);
 
             // Populate all state from quotation
@@ -363,6 +371,8 @@ function NewInvoiceContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmittingRef.current || isSubmitting) return;
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
 
     try {
@@ -463,6 +473,7 @@ function NewInvoiceContent() {
       }
     } catch (err) {
       console.error("Failed to save invoice:", err);
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   };

@@ -60,8 +60,11 @@ function serializeInvoiceItemRow(item: InvoiceLineItem, invoiceId: string, idx: 
     notes = `[TAX:${item.taxRate}] ${notes}`.trim();
   }
 
+  // Ensure every line item has a strictly unique ID in the database
+  const uniqueId = `ii-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 7)}`;
+
   return {
-    id: item.id && !item.id.startsWith("item-") ? item.id : `ii-${Date.now()}-${idx}`,
+    id: uniqueId,
     invoice_id: invoiceId,
     description: item.description,
     detailed_notes: notes || null,
@@ -386,6 +389,23 @@ export const InvoiceService = {
   async createInvoice(invoice: Partial<Invoice>): Promise<Invoice | null> {
     try {
       const tenantId = await AuthService.getActiveTenantId();
+
+      // Guard against duplicate conversion of the same quotation
+      if (invoice.quotationId) {
+        const { data: existingConverted } = await supabase
+          .from("invoices")
+          .select("id, invoice_number")
+          .eq("tenant_id", tenantId)
+          .eq("quotation_id", invoice.quotationId)
+          .maybeSingle();
+
+        if (existingConverted) {
+          console.warn(`[InvoiceService] Quotation ${invoice.quotationId} was already converted into Invoice #${existingConverted.invoice_number}`);
+          const existing = await InvoiceService.getInvoiceById(existingConverted.id);
+          if (existing) return existing;
+        }
+      }
+
       const invoiceId = invoice.id || `inv-${Date.now()}`;
       const preferredNumber = invoice.invoiceNumber || `INV-${Date.now().toString().slice(-4)}`;
       const invoiceNumber = await getSafeSequentialInvoiceNumber(tenantId, preferredNumber);

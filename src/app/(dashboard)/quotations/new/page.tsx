@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -67,6 +67,7 @@ function NewQuotationContent() {
 
   const [clients, setClients] = useState<Client[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const { isLocked } = useTrial();
@@ -280,6 +281,8 @@ function NewQuotationContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmittingRef.current || isSubmitting) return;
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
 
     try {
@@ -346,6 +349,7 @@ function NewQuotationContent() {
       router.push("/quotations");
     } catch (err) {
       console.error("Failed to create quotation:", err);
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   };

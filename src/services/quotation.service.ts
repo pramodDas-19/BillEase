@@ -59,8 +59,11 @@ function serializeQuotationItemRow(item: QuotationLineItem, quoteId: string, idx
     notes = `[TAX:${item.taxRate}] ${notes}`.trim();
   }
 
+  // Ensure every quotation line item has a strictly unique ID in the database
+  const uniqueId = `qi-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 7)}`;
+
   return {
-    id: item.id && !item.id.startsWith("item-") ? item.id : `qi-${Date.now()}-${idx}`,
+    id: uniqueId,
     quotation_id: quoteId,
     description: item.description,
     detailed_notes: notes || null,
