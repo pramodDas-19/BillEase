@@ -1,8 +1,7 @@
 import { Tenant, BusinessSettings, SubscriptionInfo } from "@/types";
-import { MOCK_TENANTS } from "@/mock/tenants.mock";
 
 export class TenantService {
-  private static tenants: Tenant[] = [...MOCK_TENANTS];
+  private static tenants: Tenant[] = [];
   private static isRealDataLoaded = false;
 
   static async getAllTenants(): Promise<Tenant[]> {
@@ -16,14 +15,14 @@ export class TenantService {
 
         if (response.ok) {
           const data = await response.json();
-          if (data.success && Array.isArray(data.tenants) && data.tenants.length > 0) {
+          if (data.success && Array.isArray(data.tenants)) {
             this.tenants = data.tenants;
             this.isRealDataLoaded = true;
             return [...this.tenants];
           }
         }
       } catch (e) {
-        console.warn("Falling back to local cache/seed in TenantService:", e);
+        console.warn("Could not load tenants from admin API in TenantService:", e);
       }
 
       // Fallback for non-admin client sessions
@@ -73,17 +72,40 @@ export class TenantService {
   }
 
   static async updateSettings(tenantId: string, settings: Partial<BusinessSettings>): Promise<Tenant | null> {
-    const index = this.tenants.findIndex((t) => t.id === tenantId);
-    if (index === -1) return null;
-
-    this.tenants[index] = {
-      ...this.tenants[index],
-      settings: {
-        ...this.tenants[index].settings,
-        ...settings,
-      },
-      updatedAt: new Date().toISOString(),
-    };
+    let index = this.tenants.findIndex((t) => t.id === tenantId);
+    if (index === -1) {
+      this.tenants.push({
+        id: tenantId,
+        businessName: "Business",
+        slug: tenantId,
+        businessType: "other",
+        ownerName: "Owner",
+        email: "",
+        phone: "",
+        settings: {
+          defaultCurrency: "INR",
+          enableGstByDefault: true,
+          defaultTaxRate: 18,
+          defaultQuotationValidityDays: 14,
+          defaultInvoiceDueDays: 14,
+          quotationNumbering: { prefix: "QT-", nextNumber: 1001, digitLength: 4 },
+          invoiceNumbering: { prefix: "INV-", nextNumber: 1001, digitLength: 4 },
+          ...settings,
+        },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      index = this.tenants.length - 1;
+    } else {
+      this.tenants[index] = {
+        ...this.tenants[index],
+        settings: {
+          ...this.tenants[index].settings,
+          ...settings,
+        },
+        updatedAt: new Date().toISOString(),
+      };
+    }
 
     return this.tenants[index];
   }

@@ -88,6 +88,7 @@ function AdminConsoleContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "trial_active" | "active" | "trial_expired" | "suspended">("all");
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [dbErrorNotice, setDbErrorNotice] = useState<string | null>(null);
 
   // Authentication State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -128,26 +129,31 @@ function AdminConsoleContent() {
   const [totalRealInvoicesCount, setTotalRealInvoicesCount] = useState(0);
   const [totalRealBilledRevenue, setTotalRealBilledRevenue] = useState(0);
 
-  // Load Tenants & Storage on Mount
+  // Load Real Database Tenants Directly on Mount
   const loadTenants = async () => {
     setIsLoading(true);
+    setDbErrorNotice(null);
     try {
-      const data = await TenantService.getAllTenants();
-      setTenants(data);
-
-      // Compute total real billed volume across all tenants
-      let totalInvs = 0;
-      let totalBilled = 0;
-      data.forEach((t: any) => {
-        if (t.stats) {
-          totalInvs += Number(t.stats.invoiceCount || 0);
-          totalBilled += Number(t.stats.totalBilled || 0);
+      const res = await fetch("/api/admin/tenants");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.tenants)) {
+          setTenants(data.tenants);
+          setTotalRealInvoicesCount(data.totalRealInvoices || 0);
+          setTotalRealBilledRevenue(data.totalRealBilledRevenue || 0);
+          return;
         }
-      });
-      setTotalRealInvoicesCount(totalInvs);
-      setTotalRealBilledRevenue(totalBilled);
-    } catch (e) {
+      }
+      const errData = await res.json().catch(() => ({}));
+      const errText = errData.error || `HTTP ${res.status}: Failed to fetch live tenants from database`;
+      setDbErrorNotice(errText);
+      setTenants([]);
+      setTotalRealInvoicesCount(0);
+      setTotalRealBilledRevenue(0);
+    } catch (e: any) {
       console.error("Failed to load real tenants:", e);
+      setDbErrorNotice(`Network Error: ${e.message || "Failed to reach server"}`);
+      setTenants([]);
     } finally {
       setIsLoading(false);
     }
@@ -746,6 +752,25 @@ function AdminConsoleContent() {
           </button>
         </div>
       </div>
+
+      {/* Live Database Sync Error / Missing Environment Variable Alert */}
+      {dbErrorNotice && (
+        <div className="rounded-2xl border border-rose-500/60 bg-rose-950/80 p-4 px-5 flex items-start justify-between gap-3 text-rose-200 text-xs font-bold shadow-lg animate-in fade-in-50">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-rose-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-black text-white">Live PostgreSQL Connection Issue</p>
+              <p className="text-xs text-rose-300/90 mt-0.5 leading-relaxed">{dbErrorNotice}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setDbErrorNotice(null)}
+            className="text-rose-400 hover:text-white text-xs underline cursor-pointer shrink-0"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Action Notification Banner */}
       {actionNotice && (

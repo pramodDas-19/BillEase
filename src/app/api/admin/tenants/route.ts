@@ -13,7 +13,9 @@ export async function GET(request: NextRequest) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://butxutqhbhscbihunnwr.supabase.co";
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
     if (!serviceRoleKey) {
-      return NextResponse.json({ error: "Missing SUPABASE_SERVICE_ROLE_KEY environment variable." }, { status: 500 });
+      return NextResponse.json({
+        error: "Missing SUPABASE_SERVICE_ROLE_KEY in environment variables. Please add SUPABASE_SERVICE_ROLE_KEY to your Vercel Project Settings → Environment Variables.",
+      }, { status: 500 });
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey, {

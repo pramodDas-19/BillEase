@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { MOCK_TENANTS } from "@/mock/tenants.mock";
+import { TenantService } from "@/services/tenant.service";
 
 export async function GET() {
-  return NextResponse.json({ success: true, data: MOCK_TENANTS });
+  const tenants = await TenantService.getAllTenants();
+  return NextResponse.json({ success: true, data: tenants });
 }
