@@ -52,4 +52,43 @@ describe("Dashboard Monthly vs All-Time Calculations", () => {
     expect(allTimeInvoiced).toBe(75000);
     expect(thisMonthInvoiced).toBe(35000); // 10000 + 25000
   });
+
+  it("accurately detects invoices due today when stored as ISO timestamps", () => {
+    const today = "2026-09-20";
+    const sampleInvoices = [
+      { id: "1", balanceDue: 5000, status: "sent", dueDate: "2026-09-20T00:00:00.000Z" },
+      { id: "2", balanceDue: 8000, status: "sent", dueDate: "2026-09-18" },
+      { id: "3", balanceDue: 12000, status: "sent", dueDate: "2026-09-25T12:00:00.000Z" },
+      { id: "4", balanceDue: 0, status: "paid", dueDate: "2026-09-20T00:00:00.000Z" },
+    ];
+
+    const pending = sampleInvoices.filter(
+      (i) => i.balanceDue > 0 && (i.status === "overdue" || (i.dueDate && i.dueDate.split("T")[0] <= today))
+    );
+
+    // Should include invoice 1 (due today) and invoice 2 (due in past), but not 3 (future) or 4 (paid)
+    expect(pending.map((i) => i.id)).toEqual(["1", "2"]);
+  });
+
+  it("excludes cancelled invoices and failed/refunded payments from active metrics", () => {
+    const invoices = [
+      { id: "1", totalAmount: 10000, balanceDue: 0, status: "paid" },
+      { id: "2", totalAmount: 15000, balanceDue: 15000, status: "due" },
+      { id: "3", totalAmount: 50000, balanceDue: 50000, status: "cancelled" },
+    ];
+    const payments = [
+      { id: "p1", amount: 10000, status: "completed" },
+      { id: "p2", amount: 20000, status: "failed" },
+      { id: "p3", amount: 5000, status: "refunded" },
+    ];
+
+    const activeInvoices = invoices.filter((i) => i.status !== "cancelled");
+    const activePayments = payments.filter((p) => p.status !== "failed" && p.status !== "refunded");
+
+    const totalInvoiced = activeInvoices.reduce((sum, i) => sum + i.totalAmount, 0);
+    const totalCollected = activePayments.reduce((sum, p) => sum + p.amount, 0);
+
+    expect(totalInvoiced).toBe(25000); // 10000 + 15000, excluding cancelled 50000
+    expect(totalCollected).toBe(10000); // excluding failed 20000 and refunded 5000
+  });
 });

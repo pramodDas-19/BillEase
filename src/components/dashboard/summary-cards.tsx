@@ -80,18 +80,22 @@ export function SummaryCards() {
 
   // Compute metrics based on timeframe
   const metricsData = useMemo(() => {
-    const allTimeInvoiced = invoices.reduce((sum, i) => sum + (i.totalAmount || 0), 0);
-    const allTimePaymentsSum = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
-    const allTimeInvoicesPaid = invoices.reduce((sum, i) => sum + (i.paidAmount || 0), 0);
+    // Exclude cancelled invoices and failed/refunded payments for data consistency
+    const activeInvoices = invoices.filter((i) => i.status !== "cancelled");
+    const activePayments = payments.filter((p) => p.status !== "failed" && p.status !== "refunded");
+
+    const allTimeInvoiced = activeInvoices.reduce((sum, i) => sum + (i.totalAmount || 0), 0);
+    const allTimePaymentsSum = activePayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+    const allTimeInvoicesPaid = activeInvoices.reduce((sum, i) => sum + (i.paidAmount || 0), 0);
     const allTimeCollected = allTimePaymentsSum > 0 ? allTimePaymentsSum : allTimeInvoicesPaid;
-    const totalOutstanding = invoices.reduce((sum, i) => sum + (i.balanceDue || 0), 0);
-    const pendingInvoicesCount = invoices.filter((i) => (i.balanceDue || 0) > 0).length;
+    const totalOutstanding = activeInvoices.reduce((sum, i) => sum + (i.balanceDue || 0), 0);
+    const pendingInvoicesCount = activeInvoices.filter((i) => (i.balanceDue || 0) > 0).length;
 
     // Filter current calendar month
-    const thisMonthInvoices = invoices.filter((i) => isCurrentMonth(i.issueDate || i.createdAt));
+    const thisMonthInvoices = activeInvoices.filter((i) => isCurrentMonth(i.issueDate || i.createdAt));
     const thisMonthInvoiced = thisMonthInvoices.reduce((sum, i) => sum + (i.totalAmount || 0), 0);
 
-    const thisMonthPayments = payments.filter((p) => isCurrentMonth(p.paymentDate || p.createdAt));
+    const thisMonthPayments = activePayments.filter((p) => isCurrentMonth(p.paymentDate || p.createdAt));
     const thisMonthCollectedFromPayments = thisMonthPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
 
     // If payments table is empty but invoices were recorded as paid this month, fallback gracefully
@@ -143,7 +147,7 @@ export function SummaryCards() {
         id: "total-invoiced",
         title: "Total Invoiced",
         amount: allTimeInvoiced,
-        countLabel: `${invoices.length} ${invoices.length === 1 ? "invoice" : "invoices"}`,
+        countLabel: `${activeInvoices.length} ${activeInvoices.length === 1 ? "invoice" : "invoices"}`,
         contextText: "Total billed to date",
         icon: ReceiptText,
         bgGradient: "from-slate-50/80 via-white to-blue-50/20",
@@ -154,7 +158,7 @@ export function SummaryCards() {
         id: "collected",
         title: "Received / Collected",
         amount: allTimeCollected,
-        countLabel: `${payments.length} ${payments.length === 1 ? "receipt" : "receipts"}`,
+        countLabel: `${activePayments.length} ${activePayments.length === 1 ? "receipt" : "receipts"}`,
         contextText: "Direct bank settlements",
         icon: Wallet,
         bgGradient: "from-emerald-50/30 via-white to-teal-50/20",

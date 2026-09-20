@@ -29,7 +29,7 @@ export function PaymentAttention() {
     InvoiceService.getInvoices().then((invoices) => {
       const today = new Date().toISOString().split("T")[0];
       const pending = (invoices || []).filter(
-        (i) => i.balanceDue > 0 && (i.status === "overdue" || (i.dueDate && i.dueDate <= today))
+        (i) => i.balanceDue > 0 && (i.status === "overdue" || (i.dueDate && i.dueDate.split("T")[0] <= today))
       );
       setAttentionInvoices(pending.slice(0, 5));
       setIsLoading(false);
@@ -53,9 +53,11 @@ export function PaymentAttention() {
         businessName: currentTenant?.businessName,
       });
       window.open(url, "_blank");
+      setRemindedIds((prev) => ({ ...prev, [inv.id]: true }));
+    } else {
+      // Fallback: route to preview page to copy payment link or update client contact
+      router.push(`/invoices/${inv.id}/preview`);
     }
-
-    setRemindedIds((prev) => ({ ...prev, [inv.id]: true }));
   };
 
   const handleCallClient = (e: React.MouseEvent) => {

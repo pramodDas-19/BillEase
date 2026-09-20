@@ -69,7 +69,7 @@ export function RecentQuotationsCard() {
             {quotations.map((q) => {
               const statusConfig = QUOTATION_STATUSES[q.status] || QUOTATION_STATUSES.draft;
               const formattedAmount = formatCurrency(q.totalAmount, q.currency);
-              const primaryItem = q.items && q.items.length > 0 ? q.items[0].description : "Event & Print Services";
+              const primaryItem = q.items && q.items.length > 0 ? q.items[0].description : "Standard Goods / Services";
 
               return (
                 <div

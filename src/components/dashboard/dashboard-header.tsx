@@ -53,7 +53,7 @@ export function DashboardHeader() {
     InvoiceService.getInvoices().then((invoices) => {
       const today = new Date().toISOString().split("T")[0];
       const pending = (invoices || []).filter(
-        (i) => i.balanceDue > 0 && (i.status === "overdue" || (i.dueDate && i.dueDate <= today))
+        (i) => i.balanceDue > 0 && (i.status === "overdue" || (i.dueDate && i.dueDate.split("T")[0] <= today))
       );
       setDueActionsCount(pending.length);
     });
@@ -94,7 +94,7 @@ export function DashboardHeader() {
   const createOptions = [
     {
       label: "Quotation / Estimate",
-      description: "Quick quote for events or printing",
+      description: "Send price estimate or proposal to client",
       href: "/quotations/new",
       icon: FileText,
       iconColor: "text-blue-600 bg-blue-50/90 border border-blue-100",
