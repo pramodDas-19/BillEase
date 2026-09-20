@@ -27,10 +27,10 @@ import {
   List,
   Calendar,
   Sparkles,
-  ArrowRight,
-  AlertCircle,
   Edit3,
+  Download,
 } from "lucide-react";
+import { downloadDocumentPdf } from "@/lib/print-page-helper";
 
 export default function QuotationsPage() {
   const router = useRouter();
@@ -455,6 +455,14 @@ export default function QuotationsPage() {
                         </a>
                       )}
 
+                      <button
+                        onClick={() => downloadDocumentPdf(`/quotations/${q.id}/preview`)}
+                        title={`Download / Print Quotation #${q.quotationNumber}`}
+                        className="clay-icon-squircle flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 shadow-2xs transition-all cursor-pointer"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                      </button>
+
                       <Link
                         href={`/quotations/${q.id}/edit`}
                         title={`Edit Quotation #${q.quotationNumber}`}
@@ -668,6 +676,15 @@ export default function QuotationsPage() {
                             </a>
                           )}
 
+
+                          {/* Download / Print PDF */}
+                          <button
+                            onClick={() => downloadDocumentPdf(`/quotations/${q.id}/preview`)}
+                            title="Download / Print PDF"
+                            className="clay-icon-squircle p-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white transition-colors cursor-pointer"
+                          >
+                            <Download className="h-3 w-3" />
+                          </button>
 
                           {/* Preview PDF */}
                           <Link

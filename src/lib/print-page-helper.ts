@@ -52,7 +52,7 @@ export function triggerDocumentPrint(
   // Set document title for PDF saving
   const originalTitle = document.title;
   if (docNumber) {
-    document.title = `${docTypePrefix}_${docNumber.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+    document.title = `BillEase_${docTypePrefix}_${docNumber.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
   }
 
   window.print();
@@ -61,3 +61,38 @@ export function triggerDocumentPrint(
     document.title = originalTitle;
   }, 2000);
 }
+
+/**
+ * 1-Click trigger to directly download a document PDF from any view (detail page, listing card, etc.)
+ * Loads the document in a hidden iframe with ?download=true which executes direct file saving
+ * without opening the browser's native print dialog.
+ */
+export function downloadDocumentPdf(previewUrl: string) {
+  if (typeof window === "undefined") return;
+  const url = new URL(previewUrl, window.location.origin);
+  url.searchParams.set("download", "true");
+
+  try {
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.left = "-9999px";
+    iframe.style.top = "0";
+    iframe.style.width = "850px";
+    iframe.style.height = "1100px";
+    iframe.style.opacity = "0";
+    iframe.style.pointerEvents = "none";
+    iframe.src = url.toString();
+    document.body.appendChild(iframe);
+
+    // Auto-clean up iframe after download completes
+    setTimeout(() => {
+      if (iframe.parentNode) {
+        iframe.parentNode.removeChild(iframe);
+      }
+    }, 12000);
+  } catch (err) {
+    console.warn("Could not use hidden iframe, falling back to window download:", err);
+    window.open(url.toString(), "_blank");
+  }
+}
+

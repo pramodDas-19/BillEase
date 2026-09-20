@@ -1,6 +1,6 @@
 "use client";
 
-import React, { use, useState, useEffect } from "react";
+import React, { use, useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { InvoiceService } from "@/services/invoice.service";
 import { ClientService } from "@/services/client.service";
@@ -10,14 +10,17 @@ import {
   DocumentTemplateRenderer,
 } from "@/components/documents";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Printer, Loader2, Palette } from "lucide-react";
+import { ArrowLeft, Printer, Loader2, Palette, Download } from "lucide-react";
 import { triggerDocumentPrint } from "@/lib/print-page-helper";
+import { downloadElementAsPdf } from "@/lib/pdf-download-helper";
 
 export default function InvoicePreviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { currentTenant, refreshTenantData } = useTenant();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const documentRef = useRef<HTMLDivElement>(null);
 
   // Default to tenant preferred template or fallback to Advanced GST
   const defaultTemplateId =
@@ -61,6 +64,38 @@ export default function InvoicePreviewPage({ params }: { params: Promise<{ id: s
     );
   };
 
+  const handleDownloadPdf = async () => {
+    if (!invoice || !documentRef.current || isDownloading) return;
+    setIsDownloading(true);
+    try {
+      const cleanNum = invoice.invoiceNumber.replace(/[^a-zA-Z0-9_-]/g, "_");
+      await downloadElementAsPdf(
+        documentRef.current,
+        `BillEase_Invoice_${cleanNum}.pdf`
+      );
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  // Direct download if query parameter has ?download=true
+  useEffect(() => {
+    if (invoice && typeof window !== "undefined") {
+      const sp = new URLSearchParams(window.location.search);
+      if (sp.get("download") === "true") {
+        const t = setTimeout(() => {
+          handleDownloadPdf();
+        }, 500);
+        return () => clearTimeout(t);
+      } else if (sp.get("autoPrint") === "true") {
+        const t = setTimeout(() => {
+          handlePrint();
+        }, 450);
+        return () => clearTimeout(t);
+      }
+    }
+  }, [invoice, selectedTemplateId]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px] text-slate-400 gap-2">
@@ -98,10 +133,10 @@ export default function InvoicePreviewPage({ params }: { params: Promise<{ id: s
           <span>Back to Invoices</span>
         </Link>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <Link
             href="/settings/templates"
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 text-xs font-bold shadow-xs transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 text-xs font-bold shadow-xs transition-colors"
           >
             <Palette className="h-3.5 w-3.5 text-[#0C9484]" />
             <span>Customize Template</span>
@@ -109,17 +144,40 @@ export default function InvoicePreviewPage({ params }: { params: Promise<{ id: s
 
           <Button
             size="sm"
-            onClick={handlePrint}
-            className="gap-1.5 text-xs font-bold cursor-pointer bg-slate-900 hover:bg-slate-800 text-white rounded-xl shadow-xs"
+            onClick={handleDownloadPdf}
+            disabled={isDownloading}
+            className="gap-1.5 text-xs font-bold cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs"
           >
-            <Printer className="h-3.5 w-3.5" />
-            <span>Print / Save as PDF</span>
+            {isDownloading ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span>Downloading...</span>
+              </>
+            ) : (
+              <>
+                <Download className="h-3.5 w-3.5" />
+                <span>Download PDF</span>
+              </>
+            )}
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handlePrint}
+            className="gap-1.5 text-xs font-bold cursor-pointer bg-white border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl shadow-xs"
+          >
+            <Printer className="h-3.5 w-3.5 text-slate-500" />
+            <span>Print</span>
           </Button>
         </div>
       </div>
 
       {/* 2. Live Preview & Official Document Print Container */}
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-2 sm:p-4 shadow-md print:p-0 print:m-0 print:border-none print:shadow-none print:overflow-visible print:rounded-none">
+      <div
+        ref={documentRef}
+        className="rounded-2xl border border-slate-200/80 bg-white p-2 sm:p-4 shadow-md print:p-0 print:m-0 print:border-none print:shadow-none print:overflow-visible print:rounded-none"
+      >
         <DocumentTemplateRenderer
           document={invoice}
           type="invoice"

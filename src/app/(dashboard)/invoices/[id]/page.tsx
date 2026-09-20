@@ -19,16 +19,17 @@ import {
   Edit2,
   CheckCircle,
   Loader2,
+  Download,
 } from "lucide-react";
-
+import { downloadDocumentPdf } from "@/lib/print-page-helper";
 
 export default function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { currentTenant } = useTenant();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [invoicePayments, setInvoicePayments] = useState<Payment[]>([]);
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -51,7 +52,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px] text-slate-400 gap-2">
-        <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
+        <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
         <span className="text-sm font-medium">Loading Invoice...</span>
       </div>
     );
@@ -73,20 +74,23 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     );
   }
 
-  const whatsappUrl = getWhatsAppInvoiceShareUrl({
-    clientPhone: invoice.clientPhone || "",
-    clientName: invoice.clientName,
-    invoiceNumber: invoice.invoiceNumber,
-    invoiceId: invoice.id,
-    publicToken: invoice.publicToken,
-    totalAmount: invoice.totalAmount,
-    balanceDue: invoice.balanceDue,
-    currency: invoice.currency,
-    businessName: currentTenant?.businessName,
-  });
+  const cleanPhone = invoice.clientPhone ? invoice.clientPhone.replace(/[^0-9]/g, "") : "";
+  const whatsappUrl = cleanPhone
+    ? getWhatsAppInvoiceShareUrl({
+        clientPhone: invoice.clientPhone || "",
+        clientName: invoice.clientName,
+        invoiceNumber: invoice.invoiceNumber,
+        invoiceId: invoice.id,
+        publicToken: invoice.publicToken,
+        totalAmount: invoice.totalAmount,
+        balanceDue: invoice.balanceDue,
+        currency: invoice.currency,
+        businessName: currentTenant?.businessName,
+      })
+    : "";
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-6 max-w-5xl mx-auto pb-12 animate-in fade-in-50 duration-200">
       {/* Action Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -107,18 +111,27 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <Link href={`/invoices/${invoice.id}/edit`}>
-            <Button variant="outline" size="sm" className="gap-1.5 text-xs font-bold text-slate-700 bg-white">
-              <Edit2 className="h-3.5 w-3.5 text-slate-500" />
-              <span>Edit</span>
+          {/* Download PDF Button */}
+          <Button
+            size="sm"
+            onClick={() => downloadDocumentPdf(`/invoices/${invoice.id}/preview`)}
+            className="gap-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-xs"
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span>Download PDF</span>
+          </Button>
+
+          <Link href={`/invoices/${invoice.id}/preview`}>
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs font-bold bg-white border-slate-200 text-slate-700 hover:bg-slate-50">
+              <Eye className="h-3.5 w-3.5 text-slate-500" />
+              <span>Preview</span>
             </Button>
           </Link>
 
-          <Link href={`/invoices/${invoice.id}/preview`}>
-
-            <Button variant="outline" size="sm" className="gap-1.5 text-xs font-bold">
-              <Eye className="h-3.5 w-3.5" />
-              <span>Preview / PDF</span>
+          <Link href={`/invoices/${invoice.id}/edit`}>
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs font-bold text-slate-700 bg-white border-slate-200 hover:bg-slate-50">
+              <Edit2 className="h-3.5 w-3.5 text-slate-500" />
+              <span>Edit</span>
             </Button>
           </Link>
 
@@ -135,9 +148,9 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             <Button
               size="sm"
               onClick={() => setIsPaymentModalOpen(true)}
-              className="gap-1.5 text-xs font-bold"
+              className="gap-1.5 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white shadow-xs cursor-pointer"
             >
-              <CreditCard className="h-3.5 w-3.5" />
+              <CreditCard className="h-3.5 w-3.5 text-emerald-400" />
               <span>Record Payment</span>
             </Button>
           )}
