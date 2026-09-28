@@ -17,25 +17,33 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 2. Public customer portal and static marketing routes that require zero authentication
+  // 2. Cryptographically verify Super-Admin session token & auth cookies
+  const adminAuth = await verifyAdminSession(request);
+  const hasAdminSession = adminAuth.valid;
+
+  const allCookies = request.cookies.getAll();
+  const hasAuthCookie = allCookies.some(
+    (c) => c.name.startsWith("sb-") && c.name.includes("-auth-token")
+  );
+
+  // 3. Public customer portal and static marketing routes that require zero authentication
   if (
+    pathname === "/" ||
     pathname.startsWith("/pay/") ||
     pathname.startsWith("/pricing") ||
     pathname.startsWith("/terms") ||
     pathname.startsWith("/privacy")
   ) {
+    if (pathname === "/") {
+      if (hasAdminSession) {
+        return NextResponse.redirect(new URL("/admin", request.url));
+      }
+      if (hasAuthCookie) {
+        return NextResponse.redirect(new URL("/dashboard", request.url));
+      }
+    }
     return NextResponse.next();
   }
-
-  // 3. Cryptographically verify Super-Admin session token
-  const adminAuth = await verifyAdminSession(request);
-  const hasAdminSession = adminAuth.valid;
-
-  // 4. Fast Supabase auth cookie inspection
-  const allCookies = request.cookies.getAll();
-  const hasAuthCookie = allCookies.some(
-    (c) => c.name.startsWith("sb-") && c.name.includes("-auth-token")
-  );
 
   // If user has neither an admin session nor a Supabase auth cookie, they are definitively unauthenticated
   if (!hasAuthCookie && !hasAdminSession) {
@@ -53,10 +61,6 @@ export async function middleware(request: NextRequest) {
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("redirectTo", pathname);
       return NextResponse.redirect(loginUrl);
-    }
-
-    if (pathname === "/") {
-      return NextResponse.redirect(new URL("/login", request.url));
     }
 
     // Allow /admin to load so unauthenticated users can access the Super-Admin 2FA login form
@@ -139,7 +143,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  // C. Root redirect: "/" -> "/admin" if admin, "/dashboard" if authenticated, else "/login"
+  // C. Root page for unauthenticated visitors is the landing page
   if (pathname === "/") {
     if (hasAdminSession) {
       return NextResponse.redirect(new URL("/admin", request.url));
@@ -147,7 +151,7 @@ export async function middleware(request: NextRequest) {
     if (isAuthenticated) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
-    return NextResponse.redirect(new URL("/login", request.url));
+    return response;
   }
 
   return response;

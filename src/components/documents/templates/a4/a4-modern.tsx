@@ -32,9 +32,10 @@ export function A4ModernTemplate({ doc }: { doc: NormalizedDocument }) {
   ].filter(Boolean);
 
   return (
-    <div className="mx-auto max-w-4xl bg-white p-6 sm:p-8 text-slate-900 shadow-sm print:p-0 print:shadow-none print:max-w-none text-xs font-sans document-print-root avoid-break">
-      {/* 1. Header */}
-      <div className="flex justify-between items-start border-b-2 border-slate-900 pb-3 mb-4 print:pb-2 print:mb-3">
+    <div className="w-full mx-auto max-w-4xl min-h-[960px] print:min-h-[265mm] flex flex-col justify-between bg-white p-6 sm:p-7 text-slate-900 shadow-sm print:p-0 print:shadow-none print:max-w-none text-xs font-sans document-print-root avoid-break">
+      <div className="space-y-4 print:space-y-3">
+        {/* 1. Header */}
+        <div className="flex justify-between items-start border-b-2 border-slate-900 pb-3 mb-4 print:pb-2 print:mb-3">
         {/* Left: Business Identity & Contact */}
         <div className="max-w-md space-y-1">
           {doc.tenant.logoUrl ? (
@@ -158,11 +159,11 @@ export function A4ModernTemplate({ doc }: { doc: NormalizedDocument }) {
             )}
             {hasQtyOrRate && (
               <>
-                <th className="py-2.5 px-2.5 font-black text-slate-900 text-center w-16">QTY</th>
-                <th className="py-2.5 px-2.5 font-black text-slate-900 text-right w-20">RATE</th>
+                <th className="py-2.5 px-2.5 font-black text-slate-900 text-center w-20 whitespace-nowrap">QTY</th>
+                <th className="py-2.5 px-2.5 font-black text-slate-900 text-right w-28 whitespace-nowrap">RATE</th>
               </>
             )}
-            <th className="py-2.5 px-2.5 font-black text-slate-900 text-right w-24">AMOUNT</th>
+            <th className="py-2.5 px-2.5 font-black text-slate-900 text-right w-28 whitespace-nowrap">AMOUNT</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-200 border-b-2 border-slate-900">
@@ -177,7 +178,7 @@ export function A4ModernTemplate({ doc }: { doc: NormalizedDocument }) {
 
             return (
               <tr key={item.id || idx} className="align-top">
-                <td className="py-2.5 px-2.5 text-center text-slate-500 font-bold font-mono text-[11px]">
+                <td className="py-2.5 px-2.5 text-center text-slate-500 font-bold font-mono text-[11px] whitespace-nowrap">
                   {String(idx + 1).padStart(2, "0")}
                 </td>
                 <td className="py-2.5 px-2.5">
@@ -204,21 +205,21 @@ export function A4ModernTemplate({ doc }: { doc: NormalizedDocument }) {
                   )}
                 </td>
                 {hasHsnSac && (
-                  <td className="py-2.5 px-2.5 text-center font-mono font-semibold text-[10px] text-slate-700">
+                  <td className="py-2.5 px-2.5 text-center font-mono font-semibold text-[10px] text-slate-700 whitespace-nowrap">
                     {item.hsnSacCode || "—"}
                   </td>
                 )}
                 {hasQtyOrRate && (
                   <>
-                    <td className="py-2.5 px-2.5 text-center text-slate-700 font-medium">
+                    <td className="py-2.5 px-2.5 text-center text-slate-700 font-medium whitespace-nowrap">
                       {item.quantity !== undefined ? `${item.quantity} ${item.unit || ""}` : "—"}
                     </td>
-                    <td className="py-2.5 px-2.5 text-right text-slate-700 font-mono">
+                    <td className="py-2.5 px-2.5 text-right text-slate-700 font-mono whitespace-nowrap font-medium">
                       {item.rate !== undefined ? formatCurrency(item.rate) : "—"}
                     </td>
                   </>
                 )}
-                <td className="py-2.5 px-2.5 text-right font-mono">
+                <td className="py-2.5 px-2.5 text-right font-mono whitespace-nowrap">
                   {Boolean(item.discountValue && item.discountValue > 0 && itDiscAmt > 0) ? (
                     <div>
                       <span className="text-[10px] text-slate-400 line-through block font-normal">
@@ -474,6 +475,7 @@ export function A4ModernTemplate({ doc }: { doc: NormalizedDocument }) {
             </p>
           </div>
         </div>
+      </div>
       </div>
 
       {/* 8. Bottom Footer */}

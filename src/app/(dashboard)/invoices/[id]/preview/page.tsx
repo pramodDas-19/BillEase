@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Printer, Loader2, Palette, Download } from "lucide-react";
 import { triggerDocumentPrint } from "@/lib/print-page-helper";
+import { downloadElementAsPdf } from "@/lib/pdf-download-helper";
 
 export default function InvoicePreviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -63,8 +64,30 @@ export default function InvoicePreviewPage({ params }: { params: Promise<{ id: s
     );
   };
 
-  const handleDownloadPdf = () => {
-    handlePrint();
+  const handleDownloadPdf = async () => {
+    if (!invoice) return;
+    if (!documentRef.current) {
+      handlePrint();
+      return;
+    }
+    setIsDownloading(true);
+    try {
+      const fileName = `Invoice_${invoice.invoiceNumber.replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
+      const isLandscape = selectedTemplateId.includes("landscape");
+      const isA5 = selectedTemplateId.startsWith("a5");
+      const success = await downloadElementAsPdf(documentRef.current, fileName, {
+        format: isA5 ? "a5" : "a4",
+        orientation: isLandscape ? "landscape" : "portrait",
+      });
+      if (!success) {
+        handlePrint();
+      }
+    } catch (err) {
+      console.warn("PDF generation fallback to print:", err);
+      handlePrint();
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   // Direct print/download if query parameter has ?download=true or ?autoPrint=true

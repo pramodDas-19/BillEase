@@ -25,8 +25,14 @@ export async function downloadElementAsPdf(
     const html2canvas = html2canvasModule.default || html2canvasModule;
     const jsPDF = jsPdfModule.default || jsPdfModule;
 
-    // 1. Capture element canvas at 2x resolution for crisp text & borders
-    const canvas = await html2canvas(element, {
+    // 1. Target the actual document root element (bypass outer flex/centering wrappers)
+    const targetEl =
+      (element.querySelector(".document-print-root") as HTMLElement) ||
+      (element.querySelector(".responsive-sheet-inner") as HTMLElement) ||
+      element;
+
+    // Capture element canvas at 2x resolution for crisp text & borders
+    const canvas = await html2canvas(targetEl, {
       scale: 2,
       useCORS: true,
       logging: false,
@@ -45,6 +51,24 @@ export async function downloadElementAsPdf(
           el.style.width = "800px";
           el.style.height = "auto";
         });
+        const roots = clonedElement.querySelectorAll<HTMLElement>(".document-print-root");
+        roots.forEach((el) => {
+          el.style.width = "800px";
+          el.style.maxWidth = "800px";
+          el.style.margin = "0";
+          el.style.padding = "24px 28px"; // Clean, balanced ~7mm margin
+          el.style.boxShadow = "none";
+          el.style.border = "none";
+        });
+        // If the clonedElement itself is the root
+        if (clonedElement.classList.contains("document-print-root")) {
+          clonedElement.style.width = "800px";
+          clonedElement.style.maxWidth = "800px";
+          clonedElement.style.margin = "0";
+          clonedElement.style.padding = "24px 28px";
+          clonedElement.style.boxShadow = "none";
+          clonedElement.style.border = "none";
+        }
         const controls = clonedElement.querySelectorAll<HTMLElement>(".responsive-sheet-controls");
         controls.forEach((el) => {
           el.style.display = "none";

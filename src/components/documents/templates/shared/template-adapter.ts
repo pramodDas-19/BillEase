@@ -103,14 +103,18 @@ export function normalizeDocument(
   const documentNumber = isInvoice ? inv!.invoiceNumber : quot!.quotationNumber;
   const isTaxEnabled = doc.isTaxEnabled ?? true;
   const isFullyPaid = isInvoice ? ((inv!.balanceDue ?? 0) <= 0 || inv!.status === "paid") : false;
+  const docTax = isInvoice ? (inv!.totalTax ?? 0) : (((quot as any)?.taxAmount ?? (quot as any)?.totalTax) ?? 0);
+  const hasTax = docTax > 0 || (doc.items || []).some(item => ((item as any).taxRate ?? 0) > 0);
+  const sellerHasGstin = Boolean(tenant?.gstin && tenant.gstin.trim().length > 0);
+  const isActualTaxDocument = isTaxEnabled && (hasTax || sellerHasGstin);
 
   let documentTitle = "";
   if (isInvoice) {
-    if (!isTaxEnabled) documentTitle = "BILL OF SUPPLY";
+    if (!isActualTaxDocument) documentTitle = "BILL OF SUPPLY";
     else if (isFullyPaid) documentTitle = "TAX INVOICE & RECEIPT";
     else documentTitle = "TAX INVOICE";
   } else {
-    documentTitle = !isTaxEnabled ? "ESTIMATE / QUOTATION" : "TAX QUOTATION";
+    documentTitle = !isActualTaxDocument ? "ESTIMATE / QUOTATION" : "TAX QUOTATION";
   }
 
   const dateRaw = isInvoice ? inv!.issueDate : quot!.date;

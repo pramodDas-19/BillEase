@@ -12,23 +12,23 @@ export function triggerDocumentPrint(
 
   // Determine exact @page size and margins
   let pageSizeRule = "A4 portrait";
-  let pageMargin = "6mm 8mm 6mm 8mm";
+  let docPadding = "6mm 8mm 6mm 8mm";
 
   if (meta.category === "a5") {
     if (meta.orientation === "landscape") {
       pageSizeRule = "A5 landscape";
-      pageMargin = "4mm 6mm 4mm 6mm";
+      docPadding = "4mm 6mm 4mm 6mm";
     } else {
       pageSizeRule = "A5 portrait";
-      pageMargin = "4mm 6mm 4mm 6mm";
+      docPadding = "4mm 6mm 4mm 6mm";
     }
   } else if (meta.category === "thermal") {
     if (meta.paperWidthMm <= 58) {
       pageSizeRule = "58mm auto";
-      pageMargin = "1mm 1mm 1mm 1mm";
+      docPadding = "1mm 1mm 1mm 1mm";
     } else {
       pageSizeRule = "80mm auto";
-      pageMargin = "1mm 1mm 1mm 1mm";
+      docPadding = "2mm 2mm 2mm 2mm";
     }
   }
 
@@ -40,11 +40,33 @@ export function triggerDocumentPrint(
     document.head.appendChild(styleEl);
   }
 
+  // Note: !important is forbidden inside @page according to CSS Paged Media specs.
+  // Using margin: 0 in @page suppresses default browser header (URL) and footer (page #).
   styleEl.textContent = `
+    @page {
+      size: ${pageSizeRule};
+      margin: 0;
+    }
     @media print {
-      @page {
-        size: ${pageSizeRule} !important;
-        margin: ${pageMargin} !important;
+      html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+      }
+      .document-print-root {
+        box-shadow: none !important;
+        border: none !important;
+        margin: 0 auto !important;
+        padding: ${docPadding} !important;
+        max-width: 100% !important;
+        width: 100% !important;
+      }
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
       }
     }
   `;
