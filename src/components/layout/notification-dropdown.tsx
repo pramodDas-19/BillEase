@@ -196,12 +196,12 @@ export function NotificationDropdown() {
               )}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               {unreadCount > 0 && (
                 <button
                   type="button"
                   onClick={handleMarkAllRead}
-                  className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 transition-colors cursor-pointer"
+                  className="min-h-[36px] px-2 py-1 inline-flex items-center text-xs font-bold text-emerald-700 hover:text-emerald-800 rounded-lg transition-colors cursor-pointer"
                 >
                   Mark all read
                 </button>
@@ -210,7 +210,7 @@ export function NotificationDropdown() {
                 <button
                   type="button"
                   onClick={handleClearAll}
-                  className="text-[10px] font-bold text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                  className="min-h-[36px] px-2 py-1 inline-flex items-center text-xs font-bold text-slate-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
                 >
                   Clear all
                 </button>
@@ -231,7 +231,7 @@ export function NotificationDropdown() {
                 type="button"
                 onClick={() => setSelectedTab(tab.id as any)}
                 className={cn(
-                  "px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap",
+                  "min-h-[36px] px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap inline-flex items-center",
                   selectedTab === tab.id
                     ? "bg-slate-900 text-white shadow-2xs"
                     : "bg-slate-50 text-slate-500 hover:bg-slate-100 border border-slate-200/60"
@@ -280,12 +280,12 @@ export function NotificationDropdown() {
                       type="button"
                       onClick={(e) => handleDismissOne(notif.id, e)}
                       title="Delete Notification"
-                      className="absolute top-2 right-2 p-1 text-slate-400 hover:text-rose-600 hover:bg-white rounded-md transition-all opacity-70 group-hover:opacity-100 cursor-pointer"
+                      className="absolute top-1.5 right-1.5 min-h-[36px] min-w-[36px] flex items-center justify-center p-2 text-slate-400 hover:text-rose-600 hover:bg-white rounded-xl transition-all opacity-70 group-hover:opacity-100 cursor-pointer"
                     >
-                      <X className="h-3.5 w-3.5" />
+                      <X className="h-4 w-4" />
                     </button>
 
-                    <div className="flex items-start gap-2.5 pr-6">
+                    <div className="flex items-start gap-2.5 pr-8">
                       <div className="p-1.5 rounded-lg bg-white border border-slate-200 shrink-0 shadow-2xs">
                         {getIcon(notif.type)}
                       </div>
@@ -320,9 +320,9 @@ export function NotificationDropdown() {
                           })}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="clay-tag inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 shadow-2xs transition-colors cursor-pointer"
+                          className="clay-tag inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 shadow-2xs transition-colors cursor-pointer"
                         >
-                          <MessageSquare className="h-3 w-3 text-amber-600" />
+                          <MessageSquare className="h-3.5 w-3.5 text-amber-600" />
                           <span>1-Click WhatsApp Remind</span>
                         </a>
                       </div>
@@ -338,13 +338,13 @@ export function NotificationDropdown() {
             <button
               type="button"
               onClick={handleTestPush}
-              className="inline-flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-emerald-700 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 min-h-[36px] px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:text-emerald-700 transition-colors cursor-pointer"
             >
-              <Volume2 className="h-3 w-3" />
+              <Volume2 className="h-3.5 w-3.5" />
               <span>Enable Web Push Alerts</span>
             </button>
             {pushStatus && (
-              <span className="text-[10px] font-bold text-emerald-600 animate-fade-in">
+              <span className="text-xs font-bold text-emerald-600 animate-fade-in">
                 {pushStatus}
               </span>
             )}

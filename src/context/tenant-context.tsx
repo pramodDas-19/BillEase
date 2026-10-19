@@ -57,7 +57,7 @@ interface TenantContextType {
   currentUser: User;
   availableTenants: Tenant[];
   isLoading: boolean;
-  switchTenant: (tenantId: string) => void;
+  switchTenant: (tenantId: string) => Promise<void> | void;
   updateTenantSettings: (newSettings: Partial<Tenant["settings"]>) => Promise<void>;
   updateTenantProfile: (newProfile: Partial<Tenant>) => Promise<void>;
   refreshTenantData: () => Promise<void>;
@@ -107,18 +107,19 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         authUser = supabaseUser;
 
         if (typeof window !== "undefined") {
+          const activeStored =
+            sessionStorage.getItem("billease_active_tenant_id") ||
+            localStorage.getItem("billease_active_tenant_id");
           const regStr = localStorage.getItem("billease_registered_user");
           if (regStr) {
             try {
               registeredInfo = JSON.parse(regStr);
-              if (registeredInfo.tenantId) {
-                tenantId = registeredInfo.tenantId;
-              }
             } catch (e) {}
           }
-          const activeStored = localStorage.getItem("billease_active_tenant_id");
-          if (activeStored && !tenantId) {
+          if (activeStored) {
             tenantId = activeStored;
+          } else if (registeredInfo?.tenantId) {
+            tenantId = registeredInfo.tenantId;
           }
         }
 
@@ -126,10 +127,10 @@ export function TenantProvider({ children }: { children: ReactNode }) {
           const appMeta = authUser.app_metadata || {};
           const userMeta = authUser.user_metadata || {};
           tenantId =
+            tenantId ||
             appMeta.tenant_id ||
             userMeta.tenant_id ||
-            tenantId ||
-            (registeredInfo?.tenantId) ||
+            registeredInfo?.tenantId ||
             `tenant-${authUser.id.slice(0, 8)}`;
         }
 
@@ -210,29 +211,42 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         (!isImpersonating && authUser?.email) ||
         "";
 
+      let cachedTenantSettings: any = null;
+      let cachedTenantProfile: any = null;
+      if (typeof window !== "undefined" && tenantId) {
+        try {
+          const cs = localStorage.getItem(`billease_tenant_settings_${tenantId}`);
+          if (cs) cachedTenantSettings = JSON.parse(cs);
+          const cp = localStorage.getItem(`billease_tenant_profile_${tenantId}`);
+          if (cp) cachedTenantProfile = JSON.parse(cp);
+        } catch {}
+      }
+
       const loadedTenant: Tenant = {
         id: tenantId,
-        businessName: businessName,
-        slug: businessName.toLowerCase().replace(/[^a-z0-9]/g, "-"),
-        businessType: tenantRow?.business_type || "event_planner",
-        ownerName: ownerName,
-        email: email,
-        phone: phone,
-        gstin: tenantRow?.gstin || "",
-        logoUrl: tenantRow?.logo_url || tenantRow?.settings?.logoUrl || (!isImpersonating ? registeredInfo?.logoUrl : undefined),
-        signatureUrl: tenantRow?.signature_url || tenantRow?.settings?.signatureUrl || (!isImpersonating ? registeredInfo?.signatureUrl : undefined),
-        address: tenantRow?.address || DEFAULT_TENANT.address,
+        businessName: cachedTenantProfile?.businessName || businessName,
+        slug: (cachedTenantProfile?.businessName || businessName).toLowerCase().replace(/[^a-z0-9]/g, "-"),
+        businessType: cachedTenantProfile?.businessType || tenantRow?.business_type || "event_planner",
+        ownerName: cachedTenantProfile?.ownerName || ownerName,
+        email: cachedTenantProfile?.email || email,
+        phone: cachedTenantProfile?.phone || phone,
+        gstin: cachedTenantProfile?.gstin || tenantRow?.gstin || "",
+        logoUrl: cachedTenantProfile?.logoUrl || tenantRow?.logo_url || tenantRow?.settings?.logoUrl || (!isImpersonating ? registeredInfo?.logoUrl : undefined),
+        signatureUrl: cachedTenantProfile?.signatureUrl || tenantRow?.signature_url || tenantRow?.settings?.signatureUrl || (!isImpersonating ? registeredInfo?.signatureUrl : undefined),
+        address: cachedTenantProfile?.address || tenantRow?.address || DEFAULT_TENANT.address,
         bankDetails: {
           ...DEFAULT_TENANT.bankDetails,
           ...(!isImpersonating ? (registeredInfo?.bankDetails || {}) : {}),
           ...(tenantRow?.bank_details || {}),
+          ...(cachedTenantProfile?.bankDetails || {}),
         },
         settings: {
           ...DEFAULT_TENANT.settings,
           ...(!isImpersonating ? (registeredInfo?.settings || {}) : {}),
           ...(tenantRow?.settings || {}),
-          logoUrl: tenantRow?.logo_url || tenantRow?.settings?.logoUrl || (!isImpersonating ? registeredInfo?.logoUrl : undefined),
-          signatureUrl: tenantRow?.signature_url || tenantRow?.settings?.signatureUrl || (!isImpersonating ? registeredInfo?.signatureUrl : undefined),
+          ...(cachedTenantSettings || {}),
+          logoUrl: cachedTenantProfile?.logoUrl || tenantRow?.logo_url || tenantRow?.settings?.logoUrl || (!isImpersonating ? registeredInfo?.logoUrl : undefined),
+          signatureUrl: cachedTenantProfile?.signatureUrl || tenantRow?.signature_url || tenantRow?.settings?.signatureUrl || (!isImpersonating ? registeredInfo?.signatureUrl : undefined),
         },
         subscription: (() => {
           const storedSub = tenantRow?.settings?.subscription;
@@ -293,9 +307,18 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const switchTenant = (tenantId: string) => {
+  const switchTenant = async (tenantId: string) => {
     AuthService.setActiveTenantId(tenantId);
-    setCurrentTenant((prev) => ({ ...prev, id: tenantId }));
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("billease_active_tenant_id", tenantId);
+      localStorage.setItem("billease_active_tenant_id", tenantId);
+    }
+    setIsLoading(true);
+    try {
+      await loadTenantAndUser();
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const updateTenantSettings = async (newSettings: Partial<Tenant["settings"]>) => {
@@ -311,16 +334,25 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
     if (typeof window !== "undefined") {
       try {
+        // 1. Store namespaced settings for this specific tenant
+        localStorage.setItem(
+          `billease_tenant_settings_${currentTenant.id}`,
+          JSON.stringify(updatedSettings)
+        );
+
+        // 2. Synchronize registered user if active
         const regStr = localStorage.getItem("billease_registered_user");
         const existing = regStr ? JSON.parse(regStr) : {};
-        localStorage.setItem(
-          "billease_registered_user",
-          JSON.stringify({
-            ...existing,
-            tenantId: currentTenant.id,
-            settings: updatedSettings,
-          })
-        );
+        if (existing.tenantId === currentTenant.id) {
+          localStorage.setItem(
+            "billease_registered_user",
+            JSON.stringify({
+              ...existing,
+              tenantId: currentTenant.id,
+              settings: updatedSettings,
+            })
+          );
+        }
       } catch (e) {
         console.warn("Failed to persist settings to localStorage:", e);
       }
@@ -360,25 +392,34 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
     if (typeof window !== "undefined") {
       try {
+        // 1. Store namespaced profile for this specific tenant
+        localStorage.setItem(
+          `billease_tenant_profile_${currentTenant.id}`,
+          JSON.stringify(updated)
+        );
+
+        // 2. Synchronize registered user if active
         const regStr = localStorage.getItem("billease_registered_user");
         const existing = regStr ? JSON.parse(regStr) : {};
-        localStorage.setItem(
-          "billease_registered_user",
-          JSON.stringify({
-            ...existing,
-            tenantId: currentTenant.id,
-            businessName: updated.businessName,
-            ownerName: updated.ownerName,
-            email: updated.email,
-            phone: updated.phone,
-            logoUrl: updated.logoUrl,
-            signatureUrl: updated.signatureUrl,
-            gstin: updated.gstin,
-            address: updated.address,
-            bankDetails: updated.bankDetails,
-            settings: updated.settings,
-          })
-        );
+        if (existing.tenantId === currentTenant.id) {
+          localStorage.setItem(
+            "billease_registered_user",
+            JSON.stringify({
+              ...existing,
+              tenantId: currentTenant.id,
+              businessName: updated.businessName,
+              ownerName: updated.ownerName,
+              email: updated.email,
+              phone: updated.phone,
+              logoUrl: updated.logoUrl,
+              signatureUrl: updated.signatureUrl,
+              gstin: updated.gstin,
+              address: updated.address,
+              bankDetails: updated.bankDetails,
+              settings: updated.settings,
+            })
+          );
+        }
       } catch (e) {
         console.warn("Failed to persist profile to localStorage:", e);
       }

@@ -102,7 +102,7 @@ export function DocumentFormatBar({
                 onSelectTemplate(a4Templates[0].id);
               }
             }}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3.5 py-2 min-h-[38px] rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
               activeCategory === "a4"
                 ? "bg-white text-indigo-700 shadow-xs border border-indigo-200 ring-1 ring-indigo-500/20"
                 : "text-slate-600 hover:text-slate-900"
@@ -121,7 +121,7 @@ export function DocumentFormatBar({
                 onSelectTemplate(a5Templates[0].id);
               }
             }}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3.5 py-2 min-h-[38px] rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
               activeCategory === "a5"
                 ? "bg-white text-indigo-700 shadow-xs border border-indigo-200 ring-1 ring-indigo-500/20"
                 : "text-slate-600 hover:text-slate-900"
@@ -140,7 +140,7 @@ export function DocumentFormatBar({
                 onSelectTemplate(thermalTemplates[0].id);
               }
             }}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3.5 py-2 min-h-[38px] rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
               activeCategory === "thermal"
                 ? "bg-white text-indigo-700 shadow-xs border border-indigo-200 ring-1 ring-indigo-500/20"
                 : "text-slate-600 hover:text-slate-900"

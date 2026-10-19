@@ -595,12 +595,120 @@ This living document maintains an audit trail of every system module in **BillEa
 
 ---
 
+---
+
+## ⚙️ Module 8: Settings, Multi-Tenancy & Notifications
+
+### 8.1 Multi-Tenant Switching Desync & LocalStorage Namespacing Isolation
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**: [`src/context/tenant-context.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/context/tenant-context.tsx), [`src/services/auth.service.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/services/auth.service.ts)
+* **The Problem**:
+  1. `switchTenant(tenantId)` previously only mutated the `id` field in local React state (`setCurrentTenant(prev => ({ ...prev, id: tenantId }))`). It never loaded the switched tenant's database record or settings. Consequently, Tenant A's business name, bank details, and numbering sequences remained in memory under Tenant B's ID, risking cross-tenant data overwrite.
+  2. In `loadTenantAndUser()`, `registeredInfo.tenantId` in the shared `billease_registered_user` key took precedence over `billease_active_tenant_id`. Switching to a different tenant reverted on page reloads.
+  3. Settings and profile persistence wrote into an unpartitioned global key in `localStorage`, leading to cross-tenant cache contamination.
+* **The Fix**:
+  1. Updated `switchTenant` to store `billease_active_tenant_id` in both `sessionStorage` and `localStorage`, set `AuthService.setActiveTenantId(tenantId)`, and trigger an asynchronous reload via `loadTenantAndUser()`:
+     ```ts
+     const switchTenant = async (tenantId: string) => {
+       AuthService.setActiveTenantId(tenantId);
+       if (typeof window !== "undefined") {
+         sessionStorage.setItem("billease_active_tenant_id", tenantId);
+         localStorage.setItem("billease_active_tenant_id", tenantId);
+       }
+       setIsLoading(true);
+       try {
+         await loadTenantAndUser();
+       } finally {
+         setIsLoading(false);
+       }
+     };
+     ```
+  2. Prioritized `billease_active_tenant_id` during tenant resolution.
+  3. Namespaced local storage per tenant:
+     - `billease_tenant_settings_${currentTenant.id}`
+     - `billease_tenant_profile_${currentTenant.id}`
+  4. Merged tenant-specific cached profile and settings during tenant bootstrap.
+
+---
+
+### 8.2 Comprehensive Settings & Business Profile Validation Schema
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**: [`src/validations/settings.schema.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/validations/settings.schema.ts), [`src/app/(dashboard)/settings/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/settings/page.tsx)
+* **The Problem**:
+  [`src/validations/settings.schema.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/validations/settings.schema.ts) had an unused stub function. Settings forms allowed saving invalid emails, phone numbers with $<10$ digits, invalid GSTINs with nonexistent state codes, invalid bank IFSC codes, malformed UPI VPAs missing `@`, and tax rates outside 0–100%.
+* **The Fix**:
+  1. Rebuilt [`src/validations/settings.schema.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/validations/settings.schema.ts) with pure TypeScript validation (`validateSettings()`):
+     - Business Name & Owner Name: Minimum 2 non-whitespace characters.
+     - Phone: Requires at least 10 cleaned numeric digits.
+     - Email: RFC-compliant email regex.
+     - GSTIN: Optional; when provided, verifies 15-character format and checks that the 2-digit state code exists in `GST_STATE_CODES`.
+     - UPI ID: Validates VPA format `^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$`.
+     - IFSC Code: Validates standard Indian format `^[A-Z]{4}0[A-Z0-9]{6}$`.
+     - Account Number: Requires 9 to 18 numeric digits.
+     - Numbering: Requires non-empty prefixes and positive integers ($\ge 1$).
+     - Default Tax Rate: Requires rate between 0% and 100%.
+  2. Wired `validateSettings()` into `handleSave` in `settings/page.tsx`:
+     - Displays red outline and inline validation error text under invalid fields.
+     - Displays error alert banner at top of form.
+     - Automatically switches to the tab containing the first invalid field so users receive instant visual guidance.
+
+---
+
+### 8.3 Settings Persistence Crash & Null Safety Guards
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected File**: [`src/app/(dashboard)/settings/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/settings/page.tsx)
+* **The Problem**:
+  `handleSave` spread `...currentTenant.address` and `...currentTenant.settings.quotationNumbering` without null-coalescing. If `currentTenant` was still initializing, saving triggered an unhandled `TypeError`. There was no `isSaving` loading guard, allowing rapid double-clicks to fire duplicate requests, and no error feedback if network/Supabase failed.
+* **The Fix**:
+  1. Applied safe null-coalescing defaults across all nested objects:
+     `...(currentTenant?.address || {})`, `...(currentTenant?.settings?.quotationNumbering || { digitLength: 4 })`.
+  2. Added `isSaving` state with disabled state and loading spinner on the submit button.
+  3. Wrapped persistence calls in `try/catch` with a clear user alert banner on failure.
+
+---
+
+### 8.4 Sequence Number Sanitization & Positive Lower Bound Enforcement
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected File**: [`src/app/(dashboard)/settings/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/settings/page.tsx)
+* **The Problem**:
+  Numbering sequence inputs used `parseInt(e.target.value) || 0`, allowing `0`, negative numbers, or `NaN`. Negative or zero sequence numbers would corrupt invoice generation and cause numbering collisions. Prefixes also allowed spaces and illegal symbols.
+* **The Fix**:
+  1. Clamped sequence numbers to positive integers:
+     `setQuoteNext(Math.max(1, parseInt(e.target.value, 10) || 1))`
+     `setInvNext(Math.max(1, parseInt(e.target.value, 10) || 1))`
+  2. Sanitized prefixes to uppercase alphanumeric characters, hyphens, and slashes:
+     `e.target.value.replace(/[^a-zA-Z0-9\-_/]/g, "").toUpperCase()`
+
+---
+
+### 8.5 Mobile Touch Target Enlargement & Viewport Usability
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**:
+  - [`src/app/(dashboard)/settings/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/settings/page.tsx)
+  - [`src/components/layout/notification-dropdown.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/components/layout/notification-dropdown.tsx)
+  - [`src/components/documents/document-format-bar.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/components/documents/document-format-bar.tsx)
+* **The Problem**:
+  - In `settings/page.tsx`: Preset buttons (`⚡ Friendly Nudge`) were $\sim$28px, dynamic variable insert tags (`+ {client_name}`) were $\sim$26px, tax slab buttons were $\sim$32px, and the Save button was not full-width on mobile.
+  - In `notification-dropdown.tsx`: Dismiss `X` buttons were `p-1` ($\sim$20px), filter pills were $\sim$24px, and action buttons lacked minimum touch targets.
+  - In `document-format-bar.tsx`: Category tabs (A4, A5, Thermal) were `px-3.5 py-1.5` ($\sim$32px).
+* **The Fix**:
+  1. Enlarged WhatsApp preset buttons to `min-h-[36px] px-3.5 py-2`.
+  2. Enlarged dynamic variable tags to `min-h-[38px] px-3 py-1.5 text-xs font-mono font-bold inline-flex items-center`.
+  3. Enlarged tax rate buttons to `min-h-[42px] py-2.5 rounded-xl font-extrabold flex items-center justify-center`.
+  4. Enlarged Save button to responsive full-width on mobile: `w-full sm:w-auto min-h-[44px]`.
+  5. Enlarged notification dismiss `X` button to `min-h-[36px] min-w-[36px] flex items-center justify-center p-2 rounded-xl`.
+  6. Enlarged notification filter pills to `min-h-[36px] px-3 py-1.5`.
+  7. Enlarged "Mark all read", "Clear all", and "Enable Web Push" to $\ge$36px touch targets.
+  8. Enlarged document format size tabs to `min-h-[38px] px-3.5 py-2`.
+
+---
+
 ## 🧪 Verification Matrix
 
 | Check | Tool / Runner | Result |
 |---|---|---|
 | **TypeScript Compilation** | `npx tsc --noEmit` | 🟢 0 errors |
-| **Unit & Integration Tests** | `npx vitest run` (22 test files) | 🟢 162 / 162 passed |
+| **Unit & Integration Tests** | `npx vitest run` (23 test files) | 🟢 171 / 171 passed |
 | **Module 1 Specific Tests** | `tests/auth-module-fixes.test.ts` | 🟢 5 / 5 passed |
 | **Module 2 Specific Tests** | `tests/client-module-fixes.test.ts` | 🟢 7 / 7 passed |
 | **Module 3 Specific Tests** | `tests/service-module-fixes.test.ts` | 🟢 7 / 7 passed |
@@ -608,7 +716,9 @@ This living document maintains an audit trail of every system module in **BillEa
 | **Module 5 Specific Tests** | `tests/invoice-module-fixes.test.ts` | 🟢 8 / 8 passed |
 | **Module 6 Specific Tests** | `tests/payment-module-fixes.test.ts` | 🟢 7 / 7 passed |
 | **Module 7 Specific Tests** | `tests/reports-gst-module-fixes.test.ts` | 🟢 7 / 7 passed |
+| **Module 8 Specific Tests** | `tests/settings-module-fixes.test.ts` | 🟢 9 / 9 passed |
 | **Next.js Production Build** | `npm run build` | 🟢 Build successful, 53/53 static routes compiled |
+
 
 
 

@@ -6,6 +6,7 @@ import { useTenant } from "@/hooks/use-tenant";
 import { cn } from "@/lib/utils";
 import { CurrencyCode } from "@/types";
 import { generateUpiIntentUrl, getUpiQrImageUrl } from "@/lib/upi";
+import { validateSettings } from "@/validations/settings.schema";
 import {
   Building2,
   Hash,
@@ -26,6 +27,8 @@ import {
   FileSignature,
   Globe,
   Layout,
+  AlertCircle,
+  Loader2,
 } from "lucide-react";
 
 export default function SettingsPage() {
@@ -35,6 +38,9 @@ export default function SettingsPage() {
   >("profile");
 
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [errorMessage, setErrorMessage] = useState<string>("");
 
   // Form states initialized clean
   const [businessName, setBusinessName] = useState(currentTenant?.businessName || "");
@@ -164,47 +170,93 @@ export default function SettingsPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    await updateTenantProfile({
+    setErrorMessage("");
+
+    const errors = validateSettings({
       businessName,
       ownerName,
       phone,
       email,
       gstin,
-      logoUrl,
-      signatureUrl,
-      address: {
-        ...currentTenant.address,
-        street: address,
-      },
-      bankDetails: {
-        accountName: accountHolderName.trim() || businessName,
-        accountNumber,
-        ifscCode,
-        bankName,
-        upiId,
-      },
-    });
-
-    await updateTenantSettings({
-      quotationNumbering: {
-        ...currentTenant.settings.quotationNumbering,
-        prefix: quotePrefix,
-        nextNumber: Number(quoteNext),
-      },
-      invoiceNumbering: {
-        ...currentTenant.settings.invoiceNumbering,
-        prefix: invPrefix,
-        nextNumber: Number(invNext),
-      },
+      upiId,
+      accountHolderName,
+      bankName,
+      accountNumber,
+      ifscCode,
+      quotePrefix,
+      quoteNext: Number(quoteNext),
+      invPrefix,
+      invNext: Number(invNext),
       enableGstByDefault,
       defaultTaxRate: Number(defaultTaxRate),
-      defaultTermsAndConditions: defaultTerms,
-      defaultCurrency,
-      whatsappReminderTemplate: reminderTemplate,
     });
 
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 3500);
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setErrorMessage("Please resolve the highlighted field errors before saving.");
+      if (errors.businessName || errors.ownerName || errors.phone || errors.email || errors.gstin) {
+        setActiveTab("profile");
+      } else if (errors.quotePrefix || errors.quoteNext || errors.invPrefix || errors.invNext) {
+        setActiveTab("numbering");
+      } else if (errors.upiId || errors.ifscCode || errors.accountNumber) {
+        setActiveTab("bank");
+      } else if (errors.defaultTaxRate) {
+        setActiveTab("tax");
+      }
+      return;
+    }
+
+    setFieldErrors({});
+    setIsSaving(true);
+
+    try {
+      await updateTenantProfile({
+        businessName: businessName.trim(),
+        ownerName: ownerName.trim(),
+        phone: phone.trim(),
+        email: email.trim(),
+        gstin: gstin.trim() ? gstin.trim().toUpperCase() : undefined,
+        logoUrl,
+        signatureUrl,
+        address: {
+          ...(currentTenant?.address || {}),
+          street: address,
+        },
+        bankDetails: {
+          accountName: accountHolderName.trim() || businessName.trim(),
+          accountNumber: accountNumber.trim(),
+          ifscCode: ifscCode.trim().toUpperCase(),
+          bankName: bankName.trim(),
+          upiId: upiId.trim(),
+        },
+      });
+
+      await updateTenantSettings({
+        quotationNumbering: {
+          ...(currentTenant?.settings?.quotationNumbering || { digitLength: 4 }),
+          prefix: quotePrefix.trim(),
+          nextNumber: Number(quoteNext),
+        },
+        invoiceNumbering: {
+          ...(currentTenant?.settings?.invoiceNumbering || { digitLength: 4 }),
+          prefix: invPrefix.trim(),
+          nextNumber: Number(invNext),
+        },
+        enableGstByDefault,
+        defaultTaxRate: Number(defaultTaxRate),
+        defaultTermsAndConditions: defaultTerms,
+        defaultCurrency,
+        whatsappReminderTemplate: reminderTemplate,
+      });
+
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 3500);
+    } catch (err: any) {
+      console.error("Failed to save settings:", err);
+      setErrorMessage("Failed to save settings. Please verify your connection and try again.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
 
@@ -230,12 +282,20 @@ export default function SettingsPage() {
           </p>
         </div>
 
-        {savedSuccess && (
-          <div className="clay-tag inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold animate-in fade-in-50">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-            <span>Settings Saved Successfully!</span>
-          </div>
-        )}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+          {savedSuccess && (
+            <div className="clay-tag inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold animate-in fade-in-50">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              <span>Settings Saved Successfully!</span>
+            </div>
+          )}
+          {errorMessage && (
+            <div className="clay-tag inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-800 border border-rose-200 text-xs font-bold animate-in fade-in-50">
+              <AlertCircle className="h-4 w-4 text-rose-600" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 2-Column Settings Layout */}
@@ -252,7 +312,7 @@ export default function SettingsPage() {
                 type="button"
                 onClick={() => setActiveTab(tab.id as any)}
                 className={cn(
-                  "shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap",
+                  "shrink-0 flex items-center gap-2 px-3.5 py-2.5 min-h-[38px] rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap",
                   isActive
                     ? "clay-pill-active text-slate-900 shadow-xs"
                     : "text-slate-600 hover:text-slate-900"
@@ -270,7 +330,7 @@ export default function SettingsPage() {
           })}
           <Link
             href="/settings/templates"
-            className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition-all whitespace-nowrap"
+            className="shrink-0 flex items-center gap-1.5 px-3.5 py-2.5 min-h-[38px] rounded-xl text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition-all whitespace-nowrap"
           >
             <Layout className="h-3.5 w-3.5 text-indigo-600" />
             <span>Templates (15)</span>
@@ -477,9 +537,20 @@ export default function SettingsPage() {
                       type="text"
                       required
                       value={businessName}
-                      onChange={(e) => setBusinessName(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-2.5 text-sm font-semibold text-slate-900 focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                      onChange={(e) => {
+                        setBusinessName(e.target.value);
+                        if (fieldErrors.businessName) setFieldErrors((p) => ({ ...p, businessName: "" }));
+                      }}
+                      className={cn(
+                        "w-full rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all focus:outline-none focus:ring-2",
+                        fieldErrors.businessName
+                          ? "border-rose-400 bg-rose-50/30 text-slate-900 focus:border-rose-500 focus:ring-rose-500/20"
+                          : "border-slate-200 bg-slate-50/70 text-slate-900 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500/20"
+                      )}
                     />
+                    {fieldErrors.businessName && (
+                      <p className="text-[11px] font-bold text-rose-600 mt-1">{fieldErrors.businessName}</p>
+                    )}
                   </div>
 
                   <div className="space-y-1.5">
@@ -490,9 +561,20 @@ export default function SettingsPage() {
                       type="text"
                       required
                       value={ownerName}
-                      onChange={(e) => setOwnerName(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-2.5 text-sm font-semibold text-slate-900 focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                      onChange={(e) => {
+                        setOwnerName(e.target.value);
+                        if (fieldErrors.ownerName) setFieldErrors((p) => ({ ...p, ownerName: "" }));
+                      }}
+                      className={cn(
+                        "w-full rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all focus:outline-none focus:ring-2",
+                        fieldErrors.ownerName
+                          ? "border-rose-400 bg-rose-50/30 text-slate-900 focus:border-rose-500 focus:ring-rose-500/20"
+                          : "border-slate-200 bg-slate-50/70 text-slate-900 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500/20"
+                      )}
                     />
+                    {fieldErrors.ownerName && (
+                      <p className="text-[11px] font-bold text-rose-600 mt-1">{fieldErrors.ownerName}</p>
+                    )}
                   </div>
 
                   <div className="space-y-1.5">
@@ -503,9 +585,20 @@ export default function SettingsPage() {
                       type="tel"
                       required
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-2.5 text-sm font-semibold text-slate-900 focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                      onChange={(e) => {
+                        setPhone(e.target.value);
+                        if (fieldErrors.phone) setFieldErrors((p) => ({ ...p, phone: "" }));
+                      }}
+                      className={cn(
+                        "w-full rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all focus:outline-none focus:ring-2",
+                        fieldErrors.phone
+                          ? "border-rose-400 bg-rose-50/30 text-slate-900 focus:border-rose-500 focus:ring-rose-500/20"
+                          : "border-slate-200 bg-slate-50/70 text-slate-900 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500/20"
+                      )}
                     />
+                    {fieldErrors.phone && (
+                      <p className="text-[11px] font-bold text-rose-600 mt-1">{fieldErrors.phone}</p>
+                    )}
                   </div>
 
                   <div className="space-y-1.5">
@@ -516,9 +609,20 @@ export default function SettingsPage() {
                       type="email"
                       required
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-2.5 text-sm font-semibold text-slate-900 focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        if (fieldErrors.email) setFieldErrors((p) => ({ ...p, email: "" }));
+                      }}
+                      className={cn(
+                        "w-full rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all focus:outline-none focus:ring-2",
+                        fieldErrors.email
+                          ? "border-rose-400 bg-rose-50/30 text-slate-900 focus:border-rose-500 focus:ring-rose-500/20"
+                          : "border-slate-200 bg-slate-50/70 text-slate-900 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500/20"
+                      )}
                     />
+                    {fieldErrors.email && (
+                      <p className="text-[11px] font-bold text-rose-600 mt-1">{fieldErrors.email}</p>
+                    )}
                   </div>
                 </div>
 
@@ -532,9 +636,20 @@ export default function SettingsPage() {
                       type="text"
                       placeholder="e.g. 27AAACS1429B1Z5 (Leave blank if unregistered)"
                       value={gstin}
-                      onChange={(e) => setGstin(e.target.value.toUpperCase())}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-2.5 text-sm font-semibold text-slate-900 uppercase tracking-wider focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                      onChange={(e) => {
+                        setGstin(e.target.value.toUpperCase());
+                        if (fieldErrors.gstin) setFieldErrors((p) => ({ ...p, gstin: "" }));
+                      }}
+                      className={cn(
+                        "w-full rounded-xl border px-4 py-2.5 text-sm font-semibold uppercase tracking-wider transition-all focus:outline-none focus:ring-2",
+                        fieldErrors.gstin
+                          ? "border-rose-400 bg-rose-50/30 text-slate-900 focus:border-rose-500 focus:ring-rose-500/20"
+                          : "border-slate-200 bg-slate-50/70 text-slate-900 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500/20"
+                      )}
                     />
+                    {fieldErrors.gstin && (
+                      <p className="text-[11px] font-bold text-rose-600 mt-1">{fieldErrors.gstin}</p>
+                    )}
                   </div>
 
                   <div className="space-y-1.5">
@@ -600,18 +715,39 @@ export default function SettingsPage() {
                         <input
                           type="text"
                           value={quotePrefix}
-                          onChange={(e) => setQuotePrefix(e.target.value)}
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-900 mt-1"
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/[^a-zA-Z0-9\-_/]/g, "").toUpperCase();
+                            setQuotePrefix(val);
+                            if (fieldErrors.quotePrefix) setFieldErrors((p) => ({ ...p, quotePrefix: "" }));
+                          }}
+                          className={cn(
+                            "w-full rounded-xl border bg-white px-3 py-1.5 text-xs font-bold transition-all mt-1",
+                            fieldErrors.quotePrefix ? "border-rose-400 text-rose-900" : "border-slate-200 text-slate-900"
+                          )}
                         />
+                        {fieldErrors.quotePrefix && (
+                          <p className="text-[10px] font-bold text-rose-600 mt-0.5">{fieldErrors.quotePrefix}</p>
+                        )}
                       </div>
                       <div>
                         <label className="text-[10px] font-bold uppercase text-slate-500">Next Number</label>
                         <input
                           type="number"
+                          min="1"
                           value={quoteNext}
-                          onChange={(e) => setQuoteNext(parseInt(e.target.value) || 0)}
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-900 mt-1"
+                          onChange={(e) => {
+                            const val = Math.max(1, parseInt(e.target.value, 10) || 1);
+                            setQuoteNext(val);
+                            if (fieldErrors.quoteNext) setFieldErrors((p) => ({ ...p, quoteNext: "" }));
+                          }}
+                          className={cn(
+                            "w-full rounded-xl border bg-white px-3 py-1.5 text-xs font-bold transition-all mt-1",
+                            fieldErrors.quoteNext ? "border-rose-400 text-rose-900" : "border-slate-200 text-slate-900"
+                          )}
                         />
+                        {fieldErrors.quoteNext && (
+                          <p className="text-[10px] font-bold text-rose-600 mt-0.5">{fieldErrors.quoteNext}</p>
+                        )}
                       </div>
                       <p className="text-[11px] text-slate-400 font-medium pt-1">
                         Preview: <span className="font-bold text-slate-900">{quotePrefix}{quoteNext}</span>
@@ -633,18 +769,39 @@ export default function SettingsPage() {
                         <input
                           type="text"
                           value={invPrefix}
-                          onChange={(e) => setInvPrefix(e.target.value)}
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-900 mt-1"
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/[^a-zA-Z0-9\-_/]/g, "").toUpperCase();
+                            setInvPrefix(val);
+                            if (fieldErrors.invPrefix) setFieldErrors((p) => ({ ...p, invPrefix: "" }));
+                          }}
+                          className={cn(
+                            "w-full rounded-xl border bg-white px-3 py-1.5 text-xs font-bold transition-all mt-1",
+                            fieldErrors.invPrefix ? "border-rose-400 text-rose-900" : "border-slate-200 text-slate-900"
+                          )}
                         />
+                        {fieldErrors.invPrefix && (
+                          <p className="text-[10px] font-bold text-rose-600 mt-0.5">{fieldErrors.invPrefix}</p>
+                        )}
                       </div>
                       <div>
                         <label className="text-[10px] font-bold uppercase text-slate-500">Next Number</label>
                         <input
                           type="number"
+                          min="1"
                           value={invNext}
-                          onChange={(e) => setInvNext(parseInt(e.target.value) || 0)}
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-900 mt-1"
+                          onChange={(e) => {
+                            const val = Math.max(1, parseInt(e.target.value, 10) || 1);
+                            setInvNext(val);
+                            if (fieldErrors.invNext) setFieldErrors((p) => ({ ...p, invNext: "" }));
+                          }}
+                          className={cn(
+                            "w-full rounded-xl border bg-white px-3 py-1.5 text-xs font-bold transition-all mt-1",
+                            fieldErrors.invNext ? "border-rose-400 text-rose-900" : "border-slate-200 text-slate-900"
+                          )}
                         />
+                        {fieldErrors.invNext && (
+                          <p className="text-[10px] font-bold text-rose-600 mt-0.5">{fieldErrors.invNext}</p>
+                        )}
                       </div>
                       <p className="text-[11px] text-slate-400 font-medium pt-1">
                         Preview: <span className="font-bold text-slate-900">{invPrefix}{invNext}</span>
@@ -678,9 +835,20 @@ export default function SettingsPage() {
                         required
                         placeholder="e.g. royalevents@okhdfcbank"
                         value={upiId}
-                        onChange={(e) => setUpiId(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-2.5 text-sm font-semibold text-slate-900 focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                        onChange={(e) => {
+                          setUpiId(e.target.value);
+                          if (fieldErrors.upiId) setFieldErrors((p) => ({ ...p, upiId: "" }));
+                        }}
+                        className={cn(
+                          "w-full rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all focus:outline-none focus:ring-2",
+                          fieldErrors.upiId
+                            ? "border-rose-400 bg-rose-50/30 text-slate-900 focus:border-rose-500 focus:ring-rose-500/20"
+                            : "border-slate-200 bg-slate-50/70 text-slate-900 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500/20"
+                        )}
                       />
+                      {fieldErrors.upiId && (
+                        <p className="text-[11px] font-bold text-rose-600 mt-1">{fieldErrors.upiId}</p>
+                      )}
                     </div>
 
                     <div className="space-y-1.5">
@@ -721,9 +889,20 @@ export default function SettingsPage() {
                           type="text"
                           placeholder="e.g. 50100234567890"
                           value={accountNumber}
-                          onChange={(e) => setAccountNumber(e.target.value)}
-                          className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2 text-xs font-semibold text-slate-900 focus:bg-white focus:border-emerald-500 focus:outline-none"
+                          onChange={(e) => {
+                            setAccountNumber(e.target.value);
+                            if (fieldErrors.accountNumber) setFieldErrors((p) => ({ ...p, accountNumber: "" }));
+                          }}
+                          className={cn(
+                            "w-full rounded-xl border px-3 py-2 text-xs font-semibold transition-all focus:outline-none",
+                            fieldErrors.accountNumber
+                              ? "border-rose-400 bg-rose-50/30 text-slate-900 focus:border-rose-500"
+                              : "border-slate-200 bg-slate-50/70 text-slate-900 focus:bg-white focus:border-emerald-500"
+                          )}
                         />
+                        {fieldErrors.accountNumber && (
+                          <p className="text-[10px] font-bold text-rose-600 mt-0.5">{fieldErrors.accountNumber}</p>
+                        )}
                       </div>
                       <div className="space-y-1.5">
                         <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
@@ -733,9 +912,20 @@ export default function SettingsPage() {
                           type="text"
                           placeholder="e.g. HDFC0001234"
                           value={ifscCode}
-                          onChange={(e) => setIfscCode(e.target.value.toUpperCase())}
-                          className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2 text-xs font-semibold text-slate-900 uppercase focus:bg-white focus:border-emerald-500 focus:outline-none"
+                          onChange={(e) => {
+                            setIfscCode(e.target.value.toUpperCase());
+                            if (fieldErrors.ifscCode) setFieldErrors((p) => ({ ...p, ifscCode: "" }));
+                          }}
+                          className={cn(
+                            "w-full rounded-xl border px-3 py-2 text-xs font-semibold uppercase transition-all focus:outline-none",
+                            fieldErrors.ifscCode
+                              ? "border-rose-400 bg-rose-50/30 text-slate-900 focus:border-rose-500"
+                              : "border-slate-200 bg-slate-50/70 text-slate-900 focus:bg-white focus:border-emerald-500"
+                          )}
                         />
+                        {fieldErrors.ifscCode && (
+                          <p className="text-[10px] font-bold text-rose-600 mt-0.5">{fieldErrors.ifscCode}</p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -858,7 +1048,7 @@ export default function SettingsPage() {
                             type="button"
                             onClick={() => setDefaultTaxRate(rate)}
                             className={cn(
-                              "py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer border shadow-2xs",
+                              "min-h-[42px] py-2.5 rounded-xl text-xs font-extrabold flex items-center justify-center transition-all cursor-pointer border shadow-2xs",
                               defaultTaxRate === rate
                                 ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
                                 : "bg-white text-slate-700 border-slate-200 hover:bg-emerald-50 hover:text-emerald-800"
@@ -931,7 +1121,7 @@ export default function SettingsPage() {
                         key={preset.name}
                         type="button"
                         onClick={() => setReminderTemplate(preset.template)}
-                        className="clay-pill px-3 py-1.5 text-xs font-bold text-slate-700 hover:text-emerald-800 hover:bg-emerald-50/80 border border-slate-200 transition-all cursor-pointer shadow-2xs"
+                        className="clay-pill px-3.5 py-2 min-h-[36px] inline-flex items-center text-xs font-bold text-slate-700 hover:text-emerald-800 hover:bg-emerald-50/80 border border-slate-200 transition-all cursor-pointer shadow-2xs"
                       >
                         ⚡ {preset.name}
                       </button>
@@ -988,7 +1178,7 @@ export default function SettingsPage() {
                             )
                           }
                           title={`Click to insert ${desc}`}
-                          className="clay-tag px-2.5 py-1 text-[11px] font-mono font-bold bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 border border-slate-200 hover:border-emerald-300 transition-all cursor-pointer shadow-2xs active:scale-95"
+                          className="clay-tag px-3 py-1.5 min-h-[38px] text-xs font-mono font-bold bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 border border-slate-200 hover:border-emerald-300 transition-all cursor-pointer shadow-2xs active:scale-95 inline-flex items-center"
                         >
                           + {tag}
                         </button>
@@ -1024,13 +1214,23 @@ export default function SettingsPage() {
             )}
 
             {/* Bottom Actions */}
-            <div className="flex items-center justify-end gap-3 pt-5 border-t border-slate-100">
+            <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-5 border-t border-slate-100">
               <button
                 type="submit"
-                className="clay-btn-emerald inline-flex items-center gap-2 h-11 px-6 font-bold text-xs sm:text-sm rounded-2xl cursor-pointer"
+                disabled={isSaving}
+                className="clay-btn-emerald w-full sm:w-auto inline-flex items-center justify-center gap-2 h-11 px-6 font-bold text-xs sm:text-sm rounded-2xl cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed shadow-md"
               >
-                <Save className="h-4 w-4" />
-                <span>Save Settings Changes</span>
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin text-white" />
+                    <span>Saving Settings...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4" />
+                    <span>Save Settings Changes</span>
+                  </>
+                )}
               </button>
             </div>
           </form>
