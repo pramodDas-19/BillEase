@@ -35,7 +35,7 @@ import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import { UnsavedChangesDialog } from "@/components/ui/unsaved-changes-dialog";
 
 export default function SettingsPage() {
-  const { currentTenant, updateFullTenant } = useTenant();
+  const { currentTenant, updateFullTenant, isLoading } = useTenant();
   const [activeTab, setActiveTab] = useState<
     "profile" | "numbering" | "bank" | "tax" | "reminders"
   >("profile");
@@ -49,6 +49,7 @@ export default function SettingsPage() {
   const [isDirty, setIsDirty] = useState(false);
   const initialLoadedRef = React.useRef(false);
   const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
+  const currentTenantIdRef = React.useRef<string | null>(null);
 
   const DRAFT_STORAGE_KEY = `billease_settings_draft_${currentTenant?.id || "active"}`;
   const ACTIVE_TAB_KEY = "billease_settings_active_tab";
@@ -130,6 +131,7 @@ export default function SettingsPage() {
       if (typeof window !== "undefined") {
         try {
           const currentDraft = {
+            tenantId: currentTenant?.id,
             activeTab,
             businessName,
             ownerName,
@@ -192,6 +194,11 @@ export default function SettingsPage() {
   // Restore draft and active tab on mount (resilient to mobile Gallery / app switching)
   React.useEffect(() => {
     if (typeof window !== "undefined") {
+      // Clean up legacy unpartitioned drafts that lack tenant ID isolation
+      sessionStorage.removeItem("billease_settings_draft");
+      sessionStorage.removeItem("billease_settings_draft_active");
+      sessionStorage.removeItem("billease_settings_draft_tenant-royal-events");
+
       const urlParams = new URLSearchParams(window.location.search);
       const tabParam = urlParams.get("tab") as any;
       const validTabs = ["profile", "numbering", "bank", "tax", "reminders"];
@@ -204,11 +211,17 @@ export default function SettingsPage() {
         }
       }
 
+      // Do NOT restore draft if tenant is still loading or unresolved
+      if (isLoading || !currentTenant?.id || currentTenant.id === "tenant-royal-events") {
+        return;
+      }
+
       try {
         const draftStr = sessionStorage.getItem(DRAFT_STORAGE_KEY);
         if (draftStr) {
           const draft = JSON.parse(draftStr);
-          if (draft && typeof draft === "object") {
+          // CRITICAL: Draft MUST belong to currentTenant.id!
+          if (draft && typeof draft === "object" && draft.tenantId === currentTenant.id) {
             if (draft.businessName !== undefined) setBusinessName(draft.businessName);
             if (draft.ownerName !== undefined) setOwnerName(draft.ownerName);
             if (draft.phone !== undefined) setPhone(draft.phone);
@@ -239,19 +252,30 @@ export default function SettingsPage() {
             setIsDirty(true);
             setHasRestoredDraft(true);
             initialLoadedRef.current = true;
+          } else {
+            // Mismatched draft from another business: purge immediately!
+            sessionStorage.removeItem(DRAFT_STORAGE_KEY);
           }
         }
       } catch (err) {
         console.warn("Could not parse settings draft from sessionStorage:", err);
       }
     }
-  }, [DRAFT_STORAGE_KEY]);
+  }, [DRAFT_STORAGE_KEY, isLoading, currentTenant?.id]);
 
-  // Sync form inputs when currentTenant loads or updates ONLY if the user has not made unsaved edits
+  // Sync form inputs when currentTenant loads or updates
   React.useEffect(() => {
-    if (currentTenant) {
-      // Critical fix: If the user is editing or switched to Gallery, DO NOT overwrite their inputs!
-      if (isDirtyRef.current) {
+    if (currentTenant && !isLoading) {
+      const isNewTenant = currentTenantIdRef.current !== currentTenant.id;
+      currentTenantIdRef.current = currentTenant.id;
+
+      // When switching or loading a different tenant, ALWAYS sync fresh values!
+      if (isNewTenant) {
+        isDirtyRef.current = false;
+        setIsDirty(false);
+        setHasRestoredDraft(false);
+      } else if (isDirtyRef.current) {
+        // Same tenant and user has active typing edits in form: keep user edits
         return;
       }
 
@@ -286,7 +310,7 @@ export default function SettingsPage() {
       }
       initialLoadedRef.current = true;
     }
-  }, [currentTenant]);
+  }, [currentTenant, isLoading]);
 
   const handleTabChange = (tabId: "profile" | "numbering" | "bank" | "tax" | "reminders") => {
     setActiveTab(tabId);
@@ -691,7 +715,10 @@ export default function SettingsPage() {
                               </label>
                               <button
                                 type="button"
-                                onClick={() => setLogoUrl("")}
+                                onClick={() => {
+                                  setLogoUrl("");
+                                  markDirtyAndPersist("logoUrl", "");
+                                }}
                                 className="text-[11px] font-bold text-rose-600 hover:text-rose-700 underline cursor-pointer"
                               >
                                 Remove
@@ -749,7 +776,10 @@ export default function SettingsPage() {
                               </label>
                               <button
                                 type="button"
-                                onClick={() => setSignatureUrl("")}
+                                onClick={() => {
+                                  setSignatureUrl("");
+                                  markDirtyAndPersist("signatureUrl", "");
+                                }}
                                 className="text-[11px] font-bold text-rose-600 hover:text-rose-700 underline cursor-pointer"
                               >
                                 Remove

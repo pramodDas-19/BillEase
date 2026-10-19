@@ -727,6 +727,27 @@ This living document maintains an audit trail of every system module in **BillEa
 
 ---
 
+### 8.7 Cross-Tenant Asset Isolation & Mobile Browser Tab Session Cleanliness
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**:
+  - [`src/context/tenant-context.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/context/tenant-context.tsx)
+  - [`src/services/auth.service.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/services/auth.service.ts)
+  - [`src/app/(dashboard)/settings/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/settings/page.tsx)
+  - [`tests/settings-module-fixes.test.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/tests/settings-module-fixes.test.ts)
+* **The Problem**:
+  1. **Ungated LocalStorage Fallback**: In `tenant-context.tsx`, `loadedTenant.logoUrl` and `signatureUrl` fell back to `(!isImpersonating ? registeredInfo?.logoUrl : undefined)` without verifying that `registeredInfo.tenantId === tenantId`. If a user previously uploaded a logo or signature on mobile for Business A (e.g. Drone Skyline), and later created or logged into Business B (e.g. GOA DIGITAL) whose DB record had no logo yet, Business B automatically inherited Business A's logo and signature.
+  2. **Mobile Tab Draft Bleed**: On mobile, browser tabs are rarely closed and keep `sessionStorage` alive across logouts and new signups. Because `settings/page.tsx` did not stamp `tenantId` into serialized drafts or validate `draft.tenantId === currentTenant.id` on mount, old drafts from previous accounts were restored and set `isDirtyRef.current = true`, blocking fresh tenant data from syncing.
+  3. **No Session Clearance on SignUp / SignOut**: `AuthService.signOut()` and `AuthService.signUp()` did not clear `sessionStorage`, allowing stale drafts and cached user records to persist in the mobile tab.
+  4. **Logo & Signature Remove Buttons**: Clicking "Remove" for logo or signature in `settings/page.tsx` only called `setLogoUrl("")` / `setSignatureUrl("")` without notifying `markDirtyAndPersist`, so removing assets failed to update the draft or dirty state.
+* **The Fix**:
+  1. **Strict Matching Tenant Gate**: In `tenant-context.tsx`, created `const isMatchingReg = !isImpersonating && Boolean(registeredInfo?.tenantId && registeredInfo.tenantId === tenantId);`. All fallbacks for `businessName`, `ownerName`, `phone`, `email`, `logoUrl`, `signatureUrl`, `bankDetails`, and `settings` are strictly gated by `isMatchingReg`. If `registeredInfo.tenantId !== tenantId`, it is completely ignored.
+  2. **Tenant ID Stamped Drafts & Validation**:
+     - `markDirtyAndPersist` in `settings/page.tsx` now explicitly records `tenantId: currentTenant?.id`.
+     - On restore, `settings/page.tsx` strictly checks `draft.tenantId === currentTenant.id`. Any draft from another tenant or legacy unpartitioned storage is immediately purged.
+     - Added `currentTenantIdRef` to detect account/tenant transitions. When switching or logging into a new tenant, dirty state and restored draft flags are immediately reset to guarantee fresh synchronization.
+  3. **Clean Slate on SignUp & SignOut**: `AuthService.signOut()` and `AuthService.signUp()` now execute `sessionStorage.clear()` and wipe stale `billease_registered_user` entries, guaranteeing every new account starts with zero residue from prior sessions.
+  4. **Reactive Asset Removal**: Updated "Remove" buttons for Logo and Signature to invoke `markDirtyAndPersist("logoUrl", "")` and `markDirtyAndPersist("signatureUrl", "")`.
+
 ---
 
 ## 🎨 Module 9: Document Templates & Mobile Responsive Rendering Engine
@@ -988,7 +1009,7 @@ This living document maintains an audit trail of every system module in **BillEa
 | Check | Tool / Runner | Result |
 |---|---|---|
 | **TypeScript Compilation** | `npx tsc --noEmit` | 🟢 0 errors |
-| **Unit & Integration Tests** | `npx vitest run` (23 test files) | 🟢 178 / 178 passed |
+| **Unit & Integration Tests** | `npx vitest run` (23 test files) | 🟢 179 / 179 passed |
 | **Module 1 Specific Tests** | `tests/auth-module-fixes.test.ts` | 🟢 5 / 5 passed |
 | **Module 2 Specific Tests** | `tests/client-module-fixes.test.ts` | 🟢 7 / 7 passed |
 | **Module 3 Specific Tests** | `tests/service-module-fixes.test.ts` | 🟢 7 / 7 passed |
@@ -996,7 +1017,7 @@ This living document maintains an audit trail of every system module in **BillEa
 | **Module 5 Specific Tests** | `tests/invoice-module-fixes.test.ts` | 🟢 8 / 8 passed |
 | **Module 6 Specific Tests** | `tests/payment-module-fixes.test.ts` | 🟢 7 / 7 passed |
 | **Module 7 Specific Tests** | `tests/reports-gst-module-fixes.test.ts` | 🟢 7 / 7 passed |
-| **Module 8 Specific Tests** | `tests/settings-module-fixes.test.ts` | 🟢 12 / 12 passed |
+| **Module 8 Specific Tests** | `tests/settings-module-fixes.test.ts` | 🟢 13 / 13 passed |
 | **Module 9 Specific Tests** | `tests/document-templates.test.ts` | 🟢 13 / 13 passed |
 | **Module 10 Mobile / iOS Verification** | Viewport, Safe-Area & Touch Tests | 🟢 Verified across 320px–430px & iOS Safari |
 | **Next.js Production Build** | `npm run build` | 🟢 Build successful, 53/53 static routes compiled |

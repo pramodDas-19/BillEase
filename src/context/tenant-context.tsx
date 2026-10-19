@@ -187,28 +187,32 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      const isMatchingReg =
+        !isImpersonating &&
+        Boolean(registeredInfo?.tenantId && registeredInfo.tenantId === tenantId);
+
       const businessName =
         tenantRow?.business_name ||
-        (!isImpersonating && registeredInfo?.businessName) ||
+        (isMatchingReg ? registeredInfo?.businessName : undefined) ||
         (!isImpersonating && authUser?.user_metadata?.business_name) ||
         "My Business Studio";
 
       const ownerName =
         tenantRow?.owner_name ||
-        (!isImpersonating && (registeredInfo?.ownerName || registeredInfo?.email?.split("@")[0])) ||
+        (isMatchingReg ? (registeredInfo?.ownerName || registeredInfo?.email?.split("@")[0]) : undefined) ||
         (!isImpersonating && authUser?.user_metadata?.owner_name) ||
         (!isImpersonating && authUser?.email?.split("@")[0]) ||
         "Account Owner";
 
       const phone =
         tenantRow?.phone ||
-        (!isImpersonating && registeredInfo?.phone) ||
+        (isMatchingReg ? registeredInfo?.phone : undefined) ||
         (!isImpersonating && authUser?.user_metadata?.phone) ||
         "";
 
       const email =
         tenantRow?.email ||
-        (!isImpersonating && registeredInfo?.email) ||
+        (isMatchingReg ? registeredInfo?.email : undefined) ||
         (!isImpersonating && authUser?.email) ||
         "";
 
@@ -232,22 +236,22 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         email: cachedTenantProfile?.email || email,
         phone: cachedTenantProfile?.phone || phone,
         gstin: cachedTenantProfile?.gstin || tenantRow?.gstin || "",
-        logoUrl: cachedTenantProfile?.logoUrl || tenantRow?.logo_url || tenantRow?.settings?.logoUrl || (!isImpersonating ? registeredInfo?.logoUrl : undefined),
-        signatureUrl: cachedTenantProfile?.signatureUrl || tenantRow?.signature_url || tenantRow?.settings?.signatureUrl || (!isImpersonating ? registeredInfo?.signatureUrl : undefined),
+        logoUrl: cachedTenantProfile?.logoUrl || tenantRow?.logo_url || tenantRow?.settings?.logoUrl || (isMatchingReg ? registeredInfo?.logoUrl : undefined),
+        signatureUrl: cachedTenantProfile?.signatureUrl || tenantRow?.signature_url || tenantRow?.settings?.signatureUrl || (isMatchingReg ? registeredInfo?.signatureUrl : undefined),
         address: cachedTenantProfile?.address || tenantRow?.address || DEFAULT_TENANT.address,
         bankDetails: {
           ...DEFAULT_TENANT.bankDetails,
-          ...(!isImpersonating ? (registeredInfo?.bankDetails || {}) : {}),
+          ...(isMatchingReg ? (registeredInfo?.bankDetails || {}) : {}),
           ...(tenantRow?.bank_details || {}),
           ...(cachedTenantProfile?.bankDetails || {}),
         },
         settings: {
           ...DEFAULT_TENANT.settings,
-          ...(!isImpersonating ? (registeredInfo?.settings || {}) : {}),
+          ...(isMatchingReg ? (registeredInfo?.settings || {}) : {}),
           ...(tenantRow?.settings || {}),
           ...(cachedTenantSettings || {}),
-          logoUrl: cachedTenantProfile?.logoUrl || tenantRow?.logo_url || tenantRow?.settings?.logoUrl || (!isImpersonating ? registeredInfo?.logoUrl : undefined),
-          signatureUrl: cachedTenantProfile?.signatureUrl || tenantRow?.signature_url || tenantRow?.settings?.signatureUrl || (!isImpersonating ? registeredInfo?.signatureUrl : undefined),
+          logoUrl: cachedTenantProfile?.logoUrl || tenantRow?.logo_url || tenantRow?.settings?.logoUrl || (isMatchingReg ? registeredInfo?.logoUrl : undefined),
+          signatureUrl: cachedTenantProfile?.signatureUrl || tenantRow?.signature_url || tenantRow?.settings?.signatureUrl || (isMatchingReg ? registeredInfo?.signatureUrl : undefined),
         },
         subscription: (() => {
           const storedSub = tenantRow?.settings?.subscription;

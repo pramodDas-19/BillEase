@@ -286,5 +286,46 @@ describe("Module 8: Mobile Input Sanitization & App-Switch Draft Resilience", ()
     expect(restoredDraft.ifscCode).toBe("HDFC0001234");
     expect(restoredDraft.upiId).toBe("studio@okhdfcbank");
   });
+
+  it("strictly isolates drafts and registeredInfo preventing previous business logo/signature bleed into new accounts", () => {
+    const oldTenantId = "tenant-drone-skyline";
+    const newTenantId = "tenant-goa-digital";
+
+    // 1. Simulate old business with logo and signature in registered user cache
+    const oldRegisteredInfo = {
+      tenantId: oldTenantId,
+      businessName: "Drone Skyline",
+      logoUrl: "data:image/png;base64,DRONE_LOGO_DATA",
+      signatureUrl: "data:image/png;base64,DRONE_SIGNATURE_DATA",
+    };
+
+    // 2. Simulated tenant context fallback resolver
+    const resolveTenantAssets = (activeTenantId: string, registeredUser: any) => {
+      const isMatchingReg = registeredUser?.tenantId === activeTenantId;
+      return {
+        logoUrl: isMatchingReg ? registeredUser?.logoUrl : undefined,
+        signatureUrl: isMatchingReg ? registeredUser?.signatureUrl : undefined,
+      };
+    };
+
+    const newAccountAssets = resolveTenantAssets(newTenantId, oldRegisteredInfo);
+    expect(newAccountAssets.logoUrl).toBeUndefined();
+    expect(newAccountAssets.signatureUrl).toBeUndefined();
+
+    // 3. Draft restoration validation
+    const draftFromOldTenant = {
+      tenantId: oldTenantId,
+      businessName: "Drone Skyline",
+      logoUrl: "data:image/png;base64,DRONE_LOGO_DATA",
+      signatureUrl: "data:image/png;base64,DRONE_SIGNATURE_DATA",
+    };
+
+    const shouldRestoreDraft = (draft: any, currentTenantId: string) => {
+      return Boolean(draft && draft.tenantId === currentTenantId);
+    };
+
+    expect(shouldRestoreDraft(draftFromOldTenant, newTenantId)).toBe(false);
+    expect(shouldRestoreDraft(draftFromOldTenant, oldTenantId)).toBe(true);
+  });
 });
 

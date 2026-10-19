@@ -147,6 +147,12 @@ export class AuthService {
    * Registers a new business owner account and provisions tenant server-side.
    */
   static async signUp(params: SignUpParams): Promise<{ user: any; session: any }> {
+    // Clear any previous session storage drafts so the new account starts with a 100% clean slate
+    if (typeof window !== "undefined") {
+      sessionStorage.clear();
+      localStorage.removeItem("billease_registered_user");
+    }
+
     // 1. Register auth user without client-side tenant_id in user_metadata
     const { data, error } = await supabase.auth.signUp({
       email: params.email,
@@ -221,9 +227,7 @@ export class AuthService {
       localStorage.removeItem("billease_registered_user");
       localStorage.removeItem("billease_is_impersonating");
       localStorage.removeItem("billease_just_registered");
-      sessionStorage.removeItem("billease_is_impersonating");
-      sessionStorage.removeItem("billease_active_tenant_id");
-      sessionStorage.removeItem("billease_just_registered");
+      sessionStorage.clear();
     }
     const { error } = await supabase.auth.signOut();
     if (error) {
