@@ -5,7 +5,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AuthService } from "@/services/auth.service";
 import { useTenantContext } from "@/context/tenant-context";
-import { Settings, LogOut, Shield, ChevronDown, ShieldCheck, Sparkles } from "lucide-react";
+import {
+  Settings,
+  LogOut,
+  ChevronDown,
+  ShieldCheck,
+  Sparkles,
+  HelpCircle,
+} from "lucide-react";
 
 export function UserNav() {
   const router = useRouter();
@@ -19,7 +26,6 @@ export function UserNav() {
   };
 
   const displayName = currentUser?.name || "Pramod Das";
-  const displayEmail = currentUser?.email || currentTenant?.email || "billeasesupport@gmail.com";
   const sub = currentTenant?.subscription;
   const isPaid = sub?.status === "active";
   const planLabel = isPaid
@@ -27,6 +33,11 @@ export function UserNav() {
       ? "Enterprise"
       : "Pro plan"
     : "Free plan";
+
+  const isSuperAdmin =
+    currentUser?.role === "super_admin" ||
+    currentUser?.email === "admin@billease.com" ||
+    currentUser?.email === "daspramod083@gmail.com";
 
   const initials = displayName
     .split(" ")
@@ -39,7 +50,8 @@ export function UserNav() {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="clay-icon-squircle flex items-center gap-2 p-1 rounded-2xl border border-slate-200/80 bg-slate-50/80 hover:bg-white hover:border-slate-300 transition-all cursor-pointer shadow-2xs focus:outline-none min-h-[38px] min-w-[38px]"
+        className="clay-icon-squircle flex items-center gap-2 p-1 rounded-2xl border border-slate-200/80 bg-slate-50/80 hover:bg-white hover:border-slate-300 transition-all cursor-pointer shadow-2xs focus:outline-none min-h-[38px] min-w-[38px] app-press"
+        aria-label="User account menu"
       >
         <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-slate-900 text-[11px] font-black text-white shadow-xs">
           {initials}
@@ -59,7 +71,7 @@ export function UserNav() {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
           {/* Sleek Reference-2 Popover Menu */}
-          <div className="absolute right-0 mt-2.5 w-68 max-w-[calc(100vw-2rem)] p-1.5 z-50 rounded-2xl bg-slate-900 text-slate-100 border border-slate-800 shadow-2xl animate-in fade-in-50 zoom-in-95">
+          <div className="absolute right-0 mt-2.5 w-68 max-w-[calc(100vw-1.5rem)] p-1.5 z-50 rounded-2xl bg-slate-900 text-slate-100 border border-slate-800 shadow-2xl animate-in fade-in-50 zoom-in-95">
             {/* Top User Profile Header */}
             <Link
               href="/settings"
@@ -92,7 +104,7 @@ export function UserNav() {
                 onClick={() => setIsOpen(false)}
                 className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-emerald-400 hover:bg-slate-800 hover:text-emerald-300 transition-colors"
               >
-                <Sparkles className="h-4 w-4 text-emerald-400" />
+                <Sparkles className="h-4 w-4 text-emerald-400 shrink-0" />
                 <span className="font-bold">Upgrade plan</span>
               </Link>
 
@@ -102,18 +114,30 @@ export function UserNav() {
                 onClick={() => setIsOpen(false)}
                 className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-200 hover:bg-slate-800 hover:text-white transition-colors"
               >
-                <Settings className="h-4 w-4 text-slate-400" />
+                <Settings className="h-4 w-4 text-slate-400 shrink-0" />
                 <span>Settings</span>
               </Link>
 
-              {/* Help */}
+              {/* Super Admin */}
+              {isSuperAdmin && (
+                <Link
+                  href="/admin"
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-purple-300 hover:bg-slate-800 hover:text-purple-200 transition-colors"
+                >
+                  <ShieldCheck className="h-4 w-4 text-purple-400 shrink-0" />
+                  <span>Super-Admin</span>
+                </Link>
+              )}
+
+              {/* Help & Legal */}
               <Link
                 href="/terms"
                 onClick={() => setIsOpen(false)}
                 className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
               >
-                <Shield className="h-4 w-4 text-slate-400" />
-                <span>Terms & Legal</span>
+                <HelpCircle className="h-4 w-4 text-slate-400 shrink-0" />
+                <span>Help & Legal</span>
               </Link>
             </div>
 
@@ -125,7 +149,7 @@ export function UserNav() {
               onClick={handleSignOut}
               className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-950/40 hover:text-rose-300 transition-colors cursor-pointer text-left"
             >
-              <LogOut className="h-4 w-4 text-rose-400" />
+              <LogOut className="h-4 w-4 text-rose-400 shrink-0" />
               <span>Log out</span>
             </button>
           </div>
@@ -134,3 +158,4 @@ export function UserNav() {
     </div>
   );
 }
+

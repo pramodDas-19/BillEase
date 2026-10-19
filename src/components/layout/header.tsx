@@ -6,6 +6,7 @@ import { NotificationDropdown } from "@/components/layout/notification-dropdown"
 import { HelpModal } from "@/components/layout/help-modal";
 import { HeaderSearch } from "@/components/layout/header-search";
 import { OfflineSyncIndicator } from "@/components/layout/offline-sync-indicator";
+import { UserNav } from "@/components/layout/user-nav";
 import { useLayoutState } from "./dashboard-shell";
 
 import {
@@ -132,6 +133,9 @@ export function Header() {
 
         {/* Interactive Notification Center */}
         <NotificationDropdown />
+
+        {/* User Account & Profile Popover */}
+        <UserNav />
       </div>
 
     </header>

@@ -1028,6 +1028,29 @@ This living document maintains an audit trail of every system module in **BillEa
 
 ---
 
+### 10.9 Mobile Access to User Account Popover (`UserNav` & Drawer Footer)
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**:
+  - [`src/components/layout/user-nav.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/components/layout/user-nav.tsx)
+  - [`src/components/layout/header.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/components/layout/header.tsx)
+  - [`src/components/layout/sidebar.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/components/layout/sidebar.tsx)
+* **The Problem**:
+  The sleek dark user profile popover menu (*Pramod Das / Free plan -> Upgrade plan, Settings, Help & Legal, Log out*) was completely inaccessible on mobile view because:
+  1. `UserNav` had been omitted from the top mobile `Header`.
+  2. Inside the mobile drawer navigation, the bottom profile card was a static `<div>` that lacked an `onClick` toggle and could not open the popover menu.
+* **The Fix**:
+  1. **Restored `UserNav` in Top Header**:
+     - Rendered `<UserNav />` in [`header.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/components/layout/header.tsx) right beside `<NotificationDropdown />`.
+     - In mobile view, it displays a responsive `min-h-[38px] min-w-[38px]` tactile squircle with initials (`PD`).
+     - Tapping it instantly displays the sleek dark popover menu with `Upgrade plan`, `Settings`, `Help & Legal`, and `Log out`.
+  2. **Interactive Mobile Drawer Footer**:
+     - In [`sidebar.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/components/layout/sidebar.tsx), converted the static footer card into a reactive `<button>` with animated `ChevronDown`.
+     - Tapping it toggles the upward popover menu inside the mobile drawer, with full touch dismiss and automatic closure on navigation.
+  3. **Visual & Behavioral Parity**:
+     - Standardized icons (`Sparkles`, `Settings`, `HelpCircle`, `LogOut`, `ShieldCheck`), tactile `app-press` tap states, and active plan styling across both header and drawer entry points.
+
+---
+
 ## 🧪 Comprehensive Verification Matrix (All 10 Modules)
 
 | Check | Tool / Runner | Result |
