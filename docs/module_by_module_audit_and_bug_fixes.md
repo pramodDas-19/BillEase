@@ -492,19 +492,124 @@ This living document maintains an audit trail of every system module in **BillEa
 
 ---
 
+## 📊 Module 7: Reports & GST Compliance
+
+### 7.1 CGST Section 15 Discount Deduction from Taxable Turnover
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected File**: [`src/lib/gst-engine.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/lib/gst-engine.ts)
+* **The Problem**:
+  Under Section 15 of the CGST Act, taxable supply value must deduct trade discounts allowed before or at the time of supply. In `computeGstr3bSummary()` and `generateGstr1Report()`, `taxableTurnover` was summing `inv.subtotal` (gross pre-discount amount) rather than the actual post-discount taxable turnover (`Math.max(0, (inv.subtotal || 0) - (inv.discountAmount || 0))`). This caused taxable turnover on GSTR-3B Table 3.1(a) and GSTR-1 summaries to be overstated whenever an invoice had discounts applied.
+* **The Fix**:
+  Updated taxable turnover computation in both functions to deduct `inv.discountAmount`:
+  ```ts
+  const invTaxable = Math.max(0, (inv.subtotal || 0) - (inv.discountAmount || 0));
+  taxableTurnover += invTaxable;
+  ```
+
+---
+
+### 7.2 Proportional Line-Item Discount Distribution in HSN Summary (Table 12)
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected File**: [`src/lib/gst-engine.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/lib/gst-engine.ts)
+* **The Problem**:
+  In `generateGstr1Report()` Table 12 (HSN-wise summary of outward supplies), `totalTaxableValue` was summing `item.total` directly. If an invoice had an overall discount applied, the individual HSN line items were not deducting their allocated portion of the discount. Consequently, the sum of Table 12 taxable values did not reconcile with Table 4A/B2B or Table 7/B2CS taxable turnover.
+* **The Fix**:
+  Calculated the discount ratio `(inv.subtotal > 0 ? (inv.discountAmount || 0) / inv.subtotal : 0)` and discounted each line item's taxable value proportionally:
+  ```ts
+  const discountRatio = (inv.subtotal || 0) > 0 ? (inv.discountAmount || 0) / (inv.subtotal || 1) : 0;
+  // In line item loop:
+  const lineDiscount = (item.total || 0) * discountRatio;
+  const lineTaxable = Math.max(0, (item.total || 0) - lineDiscount);
+  entry.totalTaxableValue = Math.round((entry.totalTaxableValue + lineTaxable) * 100) / 100;
+  ```
+
+---
+
+### 7.3 State Code Extraction Leading-Whitespace Sanitization
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected File**: [`src/lib/gst-engine.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/lib/gst-engine.ts)
+* **The Problem**:
+  In `getPlaceOfSupply()`, client GSTIN state code was extracted via `gstin.slice(0, 2)`. If a user entered a GSTIN with leading whitespace (e.g. `" 27AAAAA0000A1Z5"`), `slice(0, 2)` produced `" 2"`, which failed the lookup in `GST_STATE_CODES` and defaulted to `pos = null`. As a result, inter-state vs. intra-state tax determination failed, misclassifying supplies between IGST and CGST/SGST.
+* **The Fix**:
+  Sanitized the GSTIN with `.trim().toUpperCase()` before slicing the 2-digit state code:
+  ```ts
+  const cleanGstin = gstin.trim().toUpperCase();
+  const code = cleanGstin.slice(0, 2);
+  ```
+
+---
+
+### 7.4 Multi-Year Financial Quarter Isolation in Reports & GST Filing Hub
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**: [`src/components/reports/gst-filing-hub.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/components/reports/gst-filing-hub.tsx), [`src/app/(dashboard)/reports/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/reports/page.tsx)
+* **The Problem**:
+  Financial quarter filtering was checking only `quarterMonths.includes(month)`, ignoring the invoice's calendar year. Because Indian financial years run from April to March (Months 4–12 in year $Y$, Months 1–3 in year $Y+1$), invoices from different financial years matching the same month (e.g., May 2025 vs May 2026) leaked into the quarterly reports whenever data spanned multiple financial years.
+* **The Fix**:
+  Implemented strict financial year and quarter matching:
+  ```ts
+  const [startYearStr] = fy.split("-");
+  const fyStartYear = parseInt(startYearStr, 10);
+  const fyEndYear = fyStartYear + 1;
+  const invDate = new Date(inv.issueDate);
+  const m = invDate.getMonth() + 1;
+  const y = invDate.getFullYear();
+
+  // Q1 (Apr-Jun), Q2 (Jul-Sep), Q3 (Oct-Dec) belong to fyStartYear; Q4 (Jan-Mar) belongs to fyEndYear
+  const expectedYear = m >= 4 ? fyStartYear : fyEndYear;
+  return mInQ && y === expectedYear;
+  ```
+
+---
+
+### 7.5 Dynamic Quarterly Return Period Code Formatting
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected File**: [`src/components/reports/gst-filing-hub.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/components/reports/gst-filing-hub.tsx)
+* **The Problem**:
+  GSTR-1 JSON and CSV exports hardcoded the return period as `"032026"` (March 2026) regardless of the selected quarter. For example, filing Q1 (Apr–Jun) generated a return period of `"032026"`, which would be rejected by the GST offline tool or portal.
+* **The Fix**:
+  Dynamically computed the quarter-ending month and year code (MMYYYY):
+  ```ts
+  const qEndingMonths: Record<string, { month: string; isNextYear: boolean }> = {
+    Q1: { month: "06", isNextYear: false },
+    Q2: { month: "09", isNextYear: false },
+    Q3: { month: "12", isNextYear: false },
+    Q4: { month: "03", isNextYear: true },
+  };
+  const endingInfo = qEndingMonths[quarter] || { month: "03", isNextYear: true };
+  const periodYear = endingInfo.isNextYear ? fyEndYear : fyStartYear;
+  const returnPeriod = `${endingInfo.month}${periodYear}`;
+  ```
+
+---
+
+### 7.6 Mobile Touch Target Enlargement (Reports Dashboard & GST Filing Hub)
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**: [`src/app/(dashboard)/reports/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/reports/page.tsx), [`src/components/reports/gst-filing-hub.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/components/reports/gst-filing-hub.tsx)
+* **The Problem**:
+  - In `reports/page.tsx`, timeframe selection pills (`px-3 py-1.5`) and table action buttons (`p-1.5`) were under 32px height, making them difficult to tap accurately on mobile screens.
+  - In `gst-filing-hub.tsx`, sub-tab navigation buttons, quarter selection pills, and JSON/CSV export buttons lacked minimum touch targets.
+* **The Fix**:
+  1. Enlarged timeframe pills in `reports/page.tsx` to `min-h-[36px] px-3.5 py-2 inline-flex items-center text-xs font-medium rounded-xl`.
+  2. Enlarged client table action buttons to `min-h-[36px] min-w-[36px] p-2 inline-flex items-center justify-center rounded-xl`.
+  3. Enlarged tab buttons, quarter pills, and export buttons in `gst-filing-hub.tsx` to $\ge$36–38px touch targets with tactile active feedback.
+
+---
+
 ## 🧪 Verification Matrix
 
 | Check | Tool / Runner | Result |
 |---|---|---|
 | **TypeScript Compilation** | `npx tsc --noEmit` | 🟢 0 errors |
-| **Unit & Integration Tests** | `npx vitest run` (21 test files) | 🟢 155 / 155 passed |
+| **Unit & Integration Tests** | `npx vitest run` (22 test files) | 🟢 162 / 162 passed |
 | **Module 1 Specific Tests** | `tests/auth-module-fixes.test.ts` | 🟢 5 / 5 passed |
 | **Module 2 Specific Tests** | `tests/client-module-fixes.test.ts` | 🟢 7 / 7 passed |
 | **Module 3 Specific Tests** | `tests/service-module-fixes.test.ts` | 🟢 7 / 7 passed |
 | **Module 4 Specific Tests** | `tests/quotation-module-fixes.test.ts` | 🟢 7 / 7 passed |
 | **Module 5 Specific Tests** | `tests/invoice-module-fixes.test.ts` | 🟢 8 / 8 passed |
 | **Module 6 Specific Tests** | `tests/payment-module-fixes.test.ts` | 🟢 7 / 7 passed |
+| **Module 7 Specific Tests** | `tests/reports-gst-module-fixes.test.ts` | 🟢 7 / 7 passed |
 | **Next.js Production Build** | `npm run build` | 🟢 Build successful, 53/53 static routes compiled |
+
 
 
 

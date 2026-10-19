@@ -65,7 +65,13 @@ export function GstFilingHub({
     return options;
   }, []);
 
-  // Filter invoices according to selected period
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  const fyStartYear = currentMonth >= 3 ? currentYear : currentYear - 1;
+  const fyEndYear = fyStartYear + 1;
+
+  // Filter invoices strictly according to selected period and financial year
   const filteredInvoices = useMemo(() => {
     return invoices.filter((inv) => {
       const invDate = inv.issueDate || inv.createdAt;
@@ -74,25 +80,37 @@ export function GstFilingHub({
       if (periodType === "month") {
         return invDate.startsWith(selectedMonth);
       } else if (periodType === "quarter") {
-        const monthNum = parseInt(invDate.substring(5, 7), 10);
-        if (selectedQuarter === "Q1") return monthNum >= 4 && monthNum <= 6;
-        if (selectedQuarter === "Q2") return monthNum >= 7 && monthNum <= 9;
-        if (selectedQuarter === "Q3") return monthNum >= 10 && monthNum <= 12;
-        if (selectedQuarter === "Q4") return monthNum >= 1 && monthNum <= 3;
+        const parts = invDate.split("-");
+        const invYear = parseInt(parts[0], 10);
+        const monthNum = parseInt(parts[1], 10);
+        if (selectedQuarter === "Q1") return invYear === fyStartYear && monthNum >= 4 && monthNum <= 6;
+        if (selectedQuarter === "Q2") return invYear === fyStartYear && monthNum >= 7 && monthNum <= 9;
+        if (selectedQuarter === "Q3") return invYear === fyStartYear && monthNum >= 10 && monthNum <= 12;
+        if (selectedQuarter === "Q4") return invYear === fyEndYear && monthNum >= 1 && monthNum <= 3;
         return true;
+      } else {
+        const d = new Date(invDate);
+        if (isNaN(d.getTime())) return false;
+        const fyStart = new Date(fyStartYear, 3, 1);
+        const fyEnd = new Date(fyEndYear, 2, 31, 23, 59, 59);
+        return d >= fyStart && d <= fyEnd;
       }
-      return true; // "year"
     });
-  }, [invoices, periodType, selectedMonth, selectedQuarter]);
+  }, [invoices, periodType, selectedMonth, selectedQuarter, fyStartYear, fyEndYear]);
 
-  // Current return period code (MMYYYY for JSON)
+  // Current return period code (MMYYYY for JSON / official GST filing)
   const returnPeriodCode = useMemo(() => {
     if (periodType === "month") {
       const parts = selectedMonth.split("-");
       return `${parts[1]}${parts[0]}`;
+    } else if (periodType === "quarter") {
+      if (selectedQuarter === "Q1") return `06${fyStartYear}`;
+      if (selectedQuarter === "Q2") return `09${fyStartYear}`;
+      if (selectedQuarter === "Q3") return `12${fyStartYear}`;
+      if (selectedQuarter === "Q4") return `03${fyEndYear}`;
     }
-    return "042026";
-  }, [periodType, selectedMonth]);
+    return `03${fyEndYear}`;
+  }, [periodType, selectedMonth, selectedQuarter, fyStartYear, fyEndYear]);
 
   // Compute GSTR-1 & GSTR-3B Report
   const reportData: Gstr1ReportData = useMemo(() => {
@@ -144,7 +162,7 @@ Total Output Tax Liability: ₹${summary.totalTax.toLocaleString("en-IN")}`;
           <div className="clay-pill-container p-1 flex items-center gap-1 bg-slate-100 rounded-xl">
             <button
               onClick={() => setPeriodType("month")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`min-h-[36px] px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 periodType === "month"
                   ? "bg-white text-slate-900 shadow-xs"
                   : "text-slate-600 hover:text-slate-900"
@@ -154,13 +172,23 @@ Total Output Tax Liability: ₹${summary.totalTax.toLocaleString("en-IN")}`;
             </button>
             <button
               onClick={() => setPeriodType("quarter")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`min-h-[36px] px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 periodType === "quarter"
                   ? "bg-white text-slate-900 shadow-xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
               Quarterly
+            </button>
+            <button
+              onClick={() => setPeriodType("year")}
+              className={`min-h-[36px] px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                periodType === "year"
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Annual FY
             </button>
           </div>
 
@@ -169,7 +197,7 @@ Total Output Tax Liability: ₹${summary.totalTax.toLocaleString("en-IN")}`;
             <select
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="clay-input py-1.5 px-3 text-xs font-bold bg-white text-slate-900 border border-slate-200 rounded-xl focus:outline-none cursor-pointer"
+              className="clay-input min-h-[38px] py-2 px-3 text-xs font-bold bg-white text-slate-900 border border-slate-200 rounded-xl focus:outline-none cursor-pointer"
             >
               {monthOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -177,23 +205,27 @@ Total Output Tax Liability: ₹${summary.totalTax.toLocaleString("en-IN")}`;
                 </option>
               ))}
             </select>
-          ) : (
+          ) : periodType === "quarter" ? (
             <select
               value={selectedQuarter}
               onChange={(e) => setSelectedQuarter(e.target.value)}
-              className="clay-input py-1.5 px-3 text-xs font-bold bg-white text-slate-900 border border-slate-200 rounded-xl focus:outline-none cursor-pointer"
+              className="clay-input min-h-[38px] py-2 px-3 text-xs font-bold bg-white text-slate-900 border border-slate-200 rounded-xl focus:outline-none cursor-pointer"
             >
-              <option value="Q1">Q1 (Apr - Jun 2026)</option>
-              <option value="Q2">Q2 (Jul - Sep 2026)</option>
-              <option value="Q3">Q3 (Oct - Dec 2026)</option>
-              <option value="Q4">Q4 (Jan - Mar 2027)</option>
+              <option value="Q1">Q1 (Apr - Jun {fyStartYear})</option>
+              <option value="Q2">Q2 (Jul - Sep {fyStartYear})</option>
+              <option value="Q3">Q3 (Oct - Dec {fyStartYear})</option>
+              <option value="Q4">Q4 (Jan - Mar {fyEndYear})</option>
             </select>
+          ) : (
+            <div className="clay-input min-h-[38px] flex items-center px-3.5 text-xs font-bold bg-white text-slate-900 border border-slate-200 rounded-xl">
+              FY {fyStartYear}–{String(fyEndYear).slice(-2)} Full Year
+            </div>
           )}
 
           {/* Download JSON Button */}
           <button
             onClick={() => downloadGstr1Json(reportData)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-purple-700 hover:bg-purple-800 text-white shadow-sm transition-all cursor-pointer"
+            className="min-h-[38px] inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-purple-700 hover:bg-purple-800 text-white shadow-sm transition-all cursor-pointer"
             title="Download GSTR-1 JSON for direct upload on gst.gov.in"
           >
             <FileCode className="h-3.5 w-3.5" />
@@ -203,7 +235,7 @@ Total Output Tax Liability: ₹${summary.totalTax.toLocaleString("en-IN")}`;
           {/* Download CSV Button */}
           <button
             onClick={() => downloadGstr1Csv(reportData)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white shadow-sm transition-all cursor-pointer"
+            className="min-h-[38px] inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white shadow-sm transition-all cursor-pointer"
             title="Download GSTR-1 Excel/CSV for CA review"
           >
             <FileSpreadsheet className="h-3.5 w-3.5" />
@@ -213,7 +245,7 @@ Total Output Tax Liability: ₹${summary.totalTax.toLocaleString("en-IN")}`;
           {/* Print Action */}
           <button
             onClick={() => window.print()}
-            className="clay-icon-squircle p-2 rounded-xl text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors cursor-pointer"
+            className="clay-icon-squircle min-h-[38px] min-w-[38px] flex items-center justify-center p-2 rounded-xl text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors cursor-pointer"
             title="Print GST Statement"
           >
             <Printer className="h-4 w-4" />
@@ -246,7 +278,7 @@ Total Output Tax Liability: ₹${summary.totalTax.toLocaleString("en-IN")}`;
 
           <button
             onClick={handleCopyForPortal}
-            className="self-start md:self-auto inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white text-slate-900 hover:bg-slate-100 shadow-md transition-all cursor-pointer"
+            className="self-start md:self-auto min-h-[38px] inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-white text-slate-900 hover:bg-slate-100 shadow-md transition-all cursor-pointer"
           >
             {copiedNotification ? (
               <>
@@ -327,7 +359,7 @@ Total Output Tax Liability: ₹${summary.totalTax.toLocaleString("en-IN")}`;
         <button
           onClick={() => setActiveTab("summary")}
           className={cn(
-            "flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer",
+            "min-h-[38px] flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer",
             activeTab === "summary"
               ? "bg-slate-900 text-white shadow-xs"
               : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
@@ -340,7 +372,7 @@ Total Output Tax Liability: ₹${summary.totalTax.toLocaleString("en-IN")}`;
         <button
           onClick={() => setActiveTab("b2b")}
           className={cn(
-            "flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer",
+            "min-h-[38px] flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer",
             activeTab === "b2b"
               ? "bg-slate-900 text-white shadow-xs"
               : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
@@ -353,7 +385,7 @@ Total Output Tax Liability: ₹${summary.totalTax.toLocaleString("en-IN")}`;
         <button
           onClick={() => setActiveTab("b2c")}
           className={cn(
-            "flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer",
+            "min-h-[38px] flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer",
             activeTab === "b2c"
               ? "bg-slate-900 text-white shadow-xs"
               : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
@@ -366,7 +398,7 @@ Total Output Tax Liability: ₹${summary.totalTax.toLocaleString("en-IN")}`;
         <button
           onClick={() => setActiveTab("hsn")}
           className={cn(
-            "flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer",
+            "min-h-[38px] flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer",
             activeTab === "hsn"
               ? "bg-slate-900 text-white shadow-xs"
               : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
@@ -379,7 +411,7 @@ Total Output Tax Liability: ₹${summary.totalTax.toLocaleString("en-IN")}`;
         <button
           onClick={() => setActiveTab("docs")}
           className={cn(
-            "flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer",
+            "min-h-[38px] flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer",
             activeTab === "docs"
               ? "bg-slate-900 text-white shadow-xs"
               : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"

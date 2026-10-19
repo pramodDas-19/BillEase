@@ -55,8 +55,9 @@ export function getPlaceOfSupply(
   gstin?: string | null,
   stateOrAddress?: string | null
 ): { code: string; name: string } {
-  if (gstin && gstin.length >= 2) {
-    const code = gstin.substring(0, 2);
+  const cleanGstin = gstin ? gstin.trim().toUpperCase() : null;
+  if (cleanGstin && cleanGstin.length >= 2) {
+    const code = cleanGstin.substring(0, 2);
     if (GST_STATE_CODES[code]) {
       return { code, name: GST_STATE_CODES[code] };
     }
@@ -176,7 +177,8 @@ export function computeGstr3bSummary(invoices: Invoice[]): Gstr3bSummary {
   let totalInvoiceValue = 0;
 
   for (const inv of activeInvoices) {
-    taxableTurnover += inv.subtotal || 0;
+    const taxableVal = Math.max(0, (inv.subtotal || 0) - (inv.discountAmount || 0));
+    taxableTurnover += taxableVal;
     totalInvoiceValue += inv.totalAmount || 0;
 
     const isInterState =
@@ -240,7 +242,7 @@ export function generateGstr1Report(
       Boolean(inv.taxBreakdown?.some((t) => t.name.toUpperCase().includes("IGST")));
 
     const totalTax = inv.totalTax || 0;
-    const taxableVal = inv.subtotal || 0;
+    const taxableVal = Math.max(0, (inv.subtotal || 0) - (inv.discountAmount || 0));
     const invVal = inv.totalAmount || 0;
 
     let rate = 18;
@@ -317,13 +319,18 @@ export function generateGstr1Report(
       { description: "General Services", amount: taxableVal, quantity: 1, rate: taxableVal }
     ]) as (Partial<InvoiceLineItem> & { hsnCode?: string; hsn?: string })[];
 
+    const invDiscount = inv.discountAmount || 0;
+    const invSubtotal = inv.subtotal || 0;
+
     for (const item of items) {
       const hsn = item.hsnSacCode || item.hsnCode || item.hsn || "998311";
       const desc = item.description || "Services";
       const qty = item.quantity || 1;
-      const amt = item.amount || 0;
+      const rawAmt = item.amount || 0;
+      const itemDiscount = invSubtotal > 0 ? (rawAmt / invSubtotal) * invDiscount : 0;
+      const netAmt = Math.max(0, Math.round((rawAmt - itemDiscount) * 100) / 100);
 
-      const itemTaxRatio = taxableVal > 0 ? amt / taxableVal : 0;
+      const itemTaxRatio = taxableVal > 0 ? netAmt / taxableVal : 0;
       const itemTax = Math.round(totalTax * itemTaxRatio * 100) / 100;
       const itemIgst = isInterState ? itemTax : 0;
       const itemCgst = isInterState ? 0 : Math.round((itemTax / 2) * 100) / 100;
@@ -344,7 +351,7 @@ export function generateGstr1Report(
       }
 
       hsnMap[hsn].totalQuantity += qty;
-      hsnMap[hsn].totalTaxableValue = Math.round((hsnMap[hsn].totalTaxableValue + amt) * 100) / 100;
+      hsnMap[hsn].totalTaxableValue = Math.round((hsnMap[hsn].totalTaxableValue + netAmt) * 100) / 100;
       hsnMap[hsn].igst = Math.round((hsnMap[hsn].igst + itemIgst) * 100) / 100;
       hsnMap[hsn].cgst = Math.round((hsnMap[hsn].cgst + itemCgst) * 100) / 100;
       hsnMap[hsn].sgst = Math.round((hsnMap[hsn].sgst + itemSgst) * 100) / 100;

@@ -104,6 +104,9 @@ export default function ReportsPage() {
         return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
       }
       if (timeframe === "quarter") {
+        const fyStartYear = currentMonth >= 3 ? currentYear : currentYear - 1;
+        const invYear = d.getFullYear();
+        const m = d.getMonth();
         const currentQ =
           currentMonth >= 3 && currentMonth <= 5
             ? 1
@@ -112,10 +115,12 @@ export default function ReportsPage() {
             : currentMonth >= 9 && currentMonth <= 11
             ? 3
             : 4;
-        const m = d.getMonth();
-        const itemQ =
-          m >= 3 && m <= 5 ? 1 : m >= 6 && m <= 8 ? 2 : m >= 9 && m <= 11 ? 3 : 4;
-        return itemQ === currentQ;
+
+        if (currentQ === 1) return invYear === fyStartYear && m >= 3 && m <= 5;
+        if (currentQ === 2) return invYear === fyStartYear && m >= 6 && m <= 8;
+        if (currentQ === 3) return invYear === fyStartYear && m >= 9 && m <= 11;
+        if (currentQ === 4) return invYear === fyStartYear + 1 && m >= 0 && m <= 2;
+        return false;
       }
       if (timeframe === "year") {
         const fyStartYear = currentMonth >= 3 ? currentYear : currentYear - 1;
@@ -144,6 +149,9 @@ export default function ReportsPage() {
         return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
       }
       if (timeframe === "quarter") {
+        const fyStartYear = currentMonth >= 3 ? currentYear : currentYear - 1;
+        const qYear = d.getFullYear();
+        const m = d.getMonth();
         const currentQ =
           currentMonth >= 3 && currentMonth <= 5
             ? 1
@@ -152,10 +160,12 @@ export default function ReportsPage() {
             : currentMonth >= 9 && currentMonth <= 11
             ? 3
             : 4;
-        const m = d.getMonth();
-        const itemQ =
-          m >= 3 && m <= 5 ? 1 : m >= 6 && m <= 8 ? 2 : m >= 9 && m <= 11 ? 3 : 4;
-        return itemQ === currentQ;
+
+        if (currentQ === 1) return qYear === fyStartYear && m >= 3 && m <= 5;
+        if (currentQ === 2) return qYear === fyStartYear && m >= 6 && m <= 8;
+        if (currentQ === 3) return qYear === fyStartYear && m >= 9 && m <= 11;
+        if (currentQ === 4) return qYear === fyStartYear + 1 && m >= 0 && m <= 2;
+        return false;
       }
       if (timeframe === "year") {
         const fyStartYear = currentMonth >= 3 ? currentYear : currentYear - 1;
@@ -279,7 +289,7 @@ export default function ReportsPage() {
         <button
           onClick={() => setViewTab("analytics")}
           className={cn(
-            "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer",
+            "min-h-[38px] flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer",
             viewTab === "analytics"
               ? "bg-slate-900 text-white shadow-xs"
               : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
@@ -292,7 +302,7 @@ export default function ReportsPage() {
         <button
           onClick={() => setViewTab("gst")}
           className={cn(
-            "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer",
+            "min-h-[38px] flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer",
             viewTab === "gst"
               ? "bg-purple-700 text-white shadow-xs"
               : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
@@ -336,7 +346,7 @@ export default function ReportsPage() {
             <button
               onClick={() => setTimeframe("all")}
               className={cn(
-                "px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer",
+                "min-h-[36px] px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer",
                 timeframe === "all"
                   ? "clay-pill-active text-slate-900"
                   : "text-slate-500 hover:text-slate-900"
@@ -347,7 +357,7 @@ export default function ReportsPage() {
             <button
               onClick={() => setTimeframe("month")}
               className={cn(
-                "px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer",
+                "min-h-[36px] px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer",
                 timeframe === "month"
                   ? "clay-pill-active text-slate-900"
                   : "text-slate-500 hover:text-slate-900"
@@ -358,7 +368,7 @@ export default function ReportsPage() {
             <button
               onClick={() => setTimeframe("quarter")}
               className={cn(
-                "px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer",
+                "min-h-[36px] px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer",
                 timeframe === "quarter"
                   ? "clay-pill-active text-slate-900"
                   : "text-slate-500 hover:text-slate-900"
@@ -369,7 +379,7 @@ export default function ReportsPage() {
             <button
               onClick={() => setTimeframe("year")}
               className={cn(
-                "px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer",
+                "min-h-[36px] px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer",
                 timeframe === "year"
                   ? "clay-pill-active text-slate-900"
                   : "text-slate-500 hover:text-slate-900"
@@ -722,9 +732,10 @@ export default function ReportsPage() {
                     <td className="py-3.5 px-4 text-center">
                       <Link
                         href={`/clients`}
-                        className="clay-icon-squircle p-1.5 rounded-lg bg-slate-50 text-slate-600 hover:text-slate-900 inline-block transition-colors"
+                        title="View Client Ledger"
+                        className="clay-icon-squircle flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-xl bg-slate-50 text-slate-600 hover:text-slate-900 transition-colors mx-auto"
                       >
-                        <ArrowUpRight className="h-3.5 w-3.5" />
+                        <ArrowUpRight className="h-4 w-4" />
                       </Link>
                     </td>
                   </tr>
