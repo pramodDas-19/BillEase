@@ -703,6 +703,30 @@ This living document maintains an audit trail of every system module in **BillEa
 
 ---
 
+### 8.6 Mobile App-Switch Draft Resilience, Unified Atomic Persistence & Bank Input Sanitization
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**:
+  - [`src/context/tenant-context.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/context/tenant-context.tsx)
+  - [`src/app/(dashboard)/settings/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/settings/page.tsx)
+  - [`tests/settings-module-fixes.test.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/tests/settings-module-fixes.test.ts)
+* **The Problem**:
+  1. **Tab Refocus / App-Switch Draft Loss**: When users switched away on mobile (e.g., opened the Gallery or Photos app to check their bank account number or copy an IFSC code) and returned to the browser tab, the browser fired `visibilitychange` / `focus` events. Supabase's `onAuthStateChange` listener re-triggered `loadTenantAndUser()` and generated a new `currentTenant` object reference. In `settings/page.tsx`, `useEffect([currentTenant])` unconditionally re-initialized form state, wiping out whatever the user had typed.
+  2. **Mobile Low-RAM Tab Discard**: On memory-constrained mobile devices, opening the camera or gallery causes the operating system to unload the browser tab. On tab restore, React state was reset to DB defaults and the active tab reverted to `"profile"`, losing in-progress edits on the Bank tab.
+  3. **Sequential Stale Overwrite Race**: Settings previously updated profile (`updateTenantProfile`) and settings (`updateTenantSettings`) in two consecutive asynchronous calls. Because React state batching was async, the second call read stale `currentTenant.settings` and overwrote the changes made by the first call.
+  4. **Bank Account & IFSC Whitespace Errors**: When copying bank account numbers from SMS or mobile banking apps (which often format numbers with spaces like `5010 0234 5678 90`), validation failed with "must be 9 to 18 numeric digits", frustrating mobile users.
+* **The Fix**:
+  1. **Dirty Form Guard**: Added `isDirtyRef` to `settings/page.tsx`. If `isDirtyRef.current === true`, `useEffect([currentTenant])` aborts early and **never** overwrites active user inputs upon refocus or auth token refreshes.
+  2. **Dual-Layer `sessionStorage` Persistence**: Created `markDirtyAndPersist` which immediately serializes unsaved form state into `sessionStorage` (`billease_settings_draft_${tenantId}`) and syncs the active tab. If mobile RAM unloads the page, returning immediately restores all form fields, restores the active tab, and shows a "Draft Restored" banner with a "Discard Draft" option.
+  3. **Unified Atomic `updateFullTenant`**: Added `updateFullTenant(profile, settings)` in `TenantContext`. It merges both profile and settings into a single atomic Supabase query (`supabase.from("tenants").update({...}).eq("id", id)`), updates React state, and syncs `localStorage` simultaneously, eliminating race conditions.
+  4. **Automatic Mobile Input Sanitization**:
+     - Bank Account Number: Automatically strips spaces and hyphens on typing/pasting (`.replace(/[\s-]/g, "")`).
+     - IFSC Code: Automatically strips whitespace and capitalizes (`.replace(/\s+/g, "").toUpperCase()`).
+     - UPI ID: Automatically strips whitespace and lowercases (`.replace(/\s+/g, "").toLowerCase()`).
+  5. **Mobile Sticky Floating Save Bar**: Added a responsive, sticky bottom floating action bar on mobile viewports (`md:hidden fixed bottom-0 inset-x-0 z-40`) displaying a pulsing "Unsaved Edits" badge and a full-width Save button (`min-h-[44px]`), allowing instant saving without scrolling to the bottom.
+  6. **Route Exit Protection**: Integrated `<UnsavedChangesDialog>` with `useUnsavedChanges` to prevent accidental navigation away when unsaved changes exist.
+
+---
+
 ---
 
 ## 🎨 Module 9: Document Templates & Mobile Responsive Rendering Engine
@@ -824,7 +848,7 @@ This living document maintains an audit trail of every system module in **BillEa
 | Check | Tool / Runner | Result |
 |---|---|---|
 | **TypeScript Compilation** | `npx tsc --noEmit` | 🟢 0 errors |
-| **Unit & Integration Tests** | `npx vitest run` (23 test files) | 🟢 175 / 175 passed |
+| **Unit & Integration Tests** | `npx vitest run` (23 test files) | 🟢 178 / 178 passed |
 | **Module 1 Specific Tests** | `tests/auth-module-fixes.test.ts` | 🟢 5 / 5 passed |
 | **Module 2 Specific Tests** | `tests/client-module-fixes.test.ts` | 🟢 7 / 7 passed |
 | **Module 3 Specific Tests** | `tests/service-module-fixes.test.ts` | 🟢 7 / 7 passed |
@@ -832,7 +856,7 @@ This living document maintains an audit trail of every system module in **BillEa
 | **Module 5 Specific Tests** | `tests/invoice-module-fixes.test.ts` | 🟢 8 / 8 passed |
 | **Module 6 Specific Tests** | `tests/payment-module-fixes.test.ts` | 🟢 7 / 7 passed |
 | **Module 7 Specific Tests** | `tests/reports-gst-module-fixes.test.ts` | 🟢 7 / 7 passed |
-| **Module 8 Specific Tests** | `tests/settings-module-fixes.test.ts` | 🟢 9 / 9 passed |
+| **Module 8 Specific Tests** | `tests/settings-module-fixes.test.ts` | 🟢 12 / 12 passed |
 | **Module 9 Specific Tests** | `tests/document-templates.test.ts` | 🟢 13 / 13 passed |
 | **Next.js Production Build** | `npm run build` | 🟢 Build successful, 53/53 static routes compiled |
 

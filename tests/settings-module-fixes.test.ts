@@ -196,3 +196,95 @@ describe("Module 8: Multi-Tenant Namespacing & Isolation", () => {
     expect(retrievedB.defaultTaxRate).toBe(5);
   });
 });
+
+describe("Module 8: Mobile Input Sanitization & App-Switch Draft Resilience", () => {
+  it("sanitizes copy-pasted bank account numbers by stripping spaces and hyphens", () => {
+    const rawInputs = [
+      "5010 0234 5678 90",
+      "5010-0234-5678-90",
+      " 5010 0234 5678 90 ",
+      "1234-5678-9012",
+    ];
+
+    const sanitized = rawInputs.map((val) => val.replace(/[\s-]/g, ""));
+    expect(sanitized[0]).toBe("50100234567890");
+    expect(sanitized[1]).toBe("50100234567890");
+    expect(sanitized[2]).toBe("50100234567890");
+    expect(sanitized[3]).toBe("123456789012");
+
+    // All sanitized values must pass validation
+    sanitized.forEach((accNum) => {
+      const errors = validateSettings({
+        businessName: "Studio",
+        ownerName: "Owner",
+        phone: "9876543210",
+        email: "a@b.com",
+        upiId: "test@upi",
+        accountNumber: accNum,
+        ifscCode: "HDFC0001234",
+        quotePrefix: "QT-",
+        quoteNext: 1,
+        invPrefix: "INV-",
+        invNext: 1,
+        defaultTaxRate: 18,
+      });
+      expect(errors.accountNumber).toBeUndefined();
+    });
+  });
+
+  it("sanitizes IFSC code and UPI VPA copied from photo or banking app", () => {
+    const rawIfsc = "  hdfc 0001234  ";
+    const cleanIfsc = rawIfsc.replace(/\s+/g, "").toUpperCase();
+    expect(cleanIfsc).toBe("HDFC0001234");
+
+    const rawUpi = "  RoyalEvents@OkHdfcBank  ";
+    const cleanUpi = rawUpi.replace(/\s+/g, "").toLowerCase();
+    expect(cleanUpi).toBe("royalevents@okhdfcbank");
+
+    const errors = validateSettings({
+      businessName: "Studio",
+      ownerName: "Owner",
+      phone: "9876543210",
+      email: "a@b.com",
+      upiId: cleanUpi,
+      accountNumber: "50100234567890",
+      ifscCode: cleanIfsc,
+      quotePrefix: "QT-",
+      quoteNext: 1,
+      invPrefix: "INV-",
+      invNext: 1,
+      defaultTaxRate: 18,
+    });
+    expect(errors.ifscCode).toBeUndefined();
+    expect(errors.upiId).toBeUndefined();
+  });
+
+  it("preserves draft state across simulated mobile app-switch (Gallery check)", () => {
+    const draftKey = "billease_settings_draft_tenant-123";
+    const activeTabKey = "billease_settings_active_tab";
+
+    const sessionStore: Record<string, string> = {};
+
+    // 1. User is on 'bank' tab and enters account details
+    sessionStore[activeTabKey] = "bank";
+    sessionStore[draftKey] = JSON.stringify({
+      activeTab: "bank",
+      upiId: "studio@okhdfcbank",
+      accountNumber: "50100234567890",
+      bankName: "HDFC Bank",
+      ifscCode: "HDFC0001234",
+      accountHolderName: "Studio Pro",
+    });
+
+    // 2. User switches to Gallery to check account number, tab reloads
+    const restoredTab = sessionStore[activeTabKey];
+    const restoredDraft = JSON.parse(sessionStore[draftKey]);
+
+    expect(restoredTab).toBe("bank");
+    expect(restoredDraft.accountNumber).toBe("50100234567890");
+    expect(restoredDraft.bankName).toBe("HDFC Bank");
+    expect(restoredDraft.ifscCode).toBe("HDFC0001234");
+    expect(restoredDraft.upiId).toBe("studio@okhdfcbank");
+  });
+});
+

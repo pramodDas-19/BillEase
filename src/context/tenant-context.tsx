@@ -60,6 +60,7 @@ interface TenantContextType {
   switchTenant: (tenantId: string) => Promise<void> | void;
   updateTenantSettings: (newSettings: Partial<Tenant["settings"]>) => Promise<void>;
   updateTenantProfile: (newProfile: Partial<Tenant>) => Promise<void>;
+  updateFullTenant: (newProfile: Partial<Tenant>, newSettings?: Partial<Tenant["settings"]>) => Promise<void>;
   refreshTenantData: () => Promise<void>;
 }
 
@@ -447,6 +448,95 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateFullTenant = async (
+    newProfile: Partial<Tenant>,
+    newSettings?: Partial<Tenant["settings"]>
+  ) => {
+    const mergedSettings = {
+      ...currentTenant.settings,
+      ...(newProfile.settings || {}),
+      ...(newSettings || {}),
+      logoUrl: newProfile.logoUrl !== undefined ? newProfile.logoUrl : currentTenant.logoUrl,
+      signatureUrl: newProfile.signatureUrl !== undefined ? newProfile.signatureUrl : currentTenant.signatureUrl,
+    };
+
+    const updated: Tenant = {
+      ...currentTenant,
+      ...newProfile,
+      address: {
+        ...currentTenant.address,
+        ...(newProfile.address || {}),
+      },
+      bankDetails: {
+        ...currentTenant.bankDetails,
+        ...(newProfile.bankDetails || {}),
+      },
+      settings: mergedSettings,
+      logoUrl: newProfile.logoUrl !== undefined ? newProfile.logoUrl : currentTenant.logoUrl,
+      signatureUrl: newProfile.signatureUrl !== undefined ? newProfile.signatureUrl : currentTenant.signatureUrl,
+    };
+
+    setCurrentTenant(updated);
+
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(
+          `billease_tenant_profile_${updated.id}`,
+          JSON.stringify(updated)
+        );
+        localStorage.setItem(
+          `billease_tenant_settings_${updated.id}`,
+          JSON.stringify(updated.settings)
+        );
+
+        const regStr = localStorage.getItem("billease_registered_user");
+        const existing = regStr ? JSON.parse(regStr) : {};
+        if (existing.tenantId === updated.id) {
+          localStorage.setItem(
+            "billease_registered_user",
+            JSON.stringify({
+              ...existing,
+              tenantId: updated.id,
+              businessName: updated.businessName,
+              ownerName: updated.ownerName,
+              email: updated.email,
+              phone: updated.phone,
+              logoUrl: updated.logoUrl,
+              signatureUrl: updated.signatureUrl,
+              gstin: updated.gstin,
+              address: updated.address,
+              bankDetails: updated.bankDetails,
+              settings: updated.settings,
+            })
+          );
+        }
+      } catch (e) {
+        console.warn("Failed to persist updated tenant to localStorage:", e);
+      }
+    }
+
+    try {
+      await supabase
+        .from("tenants")
+        .upsert([
+          {
+            id: updated.id,
+            business_name: updated.businessName,
+            owner_name: updated.ownerName,
+            phone: updated.phone,
+            email: updated.email,
+            gstin: updated.gstin || null,
+            address: updated.address,
+            bank_details: updated.bankDetails,
+            settings: updated.settings,
+            updated_at: new Date().toISOString(),
+          },
+        ]);
+    } catch (e) {
+      console.error("Failed to persist tenant profile & settings to Supabase:", e);
+    }
+  };
+
   return (
     <TenantContext.Provider
       value={{
@@ -457,6 +547,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         switchTenant,
         updateTenantSettings,
         updateTenantProfile,
+        updateFullTenant,
         refreshTenantData: loadTenantAndUser,
       }}
     >

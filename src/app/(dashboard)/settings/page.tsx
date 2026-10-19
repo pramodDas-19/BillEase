@@ -29,10 +29,13 @@ import {
   Layout,
   AlertCircle,
   Loader2,
+  RotateCcw,
 } from "lucide-react";
+import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
+import { UnsavedChangesDialog } from "@/components/ui/unsaved-changes-dialog";
 
 export default function SettingsPage() {
-  const { currentTenant, updateTenantProfile, updateTenantSettings } = useTenant();
+  const { currentTenant, updateFullTenant } = useTenant();
   const [activeTab, setActiveTab] = useState<
     "profile" | "numbering" | "bank" | "tax" | "reminders"
   >("profile");
@@ -41,6 +44,21 @@ export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [errorMessage, setErrorMessage] = useState<string>("");
+
+  const isDirtyRef = React.useRef(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const initialLoadedRef = React.useRef(false);
+  const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
+
+  const DRAFT_STORAGE_KEY = `billease_settings_draft_${currentTenant?.id || "active"}`;
+  const ACTIVE_TAB_KEY = "billease_settings_active_tab";
+
+  // Unsaved changes navigation guard
+  const { showWarningModal, confirmLeave, cancelLeave } = useUnsavedChanges({
+    isDirty,
+    isSubmitting: isSaving,
+    documentType: "settings changes",
+  });
 
   // Form states initialized clean
   const [businessName, setBusinessName] = useState(currentTenant?.businessName || "");
@@ -101,8 +119,196 @@ export default function SettingsPage() {
     return getUpiQrImageUrl(liveUpiUri, 280);
   }, [liveUpiUri]);
 
-  // Sync form inputs when currentTenant loads or updates
+  // Centralized draft persistence helper (auto-saves into sessionStorage on every input stroke)
+  const markDirtyAndPersist = React.useCallback(
+    (fieldName: string, value: any) => {
+      isDirtyRef.current = true;
+      setIsDirty(true);
+      if (fieldErrors[fieldName]) {
+        setFieldErrors((prev) => ({ ...prev, [fieldName]: "" }));
+      }
+      if (typeof window !== "undefined") {
+        try {
+          const currentDraft = {
+            activeTab,
+            businessName,
+            ownerName,
+            phone,
+            email,
+            gstin,
+            address,
+            logoUrl,
+            signatureUrl,
+            quotePrefix,
+            quoteNext,
+            invPrefix,
+            invNext,
+            accountHolderName,
+            bankName,
+            accountNumber,
+            ifscCode,
+            upiId,
+            enableGstByDefault,
+            defaultTaxRate,
+            defaultTerms,
+            defaultCurrency,
+            reminderTemplate,
+            [fieldName]: value,
+          };
+          sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(currentDraft));
+          sessionStorage.setItem(ACTIVE_TAB_KEY, activeTab);
+        } catch {}
+      }
+    },
+    [
+      DRAFT_STORAGE_KEY,
+      activeTab,
+      businessName,
+      ownerName,
+      phone,
+      email,
+      gstin,
+      address,
+      logoUrl,
+      signatureUrl,
+      quotePrefix,
+      quoteNext,
+      invPrefix,
+      invNext,
+      accountHolderName,
+      bankName,
+      accountNumber,
+      ifscCode,
+      upiId,
+      enableGstByDefault,
+      defaultTaxRate,
+      defaultTerms,
+      defaultCurrency,
+      reminderTemplate,
+      fieldErrors,
+    ]
+  );
+
+  // Restore draft and active tab on mount (resilient to mobile Gallery / app switching)
   React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get("tab") as any;
+      const validTabs = ["profile", "numbering", "bank", "tax", "reminders"];
+      if (tabParam && validTabs.includes(tabParam)) {
+        setActiveTab(tabParam);
+      } else {
+        const savedTab = sessionStorage.getItem(ACTIVE_TAB_KEY) as any;
+        if (savedTab && validTabs.includes(savedTab)) {
+          setActiveTab(savedTab);
+        }
+      }
+
+      try {
+        const draftStr = sessionStorage.getItem(DRAFT_STORAGE_KEY);
+        if (draftStr) {
+          const draft = JSON.parse(draftStr);
+          if (draft && typeof draft === "object") {
+            if (draft.businessName !== undefined) setBusinessName(draft.businessName);
+            if (draft.ownerName !== undefined) setOwnerName(draft.ownerName);
+            if (draft.phone !== undefined) setPhone(draft.phone);
+            if (draft.email !== undefined) setEmail(draft.email);
+            if (draft.gstin !== undefined) setGstin(draft.gstin);
+            if (draft.address !== undefined) setAddress(draft.address);
+            if (draft.logoUrl !== undefined) setLogoUrl(draft.logoUrl);
+            if (draft.signatureUrl !== undefined) setSignatureUrl(draft.signatureUrl);
+            if (draft.quotePrefix !== undefined) setQuotePrefix(draft.quotePrefix);
+            if (draft.quoteNext !== undefined) setQuoteNext(draft.quoteNext);
+            if (draft.invPrefix !== undefined) setInvPrefix(draft.invPrefix);
+            if (draft.invNext !== undefined) setInvNext(draft.invNext);
+            if (draft.accountHolderName !== undefined) setAccountHolderName(draft.accountHolderName);
+            if (draft.bankName !== undefined) setBankName(draft.bankName);
+            if (draft.accountNumber !== undefined) setAccountNumber(draft.accountNumber);
+            if (draft.ifscCode !== undefined) setIfscCode(draft.ifscCode);
+            if (draft.upiId !== undefined) setUpiId(draft.upiId);
+            if (draft.enableGstByDefault !== undefined) setEnableGstByDefault(draft.enableGstByDefault);
+            if (draft.defaultTaxRate !== undefined) setDefaultTaxRate(draft.defaultTaxRate);
+            if (draft.defaultTerms !== undefined) setDefaultTerms(draft.defaultTerms);
+            if (draft.defaultCurrency !== undefined) setDefaultCurrency(draft.defaultCurrency);
+            if (draft.reminderTemplate !== undefined) setReminderTemplate(draft.reminderTemplate);
+            if (draft.activeTab && validTabs.includes(draft.activeTab)) {
+              setActiveTab(draft.activeTab);
+            }
+
+            isDirtyRef.current = true;
+            setIsDirty(true);
+            setHasRestoredDraft(true);
+            initialLoadedRef.current = true;
+          }
+        }
+      } catch (err) {
+        console.warn("Could not parse settings draft from sessionStorage:", err);
+      }
+    }
+  }, [DRAFT_STORAGE_KEY]);
+
+  // Sync form inputs when currentTenant loads or updates ONLY if the user has not made unsaved edits
+  React.useEffect(() => {
+    if (currentTenant) {
+      // Critical fix: If the user is editing or switched to Gallery, DO NOT overwrite their inputs!
+      if (isDirtyRef.current) {
+        return;
+      }
+
+      setBusinessName(currentTenant.businessName || "");
+      setOwnerName(currentTenant.ownerName || "");
+      setPhone(currentTenant.phone || "");
+      setEmail(currentTenant.email || "");
+      setGstin(currentTenant.gstin || "");
+      setAddress(currentTenant.address?.street || "");
+      setLogoUrl(currentTenant.logoUrl || currentTenant.settings?.logoUrl || "");
+      setSignatureUrl(currentTenant.signatureUrl || currentTenant.settings?.signatureUrl || "");
+      setQuotePrefix(currentTenant.settings?.quotationNumbering?.prefix || "QT-");
+      setQuoteNext(currentTenant.settings?.quotationNumbering?.nextNumber || 1001);
+      setInvPrefix(currentTenant.settings?.invoiceNumbering?.prefix || "INV-");
+      setInvNext(currentTenant.settings?.invoiceNumbering?.nextNumber || 1001);
+      setAccountHolderName(
+        currentTenant.bankDetails?.accountName || currentTenant.businessName || ""
+      );
+      setBankName(currentTenant.bankDetails?.bankName || "");
+      setAccountNumber(currentTenant.bankDetails?.accountNumber || "");
+      setIfscCode(currentTenant.bankDetails?.ifscCode || "");
+      setUpiId(currentTenant.bankDetails?.upiId || "");
+      setEnableGstByDefault(currentTenant.settings?.enableGstByDefault ?? true);
+      setDefaultTaxRate(currentTenant.settings?.defaultTaxRate ?? 18);
+      setDefaultTerms(
+        currentTenant.settings?.defaultTermsAndConditions ||
+        "1. 50% advance required to confirm booking.\n2. Balance due within 14 days of invoice."
+      );
+      setDefaultCurrency(currentTenant.settings?.defaultCurrency || "INR");
+      if (currentTenant.settings?.whatsappReminderTemplate) {
+        setReminderTemplate(currentTenant.settings.whatsappReminderTemplate);
+      }
+      initialLoadedRef.current = true;
+    }
+  }, [currentTenant]);
+
+  const handleTabChange = (tabId: "profile" | "numbering" | "bank" | "tax" | "reminders") => {
+    setActiveTab(tabId);
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem(ACTIVE_TAB_KEY, tabId);
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", tabId);
+      window.history.replaceState(null, "", url.toString());
+      if (isDirtyRef.current) {
+        markDirtyAndPersist("activeTab", tabId);
+      }
+    }
+  };
+
+  const handleDiscardDraft = () => {
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+    }
+    isDirtyRef.current = false;
+    setIsDirty(false);
+    setHasRestoredDraft(false);
+
     if (currentTenant) {
       setBusinessName(currentTenant.businessName || "");
       setOwnerName(currentTenant.ownerName || "");
@@ -134,7 +340,7 @@ export default function SettingsPage() {
         setReminderTemplate(currentTenant.settings.whatsappReminderTemplate);
       }
     }
-  }, [currentTenant]);
+  };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -146,7 +352,9 @@ export default function SettingsPage() {
     const reader = new FileReader();
     reader.onload = (evt) => {
       if (evt.target?.result) {
-        setLogoUrl(evt.target.result as string);
+        const val = evt.target.result as string;
+        setLogoUrl(val);
+        markDirtyAndPersist("logoUrl", val);
       }
     };
     reader.readAsDataURL(file);
@@ -162,7 +370,9 @@ export default function SettingsPage() {
     const reader = new FileReader();
     reader.onload = (evt) => {
       if (evt.target?.result) {
-        setSignatureUrl(evt.target.result as string);
+        const val = evt.target.result as string;
+        setSignatureUrl(val);
+        markDirtyAndPersist("signatureUrl", val);
       }
     };
     reader.readAsDataURL(file);
@@ -172,17 +382,27 @@ export default function SettingsPage() {
     e.preventDefault();
     setErrorMessage("");
 
+    // Clean and sanitize inputs
+    const cleanAccountNumber = accountNumber.replace(/[\s-]/g, "");
+    const cleanIfsc = ifscCode.replace(/\s+/g, "").toUpperCase();
+    const cleanUpi = upiId.trim().toLowerCase();
+    const cleanPhone = phone.trim();
+    const cleanEmail = email.trim();
+    const cleanBusinessName = businessName.trim();
+    const cleanOwnerName = ownerName.trim();
+    const cleanGstin = gstin.trim().toUpperCase();
+
     const errors = validateSettings({
-      businessName,
-      ownerName,
-      phone,
-      email,
-      gstin,
-      upiId,
-      accountHolderName,
-      bankName,
-      accountNumber,
-      ifscCode,
+      businessName: cleanBusinessName,
+      ownerName: cleanOwnerName,
+      phone: cleanPhone,
+      email: cleanEmail,
+      gstin: cleanGstin,
+      upiId: cleanUpi,
+      accountHolderName: accountHolderName.trim() || cleanBusinessName,
+      bankName: bankName.trim(),
+      accountNumber: cleanAccountNumber,
+      ifscCode: cleanIfsc,
       quotePrefix,
       quoteNext: Number(quoteNext),
       invPrefix,
@@ -195,13 +415,13 @@ export default function SettingsPage() {
       setFieldErrors(errors);
       setErrorMessage("Please resolve the highlighted field errors before saving.");
       if (errors.businessName || errors.ownerName || errors.phone || errors.email || errors.gstin) {
-        setActiveTab("profile");
+        handleTabChange("profile");
       } else if (errors.quotePrefix || errors.quoteNext || errors.invPrefix || errors.invNext) {
-        setActiveTab("numbering");
+        handleTabChange("numbering");
       } else if (errors.upiId || errors.ifscCode || errors.accountNumber) {
-        setActiveTab("bank");
+        handleTabChange("bank");
       } else if (errors.defaultTaxRate) {
-        setActiveTab("tax");
+        handleTabChange("tax");
       }
       return;
     }
@@ -210,44 +430,53 @@ export default function SettingsPage() {
     setIsSaving(true);
 
     try {
-      await updateTenantProfile({
-        businessName: businessName.trim(),
-        ownerName: ownerName.trim(),
-        phone: phone.trim(),
-        email: email.trim(),
-        gstin: gstin.trim() ? gstin.trim().toUpperCase() : undefined,
-        logoUrl,
-        signatureUrl,
-        address: {
-          ...(currentTenant?.address || {}),
-          street: address,
+      await updateFullTenant(
+        {
+          businessName: cleanBusinessName,
+          ownerName: cleanOwnerName,
+          phone: cleanPhone,
+          email: cleanEmail,
+          gstin: cleanGstin ? cleanGstin : undefined,
+          logoUrl,
+          signatureUrl,
+          address: {
+            ...(currentTenant?.address || {}),
+            street: address,
+          },
+          bankDetails: {
+            accountName: accountHolderName.trim() || cleanBusinessName,
+            accountNumber: cleanAccountNumber,
+            ifscCode: cleanIfsc,
+            bankName: bankName.trim(),
+            upiId: cleanUpi,
+          },
         },
-        bankDetails: {
-          accountName: accountHolderName.trim() || businessName.trim(),
-          accountNumber: accountNumber.trim(),
-          ifscCode: ifscCode.trim().toUpperCase(),
-          bankName: bankName.trim(),
-          upiId: upiId.trim(),
-        },
-      });
+        {
+          quotationNumbering: {
+            ...(currentTenant?.settings?.quotationNumbering || { digitLength: 4 }),
+            prefix: quotePrefix.trim(),
+            nextNumber: Number(quoteNext),
+          },
+          invoiceNumbering: {
+            ...(currentTenant?.settings?.invoiceNumbering || { digitLength: 4 }),
+            prefix: invPrefix.trim(),
+            nextNumber: Number(invNext),
+          },
+          enableGstByDefault,
+          defaultTaxRate: Number(defaultTaxRate),
+          defaultTermsAndConditions: defaultTerms,
+          defaultCurrency,
+          whatsappReminderTemplate: reminderTemplate,
+        }
+      );
 
-      await updateTenantSettings({
-        quotationNumbering: {
-          ...(currentTenant?.settings?.quotationNumbering || { digitLength: 4 }),
-          prefix: quotePrefix.trim(),
-          nextNumber: Number(quoteNext),
-        },
-        invoiceNumbering: {
-          ...(currentTenant?.settings?.invoiceNumbering || { digitLength: 4 }),
-          prefix: invPrefix.trim(),
-          nextNumber: Number(invNext),
-        },
-        enableGstByDefault,
-        defaultTaxRate: Number(defaultTaxRate),
-        defaultTermsAndConditions: defaultTerms,
-        defaultCurrency,
-        whatsappReminderTemplate: reminderTemplate,
-      });
+      // Clean up draft storage on successful persistence
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+      }
+      isDirtyRef.current = false;
+      setIsDirty(false);
+      setHasRestoredDraft(false);
 
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 3500);
@@ -270,7 +499,27 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="space-y-6 animate-in fade-in-50 duration-200">
+    <div className="space-y-6 animate-in fade-in-50 duration-200 pb-24 sm:pb-0">
+      {/* Draft Restored Banner (when returning after app switch or refresh) */}
+      {hasRestoredDraft && (
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3.5 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-900 text-xs shadow-xs animate-in fade-in-50">
+          <div className="flex items-center gap-2">
+            <Info className="h-4 w-4 text-amber-600 shrink-0" />
+            <span>
+              <strong>Draft Restored:</strong> We preserved your un-saved settings while you were away.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleDiscardDraft}
+            className="inline-flex items-center gap-1 font-bold text-amber-800 hover:text-rose-700 underline cursor-pointer text-xs self-start sm:self-auto"
+          >
+            <RotateCcw className="h-3 w-3" />
+            <span>Discard Draft</span>
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -310,9 +559,9 @@ export default function SettingsPage() {
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => setActiveTab(tab.id as any)}
+                onClick={() => handleTabChange(tab.id as any)}
                 className={cn(
-                  "shrink-0 flex items-center gap-2 px-3.5 py-2.5 min-h-[38px] rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap",
+                  "shrink-0 flex items-center gap-2 px-4 py-2.5 min-h-[42px] rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap",
                   isActive
                     ? "clay-pill-active text-slate-900 shadow-xs"
                     : "text-slate-600 hover:text-slate-900"
@@ -320,7 +569,7 @@ export default function SettingsPage() {
               >
                 <Icon
                   className={cn(
-                    "h-3.5 w-3.5",
+                    "h-4 w-4",
                     isActive ? "text-emerald-700" : "text-slate-400"
                   )}
                 />
@@ -330,9 +579,9 @@ export default function SettingsPage() {
           })}
           <Link
             href="/settings/templates"
-            className="shrink-0 flex items-center gap-1.5 px-3.5 py-2.5 min-h-[38px] rounded-xl text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition-all whitespace-nowrap"
+            className="shrink-0 flex items-center gap-1.5 px-4 py-2.5 min-h-[42px] rounded-xl text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition-all whitespace-nowrap"
           >
-            <Layout className="h-3.5 w-3.5 text-indigo-600" />
+            <Layout className="h-4 w-4 text-indigo-600" />
             <span>Templates (15)</span>
           </Link>
         </div>
@@ -347,9 +596,9 @@ export default function SettingsPage() {
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => setActiveTab(tab.id as any)}
+                onClick={() => handleTabChange(tab.id as any)}
                 className={cn(
-                  "w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-bold text-left transition-all cursor-pointer",
+                  "w-full flex items-center gap-3 px-3.5 py-3 min-h-[42px] rounded-xl text-xs font-bold text-left transition-all cursor-pointer",
                   isActive
                     ? "clay-pill-active text-slate-900 shadow-xs"
                     : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
@@ -369,7 +618,7 @@ export default function SettingsPage() {
           <div className="pt-2 border-t border-slate-200">
             <Link
               href="/settings/templates"
-              className="w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold text-left transition-all border border-indigo-200 bg-indigo-50/70 text-indigo-900 hover:bg-indigo-100"
+              className="w-full flex items-center justify-between px-3.5 py-3 min-h-[42px] rounded-xl text-xs font-bold text-left transition-all border border-indigo-200 bg-indigo-50/70 text-indigo-900 hover:bg-indigo-100"
             >
               <div className="flex items-center gap-2.5">
                 <Layout className="h-4 w-4 text-indigo-600" />
@@ -382,10 +631,9 @@ export default function SettingsPage() {
           </div>
         </div>
 
-
         {/* Right 2 Cols: Active Setting Configuration Card */}
         <div className="md:col-span-2">
-          <form onSubmit={handleSave} className="clay-card p-6 sm:p-8 space-y-6">
+          <form id="settings-form" onSubmit={handleSave} className="clay-card p-6 sm:p-8 space-y-6">
             {/* TAB 1: Business Profile & Branding */}
             {activeTab === "profile" && (
               <div className="space-y-6 animate-in fade-in-50">
@@ -539,6 +787,7 @@ export default function SettingsPage() {
                       value={businessName}
                       onChange={(e) => {
                         setBusinessName(e.target.value);
+                        markDirtyAndPersist("businessName", e.target.value);
                         if (fieldErrors.businessName) setFieldErrors((p) => ({ ...p, businessName: "" }));
                       }}
                       className={cn(
@@ -563,6 +812,7 @@ export default function SettingsPage() {
                       value={ownerName}
                       onChange={(e) => {
                         setOwnerName(e.target.value);
+                        markDirtyAndPersist("ownerName", e.target.value);
                         if (fieldErrors.ownerName) setFieldErrors((p) => ({ ...p, ownerName: "" }));
                       }}
                       className={cn(
@@ -587,6 +837,7 @@ export default function SettingsPage() {
                       value={phone}
                       onChange={(e) => {
                         setPhone(e.target.value);
+                        markDirtyAndPersist("phone", e.target.value);
                         if (fieldErrors.phone) setFieldErrors((p) => ({ ...p, phone: "" }));
                       }}
                       className={cn(
@@ -611,6 +862,7 @@ export default function SettingsPage() {
                       value={email}
                       onChange={(e) => {
                         setEmail(e.target.value);
+                        markDirtyAndPersist("email", e.target.value);
                         if (fieldErrors.email) setFieldErrors((p) => ({ ...p, email: "" }));
                       }}
                       className={cn(
@@ -637,7 +889,9 @@ export default function SettingsPage() {
                       placeholder="e.g. 27AAACS1429B1Z5 (Leave blank if unregistered)"
                       value={gstin}
                       onChange={(e) => {
-                        setGstin(e.target.value.toUpperCase());
+                        const val = e.target.value.toUpperCase();
+                        setGstin(val);
+                        markDirtyAndPersist("gstin", val);
                         if (fieldErrors.gstin) setFieldErrors((p) => ({ ...p, gstin: "" }));
                       }}
                       className={cn(
@@ -659,7 +913,11 @@ export default function SettingsPage() {
                     </label>
                     <select
                       value={defaultCurrency}
-                      onChange={(e) => setDefaultCurrency(e.target.value as CurrencyCode)}
+                      onChange={(e) => {
+                        const val = e.target.value as CurrencyCode;
+                        setDefaultCurrency(val);
+                        markDirtyAndPersist("defaultCurrency", val);
+                      }}
                       className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-2.5 text-sm font-semibold text-slate-900 focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all cursor-pointer"
                     >
                       <option value="INR">₹ INR (India)</option>
@@ -681,7 +939,10 @@ export default function SettingsPage() {
                   <textarea
                     rows={2}
                     value={address}
-                    onChange={(e) => setAddress(e.target.value)}
+                    onChange={(e) => {
+                      setAddress(e.target.value);
+                      markDirtyAndPersist("address", e.target.value);
+                    }}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-2.5 text-sm text-slate-900 focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all font-medium"
                   />
                 </div>
@@ -718,6 +979,7 @@ export default function SettingsPage() {
                           onChange={(e) => {
                             const val = e.target.value.replace(/[^a-zA-Z0-9\-_/]/g, "").toUpperCase();
                             setQuotePrefix(val);
+                            markDirtyAndPersist("quotePrefix", val);
                             if (fieldErrors.quotePrefix) setFieldErrors((p) => ({ ...p, quotePrefix: "" }));
                           }}
                           className={cn(
@@ -738,6 +1000,7 @@ export default function SettingsPage() {
                           onChange={(e) => {
                             const val = Math.max(1, parseInt(e.target.value, 10) || 1);
                             setQuoteNext(val);
+                            markDirtyAndPersist("quoteNext", val);
                             if (fieldErrors.quoteNext) setFieldErrors((p) => ({ ...p, quoteNext: "" }));
                           }}
                           className={cn(
@@ -772,6 +1035,7 @@ export default function SettingsPage() {
                           onChange={(e) => {
                             const val = e.target.value.replace(/[^a-zA-Z0-9\-_/]/g, "").toUpperCase();
                             setInvPrefix(val);
+                            markDirtyAndPersist("invPrefix", val);
                             if (fieldErrors.invPrefix) setFieldErrors((p) => ({ ...p, invPrefix: "" }));
                           }}
                           className={cn(
@@ -792,6 +1056,7 @@ export default function SettingsPage() {
                           onChange={(e) => {
                             const val = Math.max(1, parseInt(e.target.value, 10) || 1);
                             setInvNext(val);
+                            markDirtyAndPersist("invNext", val);
                             if (fieldErrors.invNext) setFieldErrors((p) => ({ ...p, invNext: "" }));
                           }}
                           className={cn(
@@ -836,7 +1101,9 @@ export default function SettingsPage() {
                         placeholder="e.g. royalevents@okhdfcbank"
                         value={upiId}
                         onChange={(e) => {
-                          setUpiId(e.target.value);
+                          const val = e.target.value.replace(/\s+/g, "").toLowerCase();
+                          setUpiId(val);
+                          markDirtyAndPersist("upiId", val);
                           if (fieldErrors.upiId) setFieldErrors((p) => ({ ...p, upiId: "" }));
                         }}
                         className={cn(
@@ -859,7 +1126,10 @@ export default function SettingsPage() {
                         type="text"
                         placeholder="e.g. Pramod Das or Acme Enterprises"
                         value={accountHolderName}
-                        onChange={(e) => setAccountHolderName(e.target.value)}
+                        onChange={(e) => {
+                          setAccountHolderName(e.target.value);
+                          markDirtyAndPersist("accountHolderName", e.target.value);
+                        }}
                         className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-2.5 text-sm font-semibold text-slate-900 focus:bg-white focus:border-emerald-500 focus:outline-none"
                       />
                       <p className="text-[11px] text-slate-400 font-medium">
@@ -875,7 +1145,10 @@ export default function SettingsPage() {
                         type="text"
                         placeholder="e.g. HDFC Bank, ICICI Bank, SBI"
                         value={bankName}
-                        onChange={(e) => setBankName(e.target.value)}
+                        onChange={(e) => {
+                          setBankName(e.target.value);
+                          markDirtyAndPersist("bankName", e.target.value);
+                        }}
                         className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-2.5 text-sm font-semibold text-slate-900 focus:bg-white focus:border-emerald-500 focus:outline-none"
                       />
                     </div>
@@ -890,7 +1163,9 @@ export default function SettingsPage() {
                           placeholder="e.g. 50100234567890"
                           value={accountNumber}
                           onChange={(e) => {
-                            setAccountNumber(e.target.value);
+                            const val = e.target.value.replace(/[\s-]/g, "");
+                            setAccountNumber(val);
+                            markDirtyAndPersist("accountNumber", val);
                             if (fieldErrors.accountNumber) setFieldErrors((p) => ({ ...p, accountNumber: "" }));
                           }}
                           className={cn(
@@ -913,7 +1188,9 @@ export default function SettingsPage() {
                           placeholder="e.g. HDFC0001234"
                           value={ifscCode}
                           onChange={(e) => {
-                            setIfscCode(e.target.value.toUpperCase());
+                            const val = e.target.value.replace(/\s+/g, "").toUpperCase();
+                            setIfscCode(val);
+                            markDirtyAndPersist("ifscCode", val);
                             if (fieldErrors.ifscCode) setFieldErrors((p) => ({ ...p, ifscCode: "" }));
                           }}
                           className={cn(
@@ -1022,7 +1299,10 @@ export default function SettingsPage() {
                     <input
                       type="checkbox"
                       checked={enableGstByDefault}
-                      onChange={(e) => setEnableGstByDefault(e.target.checked)}
+                      onChange={(e) => {
+                        setEnableGstByDefault(e.target.checked);
+                        markDirtyAndPersist("enableGstByDefault", e.target.checked);
+                      }}
                       className="rounded text-emerald-600 h-4 w-4 mt-0.5 cursor-pointer"
                     />
                     <div>
@@ -1046,7 +1326,10 @@ export default function SettingsPage() {
                           <button
                             key={rate}
                             type="button"
-                            onClick={() => setDefaultTaxRate(rate)}
+                            onClick={() => {
+                              setDefaultTaxRate(rate);
+                              markDirtyAndPersist("defaultTaxRate", rate);
+                            }}
                             className={cn(
                               "min-h-[42px] py-2.5 rounded-xl text-xs font-extrabold flex items-center justify-center transition-all cursor-pointer border shadow-2xs",
                               defaultTaxRate === rate
@@ -1073,7 +1356,10 @@ export default function SettingsPage() {
                     <textarea
                       rows={5}
                       value={defaultTerms}
-                      onChange={(e) => setDefaultTerms(e.target.value)}
+                      onChange={(e) => {
+                        setDefaultTerms(e.target.value);
+                        markDirtyAndPersist("defaultTerms", e.target.value);
+                      }}
                       placeholder="e.g. 1. 50% advance required to confirm booking.&#10;2. Balance due within 14 days of invoice."
                       className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs sm:text-sm text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 font-medium leading-relaxed resize-none shadow-2xs"
                     />
@@ -1120,7 +1406,10 @@ export default function SettingsPage() {
                       <button
                         key={preset.name}
                         type="button"
-                        onClick={() => setReminderTemplate(preset.template)}
+                        onClick={() => {
+                          setReminderTemplate(preset.template);
+                          markDirtyAndPersist("reminderTemplate", preset.template);
+                        }}
                         className="clay-pill px-3.5 py-2 min-h-[36px] inline-flex items-center text-xs font-bold text-slate-700 hover:text-emerald-800 hover:bg-emerald-50/80 border border-slate-200 transition-all cursor-pointer shadow-2xs"
                       >
                         ⚡ {preset.name}
@@ -1137,11 +1426,12 @@ export default function SettingsPage() {
                       </label>
                       <button
                         type="button"
-                        onClick={() =>
-                          setReminderTemplate(
-                            "Hello {client_name}, this is a friendly reminder from {business_name} regarding pending invoice #{invoice_num} for {balance_due}. Kindly arrange for settlement at your earliest convenience: {pay_link}. Thank you!"
-                          )
-                        }
+                        onClick={() => {
+                          const def =
+                            "Hello {client_name}, this is a friendly reminder from {business_name} regarding pending invoice #{invoice_num} for {balance_due}. Kindly arrange for settlement at your earliest convenience: {pay_link}. Thank you!";
+                          setReminderTemplate(def);
+                          markDirtyAndPersist("reminderTemplate", def);
+                        }}
                         className="text-[11px] text-slate-400 hover:text-emerald-700 font-bold underline cursor-pointer"
                       >
                         Reset to Default
@@ -1150,7 +1440,10 @@ export default function SettingsPage() {
                     <textarea
                       rows={4}
                       value={reminderTemplate}
-                      onChange={(e) => setReminderTemplate(e.target.value)}
+                      onChange={(e) => {
+                        setReminderTemplate(e.target.value);
+                        markDirtyAndPersist("reminderTemplate", e.target.value);
+                      }}
                       placeholder="Type your WhatsApp reminder template..."
                       className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs sm:text-sm text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 font-medium leading-relaxed resize-none shadow-2xs"
                     />
@@ -1172,11 +1465,11 @@ export default function SettingsPage() {
                         <button
                           key={tag}
                           type="button"
-                          onClick={() =>
-                            setReminderTemplate((prev) =>
-                              prev ? `${prev.trim()} ${tag}` : tag
-                            )
-                          }
+                          onClick={() => {
+                            const updated = reminderTemplate ? `${reminderTemplate.trim()} ${tag}` : tag;
+                            setReminderTemplate(updated);
+                            markDirtyAndPersist("reminderTemplate", updated);
+                          }}
                           title={`Click to insert ${desc}`}
                           className="clay-tag px-3 py-1.5 min-h-[38px] text-xs font-mono font-bold bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 border border-slate-200 hover:border-emerald-300 transition-all cursor-pointer shadow-2xs active:scale-95 inline-flex items-center"
                         >
@@ -1236,6 +1529,53 @@ export default function SettingsPage() {
           </form>
         </div>
       </div>
+
+      {/* Mobile Sticky Floating Save Bar (Visible only on mobile screens) */}
+      <div className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 p-3 shadow-lg flex items-center justify-between gap-3 animate-in slide-in-from-bottom duration-200">
+        <div className="flex items-center gap-2 min-w-0">
+          {isDirty ? (
+            <span className="flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200/80 shrink-0">
+              <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+              <span>Unsaved Edits</span>
+            </span>
+          ) : (
+            <span className="text-xs font-semibold text-slate-500 truncate">
+              All settings synced
+            </span>
+          )}
+        </div>
+
+        <button
+          type="button"
+          disabled={isSaving}
+          onClick={() => {
+            const form = document.getElementById("settings-form") as HTMLFormElement;
+            if (form) {
+              form.requestSubmit();
+            }
+          }}
+          className="clay-btn-emerald shrink-0 inline-flex items-center justify-center gap-2 h-11 px-5 font-bold text-xs rounded-xl cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed shadow-md"
+        >
+          {isSaving ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin text-white" />
+              <span>Saving...</span>
+            </>
+          ) : (
+            <>
+              <Save className="h-4 w-4" />
+              <span>Save Changes</span>
+            </>
+          )}
+        </button>
+      </div>
+
+      <UnsavedChangesDialog
+        isOpen={showWarningModal}
+        onConfirmLeave={confirmLeave}
+        onCancel={cancelLeave}
+        documentType="settings changes"
+      />
     </div>
   );
 }
