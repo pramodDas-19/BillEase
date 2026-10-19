@@ -27,7 +27,9 @@ import {
   Sparkles,
   Receipt,
   Percent,
+  AlertCircle,
 } from "lucide-react";
+import { validatePayment } from "@/validations/payment.schema";
 
 function RecordPaymentForm() {
   const router = useRouter();
@@ -52,6 +54,8 @@ function RecordPaymentForm() {
     "full" | "50" | "20" | "10" | "custom" | null
   >("full");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [serverError, setServerError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadInvoices() {
@@ -157,6 +161,7 @@ function RecordPaymentForm() {
     setAmount(val);
     setActiveQuickFill(null);
     setIsCustomPercentOpen(false);
+    if (errors.amount) setErrors((prev) => ({ ...prev, amount: "" }));
     const num = parseFloat(val);
     if (!isNaN(num) && selectedInvoice && selectedInvoice.totalAmount > 0) {
       setPercentValue(((num / selectedInvoice.totalAmount) * 100).toFixed(1));
@@ -166,6 +171,7 @@ function RecordPaymentForm() {
   const handlePercentInputChange = (val: string) => {
     setPercentValue(val);
     setActiveQuickFill("custom");
+    if (errors.amount) setErrors((prev) => ({ ...prev, amount: "" }));
     const num = parseFloat(val);
     if (!isNaN(num) && selectedInvoice && num >= 0) {
       const calculated = Math.round((selectedInvoice.totalAmount * num) / 100);
@@ -208,12 +214,35 @@ function RecordPaymentForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedInvoice) return;
+    if (!selectedInvoice) {
+      setServerError("Please select an invoice to settle.");
+      return;
+    }
+
+    setErrors({});
+    setServerError(null);
+
+    const validationErrors = validatePayment(
+      {
+        invoiceId: selectedInvoice.id,
+        amount: parsedAmount,
+        paymentDate,
+        paymentMethod,
+        transactionReference: transactionRef.trim() || undefined,
+        notes: notes.trim() || undefined,
+      },
+      selectedInvoice.balanceDue
+    );
+
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
 
     setIsSubmitting(true);
     try {
       const payNum = `PAY-${Date.now().toString().slice(-4)}`;
-      await PaymentService.createPayment({
+      const result = await PaymentService.createPayment({
         paymentNumber: payNum,
         invoiceId: selectedInvoice.id,
         invoiceNumber: selectedInvoice.invoiceNumber,
@@ -227,9 +256,14 @@ function RecordPaymentForm() {
         notes: notes.trim() || undefined,
       });
 
+      if (!result) {
+        throw new Error("Failed to save payment receipt. Please check your connection and try again.");
+      }
+
       router.push("/payments");
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to record payment:", err);
+      setServerError(err.message || "Failed to record payment receipt. Please try again.");
       setIsSubmitting(false);
     }
   };
@@ -257,6 +291,12 @@ function RecordPaymentForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {serverError && (
+          <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-800 font-bold flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
+            <span>{serverError}</span>
+          </div>
+        )}
         {/* Step 1: Invoice Search & Selector Combobox */}
         <div className="clay-card p-6 sm:p-7 space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -509,6 +549,9 @@ function RecordPaymentForm() {
                       className="w-full rounded-2xl border border-slate-200 bg-white pl-9 pr-4 py-3 text-lg font-black text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 shadow-xs transition-all"
                     />
                   </div>
+                  {errors.amount && (
+                    <p className="text-[11px] text-rose-600 font-semibold px-1">{errors.amount}</p>
+                  )}
                   {selectedInvoice && parsedAmount > 0 && selectedInvoice.totalAmount > 0 && (
                     <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium px-1">
                       <span>Equates to:</span>
@@ -731,9 +774,15 @@ function RecordPaymentForm() {
                 type="date"
                 required
                 value={paymentDate}
-                onChange={(e) => setPaymentDate(e.target.value)}
+                onChange={(e) => {
+                  setPaymentDate(e.target.value);
+                  if (errors.paymentDate) setErrors((prev) => ({ ...prev, paymentDate: "" }));
+                }}
                 className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-2xs transition-all"
               />
+              {errors.paymentDate && (
+                <p className="text-[11px] text-rose-600 font-semibold mt-1">{errors.paymentDate}</p>
+              )}
             </div>
 
             <div className="space-y-1.5">

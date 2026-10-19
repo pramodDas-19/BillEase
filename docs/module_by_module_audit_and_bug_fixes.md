@@ -405,18 +405,107 @@ This living document maintains an audit trail of every system module in **BillEa
 
 ---
 
+---
+
+## 💳 Module 6: Payments, Receipts & Public Pay Portal
+
+### 6.1 Accounting Integrity: Invoice Balance & Status Reversal on Payment Deletion
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**: [`src/services/payment.service.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/services/payment.service.ts)
+* **The Problem**:
+  When a payment receipt was deleted, `PaymentService.deletePayment(id)` deleted the record from Supabase, but never updated the linked invoice. If an invoice had ₹10,000 total with a ₹5,000 payment (status: `partially_paid`, balance: ₹5,000), deleting the receipt left the invoice permanently claiming ₹5,000 had been paid with only ₹5,000 due, corrupting accounts.
+* **The Fix**:
+  1. Updated `PaymentService.deletePayment(id)` to retrieve linked `invoice_id` and `amount` prior to deletion.
+  2. Subtracted payment amount from invoice `paid_amount`, recomputed `balance_due = Math.max(0, total - newPaid)`, and updated status (`paid` if balance <= 0, `partially_paid` if paid > 0, `due` if paid = 0).
+  3. Synchronized both Supabase and local cache (`billease_invoices_${tenantId}`) and triggered `ClientService.recalculateClientLedger()`.
+  4. Enqueued offline mutation if network disconnects.
+
+---
+
+### 6.2 `PaymentRecordModal` Production Service Wiring & Validation
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected File**: [`src/components/invoices/payment-record-modal.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/components/invoices/payment-record-modal.tsx)
+* **The Problem**:
+  The modal opened from the Invoice Detail page (`/invoices/[id]`) executed a fake `setTimeout(..., 500)` without ever calling `PaymentService.createPayment()`. When the page reloaded upon "success", zero payments were logged.
+* **The Fix**:
+  1. Connected modal to `PaymentService.createPayment()`.
+  2. Integrated `validatePayment()` verifying that payment amount is positive and does not exceed invoice balance due.
+  3. Added inline validation error indicators and server error banner with responsive touch button sizes (`min-h-[38px]`).
+
+---
+
+### 6.3 Offline Sync Runner Payment Deletion Replay Support
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected File**: [`src/lib/offline-sync-runner.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/lib/offline-sync-runner.ts)
+* **The Problem**:
+  In `offline-sync-runner.ts`, `case "payment"` only handled insertions. If an offline payment deletion mutation was enqueued, replay attempted to insert `undefined` and crashed.
+* **The Fix**:
+  Added an explicit `if (item.action === "delete")` branch in `case "payment"` that deletes the payment record from Supabase and applies the calculated `newPaid`, `newBalance`, and `newStatus` to the linked invoice upon network recovery.
+
+---
+
+### 6.4 Formal Payment Validation Schema & Record Payment Boundary Enforcement
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**: [`src/validations/payment.schema.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/validations/payment.schema.ts), [`src/app/(dashboard)/payments/record/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/payments/record/page.tsx)
+* **The Problem**:
+  `src/validations/payment.schema.ts` existed but was completely unused. Forms allowed negative or zero payments and overpayments beyond balance due without giving inline field feedback. If `PaymentService.createPayment()` returned `null` on error, the user was redirected to `/payments` anyway.
+* **The Fix**:
+  1. Refactored `src/validations/payment.schema.ts` with pure TypeScript validation (`validatePayment()` and `isPaymentValid()`).
+  2. Enforced amount > 0, balance due bounds (`amount <= maxAllowed`), valid dates, and standard payment methods (`upi`, `bank_transfer`, `cash`, `cheque`, `card`, `online`, `other`).
+  3. Integrated validation into `RecordPaymentForm`, added real-time inline errors and error banner, and prevented navigation on creation failure.
+
+---
+
+### 6.5 Payments Ledger Optimistic Deletion State Rollback
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected File**: [`src/app/(dashboard)/payments/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/payments/page.tsx)
+* **The Problem**:
+  `handleDeletePayment` filtered out the receipt from local state before awaiting the deletion. If deletion failed, the receipt vanished from UI while remaining in database.
+* **The Fix**:
+  Implemented snapshot backup and rollback:
+  ```ts
+  const backup = [...paymentsList];
+  setPaymentsList((prev) => prev.filter((p) => p.id !== id));
+  try {
+    const success = await PaymentService.deletePayment(id);
+    if (!success) {
+      setPaymentsList(backup);
+      alert("Failed to delete payment receipt. State has been restored.");
+    }
+  } catch (err) {
+    setPaymentsList(backup);
+    alert("An error occurred while deleting payment receipt. State has been restored.");
+  }
+  ```
+
+---
+
+### 6.6 Mobile Touch Target Enlargement (Ledger & Public Pay Portal)
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**: [`src/app/(dashboard)/payments/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/payments/page.tsx), [`src/app/pay/[id]/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/pay/%5Bid%5D/page.tsx)
+* **The Problem**:
+  - In `payments/page.tsx`, card delete button was `h-7 w-7` (28px) and table action buttons were `p-1.5` (~24px), violating the 36px touch target requirement.
+  - In `pay/[id]/page.tsx`, bank transfer copy buttons (Beneficiary, Account Number, IFSC, UPI ID) were `p-0.5` (~16px), causing frequent mis-taps on mobile devices.
+* **The Fix**:
+  1. Enlarged card and table action buttons in `payments/page.tsx` to `flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-xl` with `h-4 w-4` icons.
+  2. Enlarged bank transfer copy buttons in `pay/[id]/page.tsx` to `min-h-[36px] min-w-[36px] inline-flex items-center justify-center rounded-xl bg-slate-100 hover:bg-emerald-50`.
+
+---
+
 ## 🧪 Verification Matrix
 
 | Check | Tool / Runner | Result |
 |---|---|---|
 | **TypeScript Compilation** | `npx tsc --noEmit` | 🟢 0 errors |
-| **Unit & Integration Tests** | `npx vitest run` (20 test files) | 🟢 148 / 148 passed |
+| **Unit & Integration Tests** | `npx vitest run` (21 test files) | 🟢 155 / 155 passed |
 | **Module 1 Specific Tests** | `tests/auth-module-fixes.test.ts` | 🟢 5 / 5 passed |
 | **Module 2 Specific Tests** | `tests/client-module-fixes.test.ts` | 🟢 7 / 7 passed |
 | **Module 3 Specific Tests** | `tests/service-module-fixes.test.ts` | 🟢 7 / 7 passed |
 | **Module 4 Specific Tests** | `tests/quotation-module-fixes.test.ts` | 🟢 7 / 7 passed |
 | **Module 5 Specific Tests** | `tests/invoice-module-fixes.test.ts` | 🟢 8 / 8 passed |
+| **Module 6 Specific Tests** | `tests/payment-module-fixes.test.ts` | 🟢 7 / 7 passed |
 | **Next.js Production Build** | `npm run build` | 🟢 Build successful, 53/53 static routes compiled |
+
 
 
 

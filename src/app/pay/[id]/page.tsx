@@ -404,14 +404,15 @@ export default function ClientPayPortalPage({
                 <div className="space-y-3 p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs animate-in fade-in-50 duration-200">
                   <div className="flex items-center justify-between border-b border-slate-200/80 pb-2">
                     <span className="text-slate-500">Beneficiary Name</span>
-                    <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                    <div className="flex items-center gap-2 font-bold text-slate-900">
                       <span>{bankDetails?.accountName || businessName}</span>
                       <button
                         type="button"
                         onClick={() => copyToClipboard(bankDetails?.accountName || businessName, "name")}
-                        className="text-slate-400 hover:text-emerald-600 cursor-pointer p-0.5"
+                        title="Copy Beneficiary Name"
+                        className="min-h-[36px] min-w-[36px] inline-flex items-center justify-center rounded-xl bg-slate-100 hover:bg-emerald-50 text-slate-500 hover:text-emerald-700 transition-colors cursor-pointer"
                       >
-                        <Copy className="h-3 w-3" />
+                        <Copy className="h-4 w-4" />
                       </button>
                     </div>
                   </div>
@@ -423,15 +424,16 @@ export default function ClientPayPortalPage({
 
                   <div className="flex items-center justify-between border-b border-slate-200/80 pb-2">
                     <span className="text-slate-500">Account Number</span>
-                    <div className="flex items-center gap-1.5 font-mono font-bold text-slate-900">
+                    <div className="flex items-center gap-2 font-mono font-bold text-slate-900">
                       <span>{bankDetails?.accountNumber || "Not configured"}</span>
                       {bankDetails?.accountNumber && (
                         <button
                           type="button"
                           onClick={() => copyToClipboard(bankDetails.accountNumber, "acc")}
-                          className="text-slate-400 hover:text-emerald-600 cursor-pointer p-0.5"
+                          title="Copy Account Number"
+                          className="min-h-[36px] min-w-[36px] inline-flex items-center justify-center rounded-xl bg-slate-100 hover:bg-emerald-50 text-slate-500 hover:text-emerald-700 transition-colors cursor-pointer"
                         >
-                          <Copy className="h-3 w-3" />
+                          <Copy className="h-4 w-4" />
                         </button>
                       )}
                     </div>
@@ -439,15 +441,16 @@ export default function ClientPayPortalPage({
 
                   <div className="flex items-center justify-between border-b border-slate-200/80 pb-2">
                     <span className="text-slate-500">IFSC Code</span>
-                    <div className="flex items-center gap-1.5 font-mono font-bold text-slate-900">
+                    <div className="flex items-center gap-2 font-mono font-bold text-slate-900">
                       <span>{bankDetails?.ifscCode || "Not configured"}</span>
                       {bankDetails?.ifscCode && (
                         <button
                           type="button"
                           onClick={() => copyToClipboard(bankDetails.ifscCode, "ifsc")}
-                          className="text-slate-400 hover:text-emerald-600 cursor-pointer p-0.5"
+                          title="Copy IFSC Code"
+                          className="min-h-[36px] min-w-[36px] inline-flex items-center justify-center rounded-xl bg-slate-100 hover:bg-emerald-50 text-slate-500 hover:text-emerald-700 transition-colors cursor-pointer"
                         >
-                          <Copy className="h-3 w-3" />
+                          <Copy className="h-4 w-4" />
                         </button>
                       )}
                     </div>
@@ -455,14 +458,15 @@ export default function ClientPayPortalPage({
 
                   <div className="flex items-center justify-between pt-1">
                     <span className="text-slate-500">UPI ID</span>
-                    <div className="flex items-center gap-1.5 font-mono font-bold text-emerald-700">
+                    <div className="flex items-center gap-2 font-mono font-bold text-emerald-700">
                       <span>{upiId}</span>
                       <button
                         type="button"
                         onClick={() => copyToClipboard(upiId, "upi")}
-                        className="text-slate-400 hover:text-emerald-600 cursor-pointer p-0.5"
+                        title="Copy UPI ID"
+                        className="min-h-[36px] min-w-[36px] inline-flex items-center justify-center rounded-xl bg-slate-100 hover:bg-emerald-50 text-slate-500 hover:text-emerald-700 transition-colors cursor-pointer"
                       >
-                        <Copy className="h-3 w-3" />
+                        <Copy className="h-4 w-4" />
                       </button>
                     </div>
                   </div>

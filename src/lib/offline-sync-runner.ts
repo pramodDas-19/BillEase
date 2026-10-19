@@ -79,25 +79,50 @@ export async function replayMutation(item: PendingMutation): Promise<{ success: 
       }
 
       case "payment": {
-        const { paymentPayload, invoiceId, newBalance, newStatus, newPaid } = item.payload;
-        const { error: pError } = await supabase.from("payments").insert(paymentPayload);
-        if (pError) throw pError;
+        if (item.action === "delete") {
+          const { invoiceId, newBalance, newStatus, newPaid } = item.payload || {};
+          const { error: pError } = await supabase
+            .from("payments")
+            .delete()
+            .eq("id", item.entityId);
+          if (pError) throw pError;
 
-        if (invoiceId && newBalance !== undefined) {
-          const updatePayload: Record<string, any> = {
-            balance_due: newBalance,
-            status: newStatus,
-            updated_at: new Date().toISOString(),
-          };
-          if (newPaid !== undefined) {
-            updatePayload.paid_amount = newPaid;
+          if (invoiceId && newBalance !== undefined) {
+            const updatePayload: Record<string, any> = {
+              balance_due: newBalance,
+              status: newStatus,
+              updated_at: new Date().toISOString(),
+            };
+            if (newPaid !== undefined) {
+              updatePayload.paid_amount = newPaid;
+            }
+            await supabase
+              .from("invoices")
+              .update(updatePayload)
+              .eq("id", invoiceId);
           }
-          await supabase
-            .from("invoices")
-            .update(updatePayload)
-            .eq("id", invoiceId);
+          return { success: true };
+        } else {
+          const { paymentPayload, invoiceId, newBalance, newStatus, newPaid } = item.payload;
+          const { error: pError } = await supabase.from("payments").insert(paymentPayload);
+          if (pError) throw pError;
+
+          if (invoiceId && newBalance !== undefined) {
+            const updatePayload: Record<string, any> = {
+              balance_due: newBalance,
+              status: newStatus,
+              updated_at: new Date().toISOString(),
+            };
+            if (newPaid !== undefined) {
+              updatePayload.paid_amount = newPaid;
+            }
+            await supabase
+              .from("invoices")
+              .update(updatePayload)
+              .eq("id", invoiceId);
+          }
+          return { success: true };
         }
-        return { success: true };
       }
 
       case "client": {

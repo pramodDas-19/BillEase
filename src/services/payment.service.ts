@@ -314,6 +314,28 @@ export const PaymentService = {
             console.warn("Supabase invoice settlement sync warning:", e);
           }
         }
+
+        // Also update local cache for invoice immediately
+        if (typeof window !== "undefined" && tenantId) {
+          try {
+            const localInvRaw = localStorage.getItem(`billease_invoices_${tenantId}`);
+            if (localInvRaw) {
+              const localInvs = JSON.parse(localInvRaw);
+              const updatedInvs = localInvs.map((inv: any) => {
+                if (inv.id === payment.invoiceId) {
+                  const curPaid = parseFloat(inv.paidAmount || "0");
+                  const tot = parseFloat(inv.totalAmount || "0");
+                  const np = curPaid + (payment.amount || 0);
+                  const nb = Math.max(0, tot - np);
+                  const ns = nb <= 0 ? "paid" : "partially_paid";
+                  return { ...inv, paidAmount: np, balanceDue: nb, status: ns };
+                }
+                return inv;
+              });
+              localStorage.setItem(`billease_invoices_${tenantId}`, JSON.stringify(updatedInvs));
+            }
+          } catch {}
+        }
       }
 
       // If network was offline or failed with network error, queue mutation in IndexedDB
@@ -372,7 +394,7 @@ export const PaymentService = {
     }
   },
 
-  // Delete a payment receipt
+  // Delete a payment receipt and reverse linked invoice balance & client ledger
   async deletePayment(id: string): Promise<boolean> {
     try {
       const tenantId = await AuthService.getActiveTenantId();
@@ -382,10 +404,122 @@ export const PaymentService = {
       DataCache.invalidate("payments");
       DataCache.invalidate("invoices");
 
-      const { data: remoteP } = await supabase.from("payments").select("client_id").eq("id", id).maybeSingle();
-      await supabase.from("payments").delete().eq("id", id).eq("tenant_id", tenantId);
+      let remoteP: any = null;
+      try {
+        const { data } = await supabase
+          .from("payments")
+          .select("id, client_id, invoice_id, amount, payment_number")
+          .eq("id", id)
+          .maybeSingle();
+        remoteP = data;
+      } catch {}
 
+      const invoiceId = targetPayment?.invoiceId || remoteP?.invoice_id;
+      const paymentAmount = targetPayment?.amount || parseFloat(remoteP?.amount || "0");
       const clientId = targetPayment?.clientId || remoteP?.client_id;
+      const paymentNumber = targetPayment?.paymentNumber || remoteP?.payment_number || id;
+
+      let newPaid: number | undefined;
+      let newBalance: number | undefined;
+      let newStatus: string | undefined;
+      let isQueuedOffline = false;
+
+      // 1. Reverse invoice balance & status if linked
+      if (invoiceId && paymentAmount > 0) {
+        try {
+          const { data: invData } = await supabase
+            .from("invoices")
+            .select("*")
+            .eq("id", invoiceId)
+            .single();
+
+          if (invData) {
+            const currentPaid = parseFloat(invData.paid_amount || "0");
+            const totalAmt = parseFloat(invData.total_amount || "0");
+            newPaid = Math.max(0, currentPaid - paymentAmount);
+            newBalance = Math.max(0, totalAmt - newPaid);
+            newStatus = newBalance <= 0 ? "paid" : newPaid > 0 ? "partially_paid" : "due";
+
+            await supabase
+              .from("invoices")
+              .update({
+                paid_amount: newPaid,
+                balance_due: newBalance,
+                status: newStatus,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", invoiceId);
+          }
+        } catch (e) {
+          if (isNetworkError(e)) {
+            isQueuedOffline = true;
+          } else {
+            console.warn("Supabase invoice settlement reverse warning:", e);
+          }
+        }
+
+        // Also update local cache for invoice
+        if (typeof window !== "undefined" && tenantId) {
+          try {
+            const localInvRaw = localStorage.getItem(`billease_invoices_${tenantId}`);
+            if (localInvRaw) {
+              const localInvs = JSON.parse(localInvRaw);
+              const updatedInvs = localInvs.map((inv: any) => {
+                if (inv.id === invoiceId) {
+                  const curPaid = parseFloat(inv.paidAmount || "0");
+                  const tot = parseFloat(inv.totalAmount || "0");
+                  const np = Math.max(0, curPaid - paymentAmount);
+                  const nb = Math.max(0, tot - np);
+                  const ns = nb <= 0 ? "paid" : np > 0 ? "partially_paid" : "due";
+                  return { ...inv, paidAmount: np, balanceDue: nb, status: ns };
+                }
+                return inv;
+              });
+              localStorage.setItem(`billease_invoices_${tenantId}`, JSON.stringify(updatedInvs));
+            }
+          } catch {}
+        }
+      }
+
+      // 2. Delete remote payment record
+      try {
+        const { error: delErr } = await supabase
+          .from("payments")
+          .delete()
+          .eq("id", id)
+          .eq("tenant_id", tenantId);
+        if (delErr && isNetworkError(delErr)) {
+          isQueuedOffline = true;
+        }
+      } catch (e) {
+        if (isNetworkError(e)) {
+          isQueuedOffline = true;
+        } else {
+          console.warn("Supabase payment delete warning:", e);
+        }
+      }
+
+      // 3. Queue offline mutation if network offline
+      if (isQueuedOffline || (typeof window !== "undefined" && !navigator.onLine)) {
+        console.warn("[PaymentService] Network offline during payment delete. Enqueuing to IndexedDB...");
+        await enqueueMutation({
+          entityType: "payment",
+          entityId: id,
+          action: "delete",
+          tenantId,
+          displayTitle: `Delete Receipt #${paymentNumber} (₹${paymentAmount})`,
+          payload: {
+            paymentId: id,
+            invoiceId: invoiceId || null,
+            amount: paymentAmount,
+            newPaid,
+            newBalance,
+            newStatus,
+          },
+        });
+      }
+
+      // 4. Recalculate client ledger balance
       if (clientId) {
         try {
           const { ClientService } = await import("./client.service");

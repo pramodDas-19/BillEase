@@ -62,8 +62,18 @@ export default function PaymentsPage() {
 
   const handleDeletePayment = async (id: string, payNum: string) => {
     if (window.confirm(`Are you sure you want to delete payment receipt "${payNum}"?`)) {
+      const backup = [...paymentsList];
       setPaymentsList((prev) => prev.filter((p) => p.id !== id));
-      await PaymentService.deletePayment(id);
+      try {
+        const success = await PaymentService.deletePayment(id);
+        if (!success) {
+          setPaymentsList(backup);
+          alert("Failed to delete payment receipt. State has been restored.");
+        }
+      } catch (err) {
+        setPaymentsList(backup);
+        alert("An error occurred while deleting payment receipt. State has been restored.");
+      }
     }
   };
 
@@ -403,9 +413,9 @@ export default function PaymentsPage() {
                     <button
                       onClick={() => handleDeletePayment(p.id, p.paymentNumber)}
                       title="Delete Receipt"
-                      className="clay-icon-squircle flex h-7 w-7 items-center justify-center rounded-lg bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 shadow-2xs transition-all cursor-pointer"
+                      className="clay-icon-squircle flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-xl bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 shadow-2xs transition-all cursor-pointer"
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
 
@@ -569,19 +579,18 @@ export default function PaymentsPage() {
                             target="_blank"
                             rel="noopener noreferrer"
                             title="Send WhatsApp Acknowledgment"
-                            className="clay-icon-squircle p-1.5 rounded-lg bg-teal-50 text-teal-700 hover:bg-teal-600 hover:text-white transition-colors"
+                            className="clay-icon-squircle flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-xl bg-teal-50 border border-teal-200 text-teal-700 hover:bg-teal-600 hover:text-white transition-colors"
                           >
-                            <MessageSquare className="h-3 w-3" />
+                            <MessageSquare className="h-4 w-4" />
                           </a>
-
 
                           {/* Delete Receipt */}
                           <button
                             onClick={() => handleDeletePayment(p.id, p.paymentNumber)}
                             title="Delete Receipt"
-                            className="clay-icon-squircle p-1.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-600 hover:text-white transition-colors cursor-pointer"
+                            className="clay-icon-squircle flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-xl bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-600 hover:text-white transition-colors cursor-pointer"
                           >
-                            <Trash2 className="h-3 w-3" />
+                            <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
                       </td>
