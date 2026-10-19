@@ -289,4 +289,105 @@ describe("15 Document Templates Suite", () => {
     expect(tenantAfterThermal?.settings.defaultInvoiceTemplate).toBe("thermal_80mm_standard");
     expect(tenantAfterThermal?.settings.defaultDocumentSize).toBe("thermal");
   });
+
+  it("handles edge case: document with 0 items, null tenant and missing addresses gracefully", () => {
+    const emptyDoc: Invoice = {
+      id: "inv-empty",
+      tenantId: "t-none",
+      clientId: "c-walkin",
+      invoiceNumber: "INV-EMPTY-001",
+      clientName: "Walk-in Guest",
+      issueDate: "2026-10-19",
+      dueDate: "2026-10-19",
+      status: "draft",
+      currency: "INR",
+      isTaxEnabled: true,
+      items: [],
+      subtotal: 0,
+      totalTax: 0,
+      totalAmount: 0,
+      paidAmount: 0,
+      balanceDue: 0,
+      createdAt: "2026-10-19",
+      updatedAt: "2026-10-19",
+    };
+
+    const norm = normalizeDocument(emptyDoc, "invoice", null);
+    expect(norm.documentNumber).toBe("INV-EMPTY-001");
+    expect(norm.client.name).toBe("Walk-in Guest");
+    expect(norm.tenant.businessName).toBe("My Business");
+    expect(norm.items).toHaveLength(0);
+    expect(norm.hasHsn).toBe(false);
+    expect(norm.hasQtyOrRate).toBe(false);
+    expect(norm.isFullyPaid).toBe(true);
+    expect(norm.subtotal).toBe(0);
+    expect(norm.totalAmount).toBe(0);
+    expect(norm.totalTax).toBe(0);
+  });
+
+  it("verifies all 15 template registry configurations match physical Indian print specifications", () => {
+    const allTemplates = DOCUMENT_TEMPLATES;
+    expect(allTemplates).toHaveLength(15);
+
+    // 5 A4
+    const a4 = allTemplates.filter((t) => t.category === "a4");
+    expect(a4).toHaveLength(5);
+    a4.forEach((t) => {
+      expect(t.paperWidthMm).toBe(210);
+      expect(t.paperHeightMm).toBe(297);
+      expect(t.orientation).toBe("portrait");
+    });
+
+    // 5 A5
+    const a5 = allTemplates.filter((t) => t.category === "a5");
+    expect(a5).toHaveLength(5);
+    const a5Landscape = a5.filter((t) => t.orientation === "landscape");
+    const a5Portrait = a5.filter((t) => t.orientation === "portrait");
+    expect(a5Landscape.length).toBeGreaterThanOrEqual(2);
+    expect(a5Portrait.length).toBeGreaterThanOrEqual(2);
+
+    // 5 Thermal
+    const thermal = allTemplates.filter((t) => t.category === "thermal");
+    expect(thermal).toHaveLength(5);
+    thermal.forEach((t) => {
+      expect([58, 80]).toContain(t.paperWidthMm);
+      expect(t.orientation).toBe("portrait");
+    });
+  });
+
+  it("verifies quotation advance breakdown normalization for estimate/challan templates", () => {
+    const advanceQuote: Quotation = {
+      id: "quote-adv",
+      tenantId: "tenant-adv",
+      clientId: "c-adv",
+      quotationNumber: "QT-ADV-001",
+      clientName: "Deepak Soni",
+      date: "2026-10-19",
+      validUntil: "2026-11-03",
+      status: "sent",
+      currency: "INR",
+      isTaxEnabled: true,
+      totalTax: 0,
+      items: [
+        {
+          id: "it-1",
+          description: "Custom Wedding Album & Drone Videography",
+          amount: 50000,
+        },
+      ],
+      subtotal: 50000,
+      totalAmount: 50000,
+      advanceAmount: 20000,
+      advanceType: "percentage",
+      advanceValue: 40,
+      createdAt: "2026-10-19",
+      updatedAt: "2026-10-19",
+    };
+
+    const norm = normalizeDocument(advanceQuote, "quotation", null);
+    expect(norm.advanceAmount).toBe(20000);
+    expect(norm.advanceType).toBe("percentage");
+    expect(norm.advanceValue).toBe(40);
+    expect(norm.documentTitle).toBe("ESTIMATE / QUOTATION");
+  });
 });

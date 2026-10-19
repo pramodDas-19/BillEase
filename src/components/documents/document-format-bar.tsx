@@ -92,7 +92,7 @@ export function DocumentFormatBar({
         </div>
 
         {/* 3 Size Tabs matching Image 5 */}
-        <div className="inline-flex flex-wrap gap-1.5 p-1 bg-slate-100/90 rounded-2xl border border-slate-200 self-start sm:self-auto">
+        <div className="grid grid-cols-3 w-full sm:w-auto sm:flex sm:flex-wrap gap-1.5 p-1 bg-slate-100/90 rounded-2xl border border-slate-200">
           <button
             type="button"
             onClick={() => {
@@ -102,14 +102,14 @@ export function DocumentFormatBar({
                 onSelectTemplate(a4Templates[0].id);
               }
             }}
-            className={`px-3.5 py-2 min-h-[38px] rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3 py-2 min-h-[40px] rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
               activeCategory === "a4"
                 ? "bg-white text-indigo-700 shadow-xs border border-indigo-200 ring-1 ring-indigo-500/20"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            <FileText className="h-3.5 w-3.5" />
-            <span>A4 Size</span>
+            <FileText className="h-3.5 w-3.5 shrink-0" />
+            <span>A4</span>
           </button>
 
           <button
@@ -121,14 +121,14 @@ export function DocumentFormatBar({
                 onSelectTemplate(a5Templates[0].id);
               }
             }}
-            className={`px-3.5 py-2 min-h-[38px] rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3 py-2 min-h-[40px] rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
               activeCategory === "a5"
                 ? "bg-white text-indigo-700 shadow-xs border border-indigo-200 ring-1 ring-indigo-500/20"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            <FileText className="h-3.5 w-3.5" />
-            <span>A5 Size</span>
+            <FileText className="h-3.5 w-3.5 shrink-0" />
+            <span>A5</span>
           </button>
 
           <button
@@ -140,19 +140,41 @@ export function DocumentFormatBar({
                 onSelectTemplate(thermalTemplates[0].id);
               }
             }}
-            className={`px-3.5 py-2 min-h-[38px] rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3 py-2 min-h-[40px] rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
               activeCategory === "thermal"
                 ? "bg-white text-indigo-700 shadow-xs border border-indigo-200 ring-1 ring-indigo-500/20"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            <Printer className="h-3.5 w-3.5" />
-            <span>Thermal Printer Size</span>
+            <Printer className="h-3.5 w-3.5 shrink-0" />
+            <span>Thermal</span>
           </button>
         </div>
       </div>
 
-      {/* 2. Desktop Grid Cards (Hidden on mobile to match Image 5 clean layout) */}
+      {/* Mobile Horizontal Template Chips for 1-Tap Switching */}
+      <div className="sm:hidden flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar -mx-1 px-1">
+        {categoryTemplates.map((tmpl) => {
+          const isSelected = tmpl.id === currentTemplateId;
+          return (
+            <button
+              key={tmpl.id}
+              type="button"
+              onClick={() => onSelectTemplate(tmpl.id)}
+              className={`shrink-0 px-3 py-2 min-h-[38px] rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap active:scale-95 ${
+                isSelected
+                  ? "bg-indigo-600 text-white shadow-xs"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+              }`}
+            >
+              <span>{tmpl.name}</span>
+              {isSelected && <Check className="h-3 w-3 stroke-[3]" />}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* 2. Desktop Grid Cards (Hidden on mobile to match clean layout) */}
       <div className={`${hideCardsOnMobile ? "hidden sm:grid" : "grid"} grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2.5`}>
         {categoryTemplates.map((tmpl) => {
           const isSelected = tmpl.id === currentTemplateId;

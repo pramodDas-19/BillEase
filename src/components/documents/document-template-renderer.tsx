@@ -117,8 +117,8 @@ export function DocumentTemplateRenderer({
             meta.category === "thermal"
               ? "top-8 right-2 w-20 opacity-90 print:w-16 print:top-6 print:right-2"
               : meta.category === "a5"
-              ? "top-4 right-44 sm:top-5 sm:right-52 w-26 sm:w-34 opacity-95 print:w-26 print:top-4 print:right-44"
-              : "top-4 right-60 sm:top-5 sm:right-68 md:right-76 w-32 sm:w-42 opacity-95 print:w-32 print:top-4 print:right-60"
+              ? "top-3 right-6 sm:top-4 sm:right-16 w-24 sm:w-32 opacity-95 print:w-24 print:top-3 print:right-12"
+              : "top-3 right-8 sm:top-4 sm:right-20 md:right-28 w-28 sm:w-36 opacity-95 print:w-28 print:top-4 print:right-20"
           )}
         >
           <img

@@ -1,7 +1,8 @@
 export interface PdfExportOptions {
   filename?: string;
   orientation?: "portrait" | "landscape";
-  format?: "a4" | "a5";
+  format?: "a4" | "a5" | "thermal";
+  targetWidthPx?: number;
 }
 
 /**
@@ -16,6 +17,8 @@ export async function downloadElementAsPdf(
   try {
     const orientation = options?.orientation || "portrait";
     const format = options?.format || "a4";
+    const isThermal = format === "thermal";
+    const targetWidthPx = options?.targetWidthPx || (isThermal ? 380 : 800);
 
     // Lazy load heavy PDF generation libraries on-demand
     const [html2canvasModule, jsPdfModule] = await Promise.all([
@@ -37,35 +40,35 @@ export async function downloadElementAsPdf(
       useCORS: true,
       logging: false,
       backgroundColor: "#ffffff",
-      windowWidth: 800,
+      windowWidth: targetWidthPx,
       onclone: (_clonedDoc, clonedElement) => {
-        // Ensure scaled mobile previews are reset to full native 800px unscaled layout in PDF
+        // Ensure scaled mobile previews are reset to native unscaled layout in PDF
         const inners = clonedElement.querySelectorAll<HTMLElement>(".responsive-sheet-inner");
         inners.forEach((el) => {
           el.style.transform = "none";
-          el.style.width = "800px";
+          el.style.width = `${targetWidthPx}px`;
         });
         const outers = clonedElement.querySelectorAll<HTMLElement>(".responsive-sheet-outer");
         outers.forEach((el) => {
           el.style.transform = "none";
-          el.style.width = "800px";
+          el.style.width = `${targetWidthPx}px`;
           el.style.height = "auto";
         });
         const roots = clonedElement.querySelectorAll<HTMLElement>(".document-print-root");
         roots.forEach((el) => {
-          el.style.width = "800px";
-          el.style.maxWidth = "800px";
-          el.style.margin = "0";
-          el.style.padding = "24px 28px"; // Clean, balanced ~7mm margin
+          el.style.width = `${targetWidthPx}px`;
+          el.style.maxWidth = `${targetWidthPx}px`;
+          el.style.margin = "0 auto";
+          el.style.padding = isThermal ? "8px" : "24px 28px";
           el.style.boxShadow = "none";
           el.style.border = "none";
         });
         // If the clonedElement itself is the root
         if (clonedElement.classList.contains("document-print-root")) {
-          clonedElement.style.width = "800px";
-          clonedElement.style.maxWidth = "800px";
-          clonedElement.style.margin = "0";
-          clonedElement.style.padding = "24px 28px";
+          clonedElement.style.width = `${targetWidthPx}px`;
+          clonedElement.style.maxWidth = `${targetWidthPx}px`;
+          clonedElement.style.margin = "0 auto";
+          clonedElement.style.padding = isThermal ? "8px" : "24px 28px";
           clonedElement.style.boxShadow = "none";
           clonedElement.style.border = "none";
         }
@@ -76,20 +79,42 @@ export async function downloadElementAsPdf(
       },
     });
 
+    const imgData = canvas.toDataURL("image/jpeg", 0.95);
+
     // 2. Initialize jsPDF
+    if (isThermal) {
+      // 80mm continuous thermal slip layout
+      const imgWidth = 80;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const slipHeight = Math.max(100, Math.ceil(imgHeight + 6));
+
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: [80, slipHeight],
+      });
+
+      pdf.addImage(imgData, "JPEG", 0, 3, imgWidth, imgHeight);
+
+      const safeFilename = filename.endsWith(".pdf") ? filename : `${filename}.pdf`;
+      pdf.save(safeFilename);
+      return true;
+    }
+
+    const isA5 = format === "a5";
+    const isLandscape = orientation === "landscape";
+
     const pdf = new jsPDF({
-      orientation: orientation === "landscape" ? "landscape" : "portrait",
+      orientation: isLandscape ? "landscape" : "portrait",
       unit: "mm",
-      format,
+      format: isA5 ? "a5" : "a4",
     });
 
-    const pageWidth = orientation === "landscape" ? 297 : 210;
-    const pageHeight = orientation === "landscape" ? 210 : 297;
+    const pageWidth = isLandscape ? (isA5 ? 210 : 297) : (isA5 ? 148 : 210);
+    const pageHeight = isLandscape ? (isA5 ? 148 : 210) : (isA5 ? 210 : 297);
 
     const imgWidth = pageWidth;
     const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-    const imgData = canvas.toDataURL("image/jpeg", 0.95);
 
     let heightLeft = imgHeight;
     let position = 0;

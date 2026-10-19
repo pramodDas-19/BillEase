@@ -224,7 +224,7 @@ export default function SettingsTemplatesPage() {
             type="button"
             onClick={handlePrevTemplate}
             aria-label="Previous template"
-            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-20 p-2.5 sm:p-3 rounded-full bg-white/95 hover:bg-white text-slate-800 shadow-xl border border-slate-200 active:scale-90 hover:scale-105 transition-all cursor-pointer"
+            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-20 min-h-[40px] min-w-[40px] flex items-center justify-center p-2 sm:p-2.5 rounded-full bg-white/95 hover:bg-white text-slate-800 shadow-xl border border-slate-200 active:scale-90 hover:scale-105 transition-all cursor-pointer"
           >
             <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5 stroke-[2.5]" />
           </button>
@@ -244,7 +244,7 @@ export default function SettingsTemplatesPage() {
             type="button"
             onClick={handleNextTemplate}
             aria-label="Next template"
-            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-20 p-2.5 sm:p-3 rounded-full bg-white/95 hover:bg-white text-slate-800 shadow-xl border border-slate-200 active:scale-90 hover:scale-105 transition-all cursor-pointer"
+            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-20 min-h-[40px] min-w-[40px] flex items-center justify-center p-2 sm:p-2.5 rounded-full bg-white/95 hover:bg-white text-slate-800 shadow-xl border border-slate-200 active:scale-90 hover:scale-105 transition-all cursor-pointer"
           >
             <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 stroke-[2.5]" />
           </button>

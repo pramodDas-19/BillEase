@@ -172,21 +172,21 @@ export function ResponsiveDocumentSheet({
 
       {/* Optional Floating Mobile Zoom Toggle (Only visible on mobile/tablet when scaled) */}
       {showZoomControls && scale < 0.95 && mounted && (
-        <div className="responsive-sheet-controls sticky bottom-3 left-0 right-0 z-30 flex justify-center pointer-events-none mt-2 print:hidden">
+        <div className="responsive-sheet-controls sticky bottom-4 left-0 right-0 z-30 flex justify-center pointer-events-none mt-3 print:hidden px-3">
           <button
             type="button"
             onClick={() => setIsZoom100((prev) => !prev)}
-            className="pointer-events-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/90 hover:bg-slate-900 text-white text-[11px] font-bold shadow-lg backdrop-blur-xs border border-white/20 transition-all cursor-pointer active:scale-95"
+            className="pointer-events-auto inline-flex items-center justify-center gap-2 min-h-[40px] px-4 py-2 rounded-full bg-slate-900/95 hover:bg-slate-900 text-white text-xs font-bold shadow-xl backdrop-blur-md border border-white/20 transition-all cursor-pointer active:scale-95"
             title={isZoom100 ? "Fit to mobile screen" : "Zoom to 100% actual size"}
           >
             {isZoom100 ? (
               <>
-                <Maximize2 className="h-3 w-3 text-emerald-400" />
+                <Maximize2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
                 <span>Fit to Screen ({Math.round(scale * 100)}%)</span>
               </>
             ) : (
               <>
-                <ZoomIn className="h-3 w-3 text-indigo-300" />
+                <ZoomIn className="h-3.5 w-3.5 text-indigo-300 shrink-0" />
                 <span>Zoom 100% ({zoomPercent}%)</span>
               </>
             )}

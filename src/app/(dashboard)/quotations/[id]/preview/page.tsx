@@ -75,8 +75,9 @@ export default function QuotationPreviewPage({ params }: { params: Promise<{ id:
       const fileName = `Quotation_${quote.quotationNumber.replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
       const isLandscape = selectedTemplateId.includes("landscape");
       const isA5 = selectedTemplateId.startsWith("a5");
+      const isThermal = selectedTemplateId.startsWith("thermal");
       const success = await downloadElementAsPdf(documentRef.current, fileName, {
-        format: isA5 ? "a5" : "a4",
+        format: isThermal ? "thermal" : isA5 ? "a5" : "a4",
         orientation: isLandscape ? "landscape" : "portrait",
       });
       if (!success) {
@@ -119,7 +120,7 @@ export default function QuotationPreviewPage({ params }: { params: Promise<{ id:
         <p className="text-xs text-slate-500">The requested quotation could not be located in database.</p>
         <Link
           href="/quotations"
-          className="clay-btn-primary inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold"
+          className="clay-btn-primary inline-flex items-center gap-1.5 px-4 py-2 min-h-[40px] rounded-xl text-xs font-bold"
         >
           <ArrowLeft className="h-4 w-4" />
           <span>Back to Quotations</span>
@@ -129,12 +130,12 @@ export default function QuotationPreviewPage({ params }: { params: Promise<{ id:
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12">
+    <div className="space-y-4 sm:space-y-6 max-w-5xl mx-auto pb-24 sm:pb-12">
       {/* 1. Action Toolbar (hidden during print) */}
-      <div className="flex items-center justify-between print:hidden">
+      <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <Link
           href="/quotations"
-          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors"
+          className="inline-flex items-center gap-1.5 min-h-[40px] px-2 py-1 text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
           <span>Back to Quotations</span>
@@ -143,7 +144,7 @@ export default function QuotationPreviewPage({ params }: { params: Promise<{ id:
         <div className="flex flex-wrap items-center gap-2">
           <Link
             href="/settings/templates"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 text-xs font-bold shadow-xs transition-colors"
+            className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 text-xs font-bold shadow-xs transition-colors"
           >
             <Palette className="h-3.5 w-3.5 text-[#0C9484]" />
             <span className="hidden xs:inline">Customize Template</span>
@@ -154,7 +155,7 @@ export default function QuotationPreviewPage({ params }: { params: Promise<{ id:
             size="sm"
             onClick={handleDownloadPdf}
             disabled={isDownloading}
-            className="gap-1.5 text-xs font-bold cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs"
+            className="gap-1.5 min-h-[40px] px-4 py-2 text-xs font-bold cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs"
           >
             {isDownloading ? (
               <>
@@ -173,12 +174,44 @@ export default function QuotationPreviewPage({ params }: { params: Promise<{ id:
             size="sm"
             variant="outline"
             onClick={handlePrint}
-            className="gap-1.5 text-xs font-bold cursor-pointer bg-white border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl shadow-xs"
+            className="gap-1.5 min-h-[40px] px-3.5 py-2 text-xs font-bold cursor-pointer bg-white border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl shadow-xs"
           >
             <Printer className="h-3.5 w-3.5 text-slate-500" />
             <span>Print</span>
           </Button>
         </div>
+      </div>
+
+      {/* Sticky Mobile Quick Action Bar (Bottom of Phone Screen) */}
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 p-2.5 flex items-center gap-2 shadow-2xl print:hidden">
+        <Button
+          size="sm"
+          onClick={handleDownloadPdf}
+          disabled={isDownloading}
+          className="flex-1 min-h-[42px] gap-1.5 text-xs font-black cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs"
+        >
+          {isDownloading ? (
+            <>
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <span>Saving PDF...</span>
+            </>
+          ) : (
+            <>
+              <Download className="h-3.5 w-3.5" />
+              <span>Download PDF</span>
+            </>
+          )}
+        </Button>
+
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handlePrint}
+          className="min-h-[42px] px-4 gap-1.5 text-xs font-bold cursor-pointer bg-white border-slate-300 text-slate-800 rounded-xl shadow-xs"
+        >
+          <Printer className="h-3.5 w-3.5 text-slate-600" />
+          <span>Print</span>
+        </Button>
       </div>
 
       {/* 2. Official Printable Quotation Document Container */}

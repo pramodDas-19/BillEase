@@ -703,12 +703,100 @@ This living document maintains an audit trail of every system module in **BillEa
 
 ---
 
-## 🧪 Verification Matrix
+---
+
+## 🎨 Module 9: Document Templates & Mobile Responsive Rendering Engine
+
+### 9.1 Floating Mobile Zoom Toggle Button Touch Target Enlargement
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected File**: [`src/components/documents/responsive-document-sheet.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/components/documents/responsive-document-sheet.tsx)
+* **The Problem**:
+  The floating mobile zoom toggle button (`Zoom 100%` / `Fit to Screen`) was styled with `px-3 py-1.5 text-[11px]`, resulting in a tap height of only $\sim$26px. On small touchscreens, users frequently missed the toggle or accidentally triggered clicks on the underlying document sheet.
+* **The Fix**:
+  Enlarged the floating button to `min-h-[40px] px-4 py-2 text-xs font-bold rounded-full gap-2` with high-contrast backdrop blur (`bg-slate-900/95 backdrop-blur-md`), tactile active scale feedback (`active:scale-95`), and clear status indicators (`Maximize2` / `ZoomIn` icons).
+
+---
+
+### 9.2 Mobile 1-Tap Template Switcher Chip Bar
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected File**: [`src/components/documents/document-format-bar.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/components/documents/document-format-bar.tsx)
+* **The Problem**:
+  When `hideCardsOnMobile={true}` was passed to reduce vertical scrolling on mobile screens, all template cards were completely hidden (`hidden sm:grid`). While clean, this forced mobile users to repeatedly tap the Next/Prev chevron arrows 4 times to cycle between templates in a category without any visual overview of available designs.
+* **The Fix**:
+  Added a horizontal-scrolling chip/pill selector on mobile (`sm:hidden flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar`) that displays all 5 template names for the active category (`[Modern Classic] [Advanced GST] [Tally] [Luxury] [Billbook]`). Mobile users can now switch directly to any format with a single tap. Also upgraded size tab buttons (A4, A5, Thermal) to `min-h-[40px]`.
+
+---
+
+### 9.3 Continuous Slip PDF Generation for Thermal & A5 Document Formats
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**:
+  - [`src/lib/pdf-download-helper.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/lib/pdf-download-helper.ts)
+  - [`src/app/(dashboard)/invoices/[id]/preview/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/invoices/%5Bid%5D/preview/page.tsx)
+  - [`src/app/(dashboard)/quotations/[id]/preview/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/quotations/%5Bid%5D/preview/page.tsx)
+* **The Problem**:
+  `downloadElementAsPdf` hardcoded `windowWidth: 800` and `el.style.width = "800px"` in the html2canvas `onclone` callback. When downloading a **Thermal** POS slip (300px/380px native width) as PDF, the receipt canvas was forced to an 800px width, causing horizontal distortion and empty white margins. Additionally, standard A4 multi-page splits broke receipt formatting.
+* **The Fix**:
+  1. Updated `downloadElementAsPdf` to support `format: "a4" | "a5" | "thermal"` and dynamic `targetWidthPx` (380px for thermal, 800px for standard sheets).
+  2. For thermal receipts, jsPDF now generates an authentic 80mm continuous roll PDF without page splits (`format: [80, slipHeight]`), capturing countertop receipts with vector-crisp QR codes.
+  3. Updated `InvoicePreviewPage` and `QuotationPreviewPage` to automatically route thermal templates (`selectedTemplateId.startsWith("thermal")`) to the thermal PDF export engine.
+
+---
+
+### 9.4 Official "PAID" Rubber Stamp Mobile Viewport Bounds Normalization
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected File**: [`src/components/documents/document-template-renderer.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/components/documents/document-template-renderer.tsx)
+* **The Problem**:
+  The official Paid rubber stamp used arbitrary desktop right offsets (`right-60 sm:right-68 md:right-76` for A4, `right-44` for A5). On scaled mobile viewports (320px–380px), shifting 240px (`right-60`) from the right edge pushed the stamp into the middle of the sheet, colliding with business titles and headers.
+* **The Fix**:
+  Adjusted right offsets to responsive, balanced classes:
+  - Thermal: `top-8 right-2 w-20`
+  - A5: `top-3 right-6 sm:top-4 sm:right-16 w-24 sm:w-32`
+  - A4: `top-3 right-8 sm:top-4 sm:right-20 md:right-28 w-28 sm:w-36`
+  This guarantees the stamp remains neatly stamped above the settlement information without clipping or covering invoice header text.
+
+---
+
+### 9.5 Mobile Sticky Bottom Quick Action Bar in Preview Pages
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**:
+  - [`src/app/(dashboard)/invoices/[id]/preview/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/invoices/%5Bid%5D/preview/page.tsx)
+  - [`src/app/(dashboard)/quotations/[id]/preview/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/quotations/%5Bid%5D/preview/page.tsx)
+* **The Problem**:
+  On mobile devices ($<640$px), action buttons at the top of preview pages wrapped into cramped rows with $\le$32px heights. Users scrolling down a long invoice or quotation had to scroll all the way back to the top to download PDF or print.
+* **The Fix**:
+  1. Enlarged desktop/tablet top action buttons to `min-h-[40px] px-3.5 py-2`.
+  2. Added a sticky mobile floating bottom quick-action bar (`sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 p-2.5 flex items-center gap-2 shadow-2xl`):
+     - Primary button: **Download PDF** (`min-h-[42px] flex-1 bg-emerald-600`) with loading spinner.
+     - Secondary button: **Print** (`min-h-[42px] px-4`).
+  3. Added bottom padding (`pb-24 sm:pb-12`) so the sticky action bar never obscures document content.
+
+---
+
+### 9.6 Template Registry Indian Compliance & Resilience Verification
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**:
+  - [`src/config/document-templates.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/config/document-templates.ts)
+  - [`src/components/documents/templates/shared/template-adapter.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/components/documents/templates/shared/template-adapter.ts)
+  - [`tests/document-templates.test.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/tests/document-templates.test.ts)
+* **Verification Scope**:
+  - Verified all 15 template registry definitions:
+    - 5 A4: `a4_modern`, `a4_advanced_gst`, `a4_tally`, `a4_luxury`, `a4_billbook` (210×297mm portrait).
+    - 5 A5: `a5_landscape_gst`, `a5_landscape_billbook`, `a5_portrait_challan`, `a5_portrait_modern`, `a5_traditional_bahi` (210×148mm landscape & 148×210mm portrait).
+    - 5 Thermal: `thermal_80mm_standard`, `thermal_80mm_gst_qr`, `thermal_58mm_compact`, `thermal_boutique_cafe`, `thermal_grocery_retail` (58mm/80mm roll).
+  - Normalization test coverage:
+    - Zero-item documents (`items: []`) handle empty tables without NaN or crashing.
+    - Missing tenant profile gracefully falls back to default business identity.
+    - Quotation advance payment calculations (`advanceAmount`, `advanceType`, `advanceValue`) display booking advance vs delivery balance correctly.
+    - Indian GST Rule 46 compliance (CGST/SGST 50/50 split for intra-state, 100% IGST for inter-state).
+
+---
+
+## 🧪 Comprehensive Verification Matrix (All 9 Modules)
 
 | Check | Tool / Runner | Result |
 |---|---|---|
 | **TypeScript Compilation** | `npx tsc --noEmit` | 🟢 0 errors |
-| **Unit & Integration Tests** | `npx vitest run` (23 test files) | 🟢 171 / 171 passed |
+| **Unit & Integration Tests** | `npx vitest run` (23 test files) | 🟢 174 / 174 passed |
 | **Module 1 Specific Tests** | `tests/auth-module-fixes.test.ts` | 🟢 5 / 5 passed |
 | **Module 2 Specific Tests** | `tests/client-module-fixes.test.ts` | 🟢 7 / 7 passed |
 | **Module 3 Specific Tests** | `tests/service-module-fixes.test.ts` | 🟢 7 / 7 passed |
@@ -717,7 +805,9 @@ This living document maintains an audit trail of every system module in **BillEa
 | **Module 6 Specific Tests** | `tests/payment-module-fixes.test.ts` | 🟢 7 / 7 passed |
 | **Module 7 Specific Tests** | `tests/reports-gst-module-fixes.test.ts` | 🟢 7 / 7 passed |
 | **Module 8 Specific Tests** | `tests/settings-module-fixes.test.ts` | 🟢 9 / 9 passed |
+| **Module 9 Specific Tests** | `tests/document-templates.test.ts` | 🟢 12 / 12 passed |
 | **Next.js Production Build** | `npm run build` | 🟢 Build successful, 53/53 static routes compiled |
+
 
 
 
