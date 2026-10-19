@@ -14,7 +14,7 @@ import { QuotationItemRow } from "@/components/quotations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, Plus, Save, Loader2, Eye, X, Sparkles, Clock, Check, Globe } from "lucide-react";
+import { ArrowLeft, Plus, Save, Loader2, Eye, X, Sparkles, Clock, Check, Globe, AlertCircle } from "lucide-react";
 import { ClientSearchCombobox } from "@/components/clients/client-search-combobox";
 import { DocumentTemplateRenderer } from "@/components/documents/document-template-renderer";
 import { formatCurrency, cn } from "@/lib/utils";
@@ -71,6 +71,7 @@ function NewQuotationContent() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const { isLocked } = useTrial();
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -300,7 +301,8 @@ function NewQuotationContent() {
 
     if (Object.keys(validationErrors).length > 0) {
       const firstError = Object.values(validationErrors)[0];
-      alert(firstError);
+      setFormError(firstError);
+      window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
 
@@ -411,6 +413,23 @@ function NewQuotationContent() {
         </div>
 
       </div>
+
+      {/* Tactile Validation Error Alert Banner */}
+      {formError && (
+        <div className="flex items-center justify-between gap-2 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold shadow-xs animate-in fade-in-50">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
+            <span>{formError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setFormError(null)}
+            className="p-1 hover:bg-rose-100 rounded-lg text-rose-600 cursor-pointer app-press"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* 2-Column Split Layout: Same as Invoices */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1122,7 +1141,7 @@ function NewQuotationContent() {
           <button
             type="button"
             onClick={() => setIsPreviewOpen(true)}
-            className="inline-flex items-center justify-center gap-1 h-10 px-3 font-bold text-xs rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all shadow-2xs cursor-pointer"
+            className="inline-flex items-center justify-center gap-1.5 h-11 min-h-[44px] px-3.5 font-bold text-xs rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all shadow-2xs cursor-pointer app-press"
           >
             <Eye className="h-4 w-4 text-emerald-600" />
             <span className="hidden xs:inline">Preview</span>
@@ -1131,7 +1150,7 @@ function NewQuotationContent() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="clay-btn-emerald inline-flex items-center justify-center gap-1.5 h-10 px-4 font-bold text-xs rounded-xl shadow-md cursor-pointer disabled:opacity-70"
+            className="clay-btn-emerald inline-flex items-center justify-center gap-1.5 h-11 min-h-[44px] px-4 font-bold text-xs rounded-xl shadow-md cursor-pointer disabled:opacity-70 app-press"
           >
             <Save className="h-4 w-4" />
             <span>{isSubmitting ? "Saving..." : "Save Quote"}</span>

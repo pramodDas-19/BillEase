@@ -21,13 +21,15 @@ export function MobileBottomBar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { checkCanPerformAction } = useTrial();
 
-  // On builder pages (creation, editing, payment recording), yield to dedicated mobile action bar
-  const isBuilderRoute =
+  // On builder, preview, and settings pages with dedicated floating action bars, yield for clean edge-to-edge view
+  const hasDedicatedMobileBar =
     pathname.endsWith("/new") ||
     pathname.includes("/edit") ||
-    pathname.endsWith("/record");
+    pathname.endsWith("/record") ||
+    pathname.includes("/preview") ||
+    pathname.startsWith("/settings");
 
-  if (isBuilderRoute) {
+  if (hasDedicatedMobileBar) {
     return null;
   }
 
@@ -41,12 +43,12 @@ export function MobileBottomBar() {
 
   return (
     <>
-      {/* Action Popup Menu */}
+      {/* Action Popup Menu with iOS momentum and touch isolation */}
       {isMenuOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden bg-slate-900/60 backdrop-blur-xs animate-in fade-in-50 duration-200">
+        <div className="fixed inset-0 z-40 lg:hidden bg-slate-900/60 backdrop-blur-xs overscroll-contain animate-in fade-in-50 duration-200">
           <div className="fixed inset-0" onClick={() => setIsMenuOpen(false)} />
 
-          <div className="clay-card fixed bottom-20 left-4 right-4 z-50 bg-white rounded-3xl p-4 shadow-2xl border border-slate-200/90 space-y-2 animate-in zoom-in-95 duration-200">
+          <div className="clay-card fixed bottom-24 left-4 right-4 z-50 bg-white rounded-3xl p-4 shadow-2xl border border-slate-200/90 space-y-2 animate-in zoom-in-95 duration-200 mb-safe">
             <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 px-1">
               <span className="text-xs font-black uppercase tracking-wider text-slate-800">
                 Quick Create
@@ -68,7 +70,7 @@ export function MobileBottomBar() {
                   }
                   setIsMenuOpen(false);
                 }}
-                className="clay-card p-3 rounded-2xl bg-emerald-50/60 border border-emerald-200/70 flex items-center gap-2.5 hover:bg-emerald-100 transition-colors"
+                className="clay-card p-3 rounded-2xl bg-emerald-50/60 border border-emerald-200/70 flex items-center gap-2.5 hover:bg-emerald-100 transition-colors app-press cursor-pointer"
               >
                 <div className="p-2 rounded-xl bg-emerald-600 text-white shadow-2xs">
                   <Receipt className="h-4 w-4" />
@@ -87,7 +89,7 @@ export function MobileBottomBar() {
                   }
                   setIsMenuOpen(false);
                 }}
-                className="clay-card p-3 rounded-2xl bg-blue-50/60 border border-blue-200/70 flex items-center gap-2.5 hover:bg-blue-100 transition-colors"
+                className="clay-card p-3 rounded-2xl bg-blue-50/60 border border-blue-200/70 flex items-center gap-2.5 hover:bg-blue-100 transition-colors app-press cursor-pointer"
               >
                 <div className="p-2 rounded-xl bg-blue-600 text-white shadow-2xs">
                   <FileText className="h-4 w-4" />
@@ -101,7 +103,7 @@ export function MobileBottomBar() {
               <Link
                 href="/clients/new"
                 onClick={() => setIsMenuOpen(false)}
-                className="clay-card p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center gap-2.5 hover:bg-slate-100 transition-colors"
+                className="clay-card p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center gap-2.5 hover:bg-slate-100 transition-colors app-press cursor-pointer"
               >
                 <div className="p-2 rounded-xl bg-slate-800 text-white shadow-2xs">
                   <UserPlus className="h-4 w-4" />
@@ -120,7 +122,7 @@ export function MobileBottomBar() {
                   }
                   setIsMenuOpen(false);
                 }}
-                className="clay-card p-3 rounded-2xl bg-purple-50/60 border border-purple-200/70 flex items-center gap-2.5 hover:bg-purple-100 transition-colors"
+                className="clay-card p-3 rounded-2xl bg-purple-50/60 border border-purple-200/70 flex items-center gap-2.5 hover:bg-purple-100 transition-colors app-press cursor-pointer"
               >
                 <div className="p-2 rounded-xl bg-purple-600 text-white shadow-2xs">
                   <CreditCard className="h-4 w-4" />
@@ -144,7 +146,7 @@ export function MobileBottomBar() {
                 <div key={idx} className="flex-1 flex justify-center">
                   <button
                     onClick={() => setIsMenuOpen(!isMenuOpen)}
-                    className="clay-btn-emerald -mt-5 h-12 w-12 rounded-2xl flex items-center justify-center text-white shadow-lg cursor-pointer focus:outline-none"
+                    className="clay-btn-emerald -mt-5 h-12 w-12 rounded-2xl flex items-center justify-center text-white shadow-lg cursor-pointer focus:outline-none app-press"
                     aria-label="Create Action"
                   >
                     <Plus
@@ -166,7 +168,7 @@ export function MobileBottomBar() {
                 key={item.href}
                 href={item.href!}
                 className={cn(
-                  "flex-1 flex flex-col items-center justify-center gap-0.5 py-1 rounded-xl transition-all",
+                  "flex-1 flex flex-col items-center justify-center gap-0.5 py-1 min-h-[44px] rounded-xl transition-all app-press cursor-pointer",
                   isActive
                     ? "text-emerald-700 font-black"
                     : "text-slate-400 hover:text-slate-700 font-medium"

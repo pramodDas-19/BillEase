@@ -133,7 +133,7 @@ export default function InvoicePreviewPage({ params }: { params: Promise<{ id: s
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6 max-w-5xl mx-auto pb-24 sm:pb-12">
+    <div className="space-y-4 sm:space-y-6 max-w-5xl mx-auto pb-28 sm:pb-12">
       {/* 1. Navigation & Quick Actions Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <Link
@@ -208,13 +208,13 @@ export default function InvoicePreviewPage({ params }: { params: Promise<{ id: s
       )}
 
       {/* Sticky Mobile Quick Action Bar (Bottom of Phone Screen) */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 p-2.5 flex items-center gap-2 shadow-2xl print:hidden">
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-3 py-2.5 pb-safe flex items-center gap-2 shadow-2xl print:hidden">
         <Button
           size="sm"
           variant="outline"
           onClick={() => setShowFormatSelector((prev) => !prev)}
           className={cn(
-            "min-h-[42px] px-3 gap-1.5 text-xs font-bold cursor-pointer rounded-xl shadow-xs",
+            "min-h-[44px] px-3 gap-1.5 text-xs font-bold cursor-pointer rounded-xl shadow-xs app-press",
             showFormatSelector ? "bg-indigo-50 border-indigo-300 text-indigo-700" : "bg-white border-slate-300 text-slate-800"
           )}
         >
@@ -226,7 +226,7 @@ export default function InvoicePreviewPage({ params }: { params: Promise<{ id: s
           size="sm"
           onClick={handleDownloadPdf}
           disabled={isDownloading}
-          className="flex-1 min-h-[42px] gap-1.5 text-xs font-black cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs"
+          className="flex-1 min-h-[44px] gap-1.5 text-xs font-black cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs app-press"
         >
           {isDownloading ? (
             <>
@@ -245,7 +245,7 @@ export default function InvoicePreviewPage({ params }: { params: Promise<{ id: s
           size="sm"
           variant="outline"
           onClick={handlePrint}
-          className="min-h-[42px] px-4 gap-1.5 text-xs font-bold cursor-pointer bg-white border-slate-300 text-slate-800 rounded-xl shadow-xs"
+          className="min-h-[44px] px-4 gap-1.5 text-xs font-bold cursor-pointer bg-white border-slate-300 text-slate-800 rounded-xl shadow-xs app-press"
         >
           <Printer className="h-3.5 w-3.5 text-slate-600" />
           <span>Print</span>

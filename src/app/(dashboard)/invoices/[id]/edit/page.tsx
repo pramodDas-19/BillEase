@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
-import { ArrowLeft, Plus, Save, Loader2 } from "lucide-react";
+import { ArrowLeft, Plus, Save, Loader2, AlertCircle, X } from "lucide-react";
 import { validateInvoice } from "@/validations/invoice.schema";
 
 export default function EditInvoicePage({
@@ -32,6 +32,7 @@ export default function EditInvoicePage({
     "cash" | "upi" | "bank_transfer" | "cheque"
   >("cash");
   const [advanceReference, setAdvanceReference] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
 
   const {
     state,
@@ -159,7 +160,8 @@ export default function EditInvoicePage({
 
     if (Object.keys(validationErrors).length > 0) {
       const firstError = Object.values(validationErrors)[0];
-      alert(firstError);
+      setFormError(firstError);
+      window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
 
@@ -290,6 +292,23 @@ export default function EditInvoicePage({
         </div>
 
       </div>
+
+      {/* Tactile Validation Error Alert Banner */}
+      {formError && (
+        <div className="flex items-center justify-between gap-2 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold shadow-xs animate-in fade-in-50">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
+            <span>{formError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setFormError(null)}
+            className="p-1 hover:bg-rose-100 rounded-lg text-rose-600 cursor-pointer app-press"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left 2 Cols: Client & Line Items */}
@@ -810,7 +829,7 @@ export default function EditInvoicePage({
           <button
             type="button"
             onClick={() => router.push("/invoices")}
-            className="inline-flex items-center justify-center h-10 px-3 font-bold text-xs rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all shadow-2xs cursor-pointer"
+            className="inline-flex items-center justify-center h-11 min-h-[44px] px-3.5 font-bold text-xs rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all shadow-2xs cursor-pointer app-press"
           >
             Cancel
           </button>
@@ -818,7 +837,7 @@ export default function EditInvoicePage({
           <button
             type="submit"
             disabled={isSubmitting || state.items.length === 0}
-            className="clay-btn-emerald inline-flex items-center justify-center gap-1.5 h-10 px-4 font-bold text-xs rounded-xl shadow-md cursor-pointer disabled:opacity-70"
+            className="clay-btn-emerald inline-flex items-center justify-center gap-1.5 h-11 min-h-[44px] px-4 font-bold text-xs rounded-xl shadow-md cursor-pointer disabled:opacity-70 app-press"
           >
             <Save className="h-4 w-4" />
             <span>{isSubmitting ? "Saving..." : "Save Changes"}</span>

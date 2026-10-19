@@ -270,7 +270,7 @@ export default function ClientsPage() {
 
         {/* Filter Pills & View Switcher */}
         <div className="flex items-center justify-between md:justify-end gap-3 flex-wrap">
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 no-scrollbar max-w-full scroll-touch">
             {[
               { id: "all", label: "All Clients" },
               { id: "due", label: `Pending Dues (${overdueClients.length})` },
@@ -280,7 +280,7 @@ export default function ClientsPage() {
                 key={tab.id}
                 onClick={() => setSelectedFilter(tab.id)}
                 className={cn(
-                  "clay-tag px-3 py-1 text-xs font-bold transition-all cursor-pointer whitespace-nowrap",
+                  "clay-tag px-3 py-1.5 min-h-[36px] text-xs font-bold transition-all cursor-pointer whitespace-nowrap app-press",
                   selectedFilter === tab.id
                     ? "bg-slate-900 text-white shadow-xs"
                     : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/70"

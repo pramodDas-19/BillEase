@@ -349,7 +349,7 @@ export function Sidebar() {
       {/* MOBILE DRAWER NAVIGATION                                    */}
       {/* ============================================================ */}
       {isMobileNavOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
+        <div className="fixed inset-0 z-50 lg:hidden overscroll-contain">
           {/* Backdrop */}
           <div
             className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity duration-300"
@@ -357,9 +357,9 @@ export function Sidebar() {
           />
 
           {/* Drawer Content */}
-          <div className="fixed inset-y-0 left-0 flex w-72 flex-col bg-white shadow-2xl border-r border-slate-200 transition-transform duration-300 ease-out z-50">
+          <div className="fixed inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-white shadow-2xl border-r border-slate-200 transition-transform duration-300 ease-out z-50 overscroll-contain">
             {/* Drawer Header */}
-            <div className="flex h-16 items-center justify-between px-4 border-b border-slate-100">
+            <div className="flex h-16 items-center justify-between px-4 border-b border-slate-100 pt-safe">
               <div className="flex items-center gap-2.5">
                 <div className="h-9 w-9 shrink-0 rounded-xl bg-slate-50 p-1 flex items-center justify-center border border-slate-200 shadow-2xs">
                   <img
@@ -376,17 +376,20 @@ export function Sidebar() {
 
               <button
                 onClick={() => setIsMobileNavOpen(false)}
-                className="clay-icon-squircle rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 cursor-pointer"
+                className="clay-icon-squircle rounded-xl p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 cursor-pointer app-press"
+                aria-label="Close navigation drawer"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            {/* Nav list */}
-            {renderNavItems(true)}
+            {/* Nav list with smooth touch momentum */}
+            <div className="flex-1 overflow-y-auto scroll-touch">
+              {renderNavItems(true)}
+            </div>
 
-            {/* Mobile Footer with Plan Badge */}
-            <div className="p-4 border-t border-slate-100 bg-slate-50/50 space-y-2.5">
+            {/* Mobile Footer with iOS Home Indicator padding */}
+            <div className="p-4 pb-safe border-t border-slate-100 bg-slate-50/50 space-y-2.5">
               <PlanBadge className="w-full justify-between" />
               <div className="clay-card flex items-center justify-between p-2.5 bg-white border border-slate-200/80 shadow-2xs">
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -403,7 +406,7 @@ export function Sidebar() {
                 <Link
                   href="/settings"
                   onClick={() => setIsMobileNavOpen(false)}
-                  className="clay-icon-squircle p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-50"
+                  className="clay-icon-squircle p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-50 app-press cursor-pointer"
                   title="Settings"
                 >
                   <Settings className="h-4 w-4" />

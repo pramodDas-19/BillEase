@@ -29,8 +29,8 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
-    title: "BillEase by Pramod Das",
+    statusBarStyle: "black-translucent",
+    title: "BillEase",
   },
 };
 

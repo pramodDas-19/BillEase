@@ -346,7 +346,7 @@ export default function SettingsPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) {
-      alert("Logo image size must be under 2MB");
+      setErrorMessage("Logo image size must be under 2MB");
       return;
     }
     const reader = new FileReader();
@@ -364,7 +364,7 @@ export default function SettingsPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) {
-      alert("Signature image size must be under 2MB");
+      setErrorMessage("Signature image size must be under 2MB");
       return;
     }
     const reader = new FileReader();
@@ -549,8 +549,8 @@ export default function SettingsPage() {
 
       {/* 2-Column Settings Layout */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-        {/* Mobile Horizontal Pill Track (Hidden on desktop) */}
-        <div className="md:hidden flex overflow-x-auto no-scrollbar gap-1.5 p-1 rounded-2xl bg-slate-100/90 border border-slate-200/80 -mx-1 px-1">
+        {/* Mobile Horizontal Pill Track with smooth iOS momentum scrolling */}
+        <div className="md:hidden flex overflow-x-auto no-scrollbar scroll-touch gap-1.5 p-1 rounded-2xl bg-slate-100/90 border border-slate-200/80 -mx-1 px-1">
           {navTabs.map((tab) => {
             const Icon = tab.Icon;
             const isActive = activeTab === tab.id;
@@ -561,7 +561,7 @@ export default function SettingsPage() {
                 type="button"
                 onClick={() => handleTabChange(tab.id as any)}
                 className={cn(
-                  "shrink-0 flex items-center gap-2 px-4 py-2.5 min-h-[42px] rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap",
+                  "shrink-0 flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap app-press",
                   isActive
                     ? "clay-pill-active text-slate-900 shadow-xs"
                     : "text-slate-600 hover:text-slate-900"
@@ -579,7 +579,7 @@ export default function SettingsPage() {
           })}
           <Link
             href="/settings/templates"
-            className="shrink-0 flex items-center gap-1.5 px-4 py-2.5 min-h-[42px] rounded-xl text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition-all whitespace-nowrap"
+            className="shrink-0 flex items-center gap-1.5 px-4 py-2.5 min-h-[44px] rounded-xl text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition-all whitespace-nowrap app-press"
           >
             <Layout className="h-4 w-4 text-indigo-600" />
             <span>Templates (15)</span>
@@ -1530,11 +1530,11 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Mobile Sticky Floating Save Bar (Visible only on mobile screens) */}
-      <div className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 p-3 shadow-lg flex items-center justify-between gap-3 animate-in slide-in-from-bottom duration-200">
+      {/* Mobile Sticky Floating Save Bar (Visible only on mobile screens with iOS home-indicator padding) */}
+      <div className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 px-4 pt-3 pb-safe shadow-2xl flex items-center justify-between gap-3 animate-in slide-in-from-bottom duration-200">
         <div className="flex items-center gap-2 min-w-0">
           {isDirty ? (
-            <span className="flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200/80 shrink-0">
+            <span className="flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200/80 shrink-0">
               <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
               <span>Unsaved Edits</span>
             </span>
@@ -1554,7 +1554,7 @@ export default function SettingsPage() {
               form.requestSubmit();
             }
           }}
-          className="clay-btn-emerald shrink-0 inline-flex items-center justify-center gap-2 h-11 px-5 font-bold text-xs rounded-xl cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed shadow-md"
+          className="clay-btn-emerald shrink-0 inline-flex items-center justify-center gap-2 h-11 min-h-[44px] px-5 font-bold text-xs rounded-xl cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed shadow-md app-press"
         >
           {isSaving ? (
             <>

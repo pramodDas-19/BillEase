@@ -59,7 +59,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             <Header />
             <TrialNotificationBanner />
           </div>
-          <main className="flex-1 p-3.5 sm:p-6 lg:p-8 pb-28 sm:pb-24 lg:pb-8 max-w-7xl w-full mx-auto print:p-0 print:m-0 print:max-w-none print:overflow-visible">
+          <main className="flex-1 p-3 sm:p-6 lg:p-8 pb-32 sm:pb-24 lg:pb-8 pb-safe max-w-7xl w-full mx-auto print:p-0 print:m-0 print:max-w-none print:overflow-visible">
             {children}
           </main>
         </div>

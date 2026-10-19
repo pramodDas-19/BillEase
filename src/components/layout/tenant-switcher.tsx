@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { useTenant } from "@/hooks/use-tenant";
 import { Building2, ChevronDown, Check, Plus } from "lucide-react";
 
@@ -58,16 +59,14 @@ export function TenantSwitcher() {
               ))}
             </div>
             <div className="border-t border-slate-100 pt-1 mt-1">
-              <button
-                onClick={() => {
-                  setIsOpen(false);
-                  alert("Multi-business onboarding wizard will open here.");
-                }}
-                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-50 transition-colors"
+              <Link
+                href="/settings"
+                onClick={() => setIsOpen(false)}
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 min-h-[38px] text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors app-press"
               >
                 <Plus className="h-3.5 w-3.5 text-slate-400" />
-                <span>Add new business account</span>
-              </button>
+                <span>Configure business profiles</span>
+              </Link>
             </div>
           </div>
         </>
