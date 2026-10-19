@@ -254,7 +254,7 @@ Total Output Tax Liability: ₹${summary.totalTax.toLocaleString("en-IN")}`;
       </div>
 
       {/* GSTR-3B Hero: Outward Taxable Liability (Table 3.1) */}
-      <div className="clay-card p-6 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white relative overflow-hidden">
+      <div className="rounded-3xl border border-slate-700/80 shadow-2xl p-6 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white relative overflow-hidden">
         {/* Background ambient glow */}
         <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
 

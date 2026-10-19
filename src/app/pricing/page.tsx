@@ -593,21 +593,26 @@ export default function PricingPage() {
 
       {/* Bottom CTA Card */}
       <section className="max-w-4xl mx-auto px-4 sm:px-6 pt-16">
-        <div className="clay-card p-8 sm:p-10 bg-gradient-to-r from-emerald-600 to-teal-700 text-white text-center rounded-3xl shadow-xl space-y-4">
-          <h2 className="text-2xl sm:text-3xl font-black tracking-tight">
-            Ready to Take Control of Your Billing?
-          </h2>
-          <p className="text-xs sm:text-sm text-emerald-100 max-w-md mx-auto font-medium">
-            Join thousands of service providers, agencies, freelancers, consultants, contractors, retail shops, and SMBs across India. Start your 30-day free trial in 60 seconds.
-          </p>
-          <div className="pt-2">
-            <Link
-              href="/signup"
-              className="inline-flex items-center justify-center gap-2 h-11 px-6 rounded-xl bg-white text-emerald-900 hover:bg-emerald-50 font-extrabold text-xs sm:text-sm transition-all shadow-md cursor-pointer active:scale-[0.99] app-press"
-            >
-              <span>Start 30-Day Free Trial</span>
-              <ArrowRight className="h-4 w-4" />
-            </Link>
+        <div className="relative overflow-hidden p-8 sm:p-12 rounded-3xl bg-gradient-to-br from-emerald-600 via-teal-700 to-emerald-950 text-white text-center shadow-2xl border border-emerald-400/30 space-y-5">
+          {/* Ambient Glow */}
+          <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-96 h-96 bg-white/15 blur-3xl rounded-full pointer-events-none" />
+
+          <div className="relative z-10 space-y-3">
+            <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight drop-shadow-sm">
+              Ready to Take Control of Your Billing?
+            </h2>
+            <p className="text-xs sm:text-base text-emerald-100 max-w-xl mx-auto font-medium leading-relaxed drop-shadow-xs">
+              Join thousands of service providers, agencies, freelancers, consultants, contractors, retail shops, and SMBs across India. Start your 30-day free trial in 60 seconds.
+            </p>
+            <div className="pt-3">
+              <Link
+                href="/signup"
+                className="inline-flex items-center justify-center gap-2.5 h-12 px-8 rounded-2xl bg-white text-emerald-900 hover:bg-emerald-50 font-black text-sm sm:text-base transition-all shadow-xl hover:shadow-2xl hover:scale-[1.02] cursor-pointer active:scale-[0.98] app-press"
+              >
+                <span>Start 30-Day Free Trial</span>
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
           </div>
         </div>
       </section>
