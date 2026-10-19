@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
     const settings = (tenant.settings || {}) as Record<string, any>;
     if (!settings.subscription) {
       const createdMs = new Date(tenant.created_at).getTime();
-      const trialEndMs = createdMs + 7 * 24 * 60 * 60 * 1000;
+      const trialEndMs = createdMs + 30 * 24 * 60 * 60 * 1000;
       const graceEndMs = trialEndMs + 48 * 60 * 60 * 1000;
       const isPastTrial = Date.now() > trialEndMs;
 

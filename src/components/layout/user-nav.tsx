@@ -28,9 +28,14 @@ export function UserNav() {
   const displayName = currentUser?.name || "Pramod Das";
   const sub = currentTenant?.subscription;
   const isPaid = sub?.status === "active";
+  const isLifetime = isPaid && (sub?.isLifetime || sub?.plan === "pro_lifetime");
   const planLabel = isPaid
-    ? sub?.plan === "enterprise"
+    ? isLifetime
+      ? "Pro Lifetime"
+      : sub?.plan === "enterprise"
       ? "Enterprise"
+      : sub?.plan === "pro_annual"
+      ? "Pro Annual"
       : "Pro plan"
     : "Free plan";
 

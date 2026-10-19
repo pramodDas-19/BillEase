@@ -116,4 +116,30 @@ describe("Trial Lifecycle & Soft Paywall State Machine", () => {
     expect(details.isTrial).toBe(false);
     expect(details.canCreate).toBe(false);
   });
+
+  it("should default to 30 days (1 month / 720h) trial when sub is undefined", () => {
+    const details = computeTrialDetails(undefined, BASE_TIME);
+    expect(details.state).toBe("TRIAL_ACTIVE_EARLY");
+    expect(details.daysRemaining).toBe(30);
+    expect(details.hoursRemaining).toBe(720);
+    expect(details.isTrial).toBe(true);
+    expect(details.canCreate).toBe(true);
+    expect(details.isLocked).toBe(false);
+  });
+
+  it("should grant perpetual access for Lifetime Pro accounts", () => {
+    const sub: SubscriptionInfo = {
+      plan: "pro_lifetime",
+      status: "active",
+      isLifetime: true,
+      currentPeriodEnd: "2099-12-31T23:59:59.999Z",
+    };
+
+    const details = computeTrialDetails(sub, BASE_TIME);
+    expect(details.state).toBe("SUBSCRIBED_ACTIVE");
+    expect(details.isTrial).toBe(false);
+    expect(details.canCreate).toBe(true);
+    expect(details.isLocked).toBe(false);
+    expect(details.daysRemaining).toBeGreaterThanOrEqual(99999);
+  });
 });

@@ -99,7 +99,7 @@ export function TrialNotificationBanner() {
             </span>
             <div>
               <span className="font-bold text-rose-950">
-                Your 7-day Pro trial ends today.{" "}
+                Your 30-day Pro trial ends today.{" "}
               </span>
               <span className="text-slate-700">
                 Pick a plan to keep billing without interruption — or switch to Free Tier anytime.

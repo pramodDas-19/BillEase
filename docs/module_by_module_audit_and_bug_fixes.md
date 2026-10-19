@@ -1051,12 +1051,57 @@ This living document maintains an audit trail of every system module in **BillEa
 
 ---
 
+### 10.10 1-Month (30-Day) Trial Policy, Admin Perpetual Lifetime Pro & UPI Upgrade Flow (`daspramod479@okicici`)
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**:
+  - [`src/types/tenant.types.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/types/tenant.types.ts)
+  - [`src/lib/trial-calculator.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/lib/trial-calculator.ts)
+  - [`src/services/tenant.service.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/services/tenant.service.ts)
+  - [`src/context/tenant-context.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/context/tenant-context.tsx)
+  - [`src/app/api/admin/tenants/route.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/api/admin/tenants/route.ts)
+  - [`src/app/api/admin/impersonate/route.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/api/admin/impersonate/route.ts)
+  - [`src/app/admin/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/admin/page.tsx)
+  - [`src/components/pricing/upi-checkout-modal.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/components/pricing/upi-checkout-modal.tsx)
+  - [`src/app/pricing/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/pricing/page.tsx)
+  - [`src/components/layout/plan-badge.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/components/layout/plan-badge.tsx)
+  - [`src/components/layout/user-nav.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/components/layout/user-nav.tsx)
+  - [`src/components/layout/sidebar.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/components/layout/sidebar.tsx)
+  - [`src/components/onboarding/welcome-modal.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/components/onboarding/welcome-modal.tsx)
+  - [`src/components/layout/trial-notification-banner.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/components/layout/trial-notification-banner.tsx)
+  - [`src/components/layout/route-paywall-blocker.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/components/layout/route-paywall-blocker.tsx)
+  - [`src/app/terms/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/terms/page.tsx)
+  - [`tests/trial-lifecycle.test.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/tests/trial-lifecycle.test.ts)
+* **The Problem**:
+  1. Default trial duration across the codebase was set to 7 days, restricting initial user onboarding and evaluation time.
+  2. In the Admin Dashboard (`/admin`), clicking "Set Pro" previously only extended the period by 30 days (`+ 30 * 24 * 60 * 60 * 1000`), meaning accounts designated as Pro by the admin expired after a month instead of granting permanent lifetime access.
+  3. Plan upgrades lacked an integrated, native UPI payment settlement workflow directed to the business VPA (`daspramod479@okicici`), with mobile 1-click app switches or automatic plan activation after payment.
+* **The Fix**:
+  1. **1-Month (30-Day) Trial Policy**:
+     - Extended default trial duration to 30 days (720 hours) across `trial-calculator.ts`, `tenant.service.ts`, `tenant-context.tsx`, `mock/tenants.mock.ts`, onboarding banners, and the Terms of Service.
+     - Updated evaluation stages: `TRIAL_LAST_DAY` (final 24h), `TRIAL_ACTIVE_MID` (final 3 days), and `TRIAL_ACTIVE_EARLY` (days 1–27).
+  2. **Admin Perpetual Lifetime Pro**:
+     - Added `"pro_lifetime"` plan and `isLifetime` boolean flag to `SubscriptionInfo`.
+     - In `/api/admin/tenants/route.ts`, setting a tenant to Pro stamps `plan: "pro_lifetime"`, `isLifetime: true`, `status: "active"`, and `currentPeriodEnd: "2099-12-31T23:59:59.999Z"`.
+     - `trial-calculator.ts` handles perpetual accounts by returning `SUBSCRIBED_ACTIVE`, `daysRemaining: 99999`, and full unrestricted access forever.
+     - Updated Admin UI with "Set Pro (Lifetime)" buttons and status pills.
+  3. **UPI Payment Gateway to `daspramod479@okicici` & Automated Activation**:
+     - Built [`UpiCheckoutModal`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/components/pricing/upi-checkout-modal.tsx) supporting monthly (₹499), annual (₹3,999), and custom enterprise plans.
+     - Payee VPA set to `daspramod479@okicici` (Pramod Das) with dynamic amount and transaction note encoding.
+     - Renders zero-dependency offline SVG QR code alongside 1-click mobile deep-links (`gpay://`, `phonepe://`, `paytmmp://`, `upi://pay`) and 1-tap clipboard copy with visual checkmark feedback.
+     - Users input their 12-digit bank UTR/Ref number; upon confirmation, the client updates the tenant subscription via `TenantService.updateSubscription` and invokes `refreshTenantData()`, instantly unlocking Pro features.
+     - Features an interactive celebratory screen with printable payment receipt breakdown.
+  4. **Responsive & Tactile UI/UX**:
+     - Implemented neo-clay elevation, iOS safe-area clearance, and 44px tap targets for mobile and desktop screens.
+     - Updated `PlanBadge`, `UserNav`, and `Sidebar` to cleanly display "Pro Lifetime • Perpetual" or "30-Day Pro Trial Active".
+
+---
+
 ## 🧪 Comprehensive Verification Matrix (All 10 Modules)
 
 | Check | Tool / Runner | Result |
 |---|---|---|
 | **TypeScript Compilation** | `npx tsc --noEmit` | 🟢 0 errors |
-| **Unit & Integration Tests** | `npx vitest run` (23 test files) | 🟢 179 / 179 passed |
+| **Unit & Integration Tests** | `npx vitest run` (23 test files) | 🟢 181 / 181 passed |
 | **Module 1 Specific Tests** | `tests/auth-module-fixes.test.ts` | 🟢 5 / 5 passed |
 | **Module 2 Specific Tests** | `tests/client-module-fixes.test.ts` | 🟢 7 / 7 passed |
 | **Module 3 Specific Tests** | `tests/service-module-fixes.test.ts` | 🟢 7 / 7 passed |
@@ -1066,6 +1111,7 @@ This living document maintains an audit trail of every system module in **BillEa
 | **Module 7 Specific Tests** | `tests/reports-gst-module-fixes.test.ts` | 🟢 7 / 7 passed |
 | **Module 8 Specific Tests** | `tests/settings-module-fixes.test.ts` | 🟢 13 / 13 passed |
 | **Module 9 Specific Tests** | `tests/document-templates.test.ts` | 🟢 13 / 13 passed |
+| **Module 10 Specific Tests** | `tests/trial-lifecycle.test.ts` | 🟢 12 / 12 passed |
 | **Module 10 Mobile / iOS Verification** | Viewport, Safe-Area & Touch Tests | 🟢 Verified across 320px–430px & iOS Safari |
 | **Next.js Production Build** | `npm run build` | 🟢 Build successful, 53/53 static routes compiled |
 

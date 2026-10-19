@@ -258,7 +258,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
           if (storedSub) return storedSub;
 
           const createdMs = tenantRow?.created_at ? new Date(tenantRow.created_at).getTime() : Date.now();
-          const trialEndMs = createdMs + 7 * 24 * 60 * 60 * 1000;
+          const trialEndMs = createdMs + 30 * 24 * 60 * 60 * 1000;
           const graceEndMs = trialEndMs + 48 * 60 * 60 * 1000;
           const isPastTrial = Date.now() > trialEndMs;
 

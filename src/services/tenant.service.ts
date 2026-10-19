@@ -52,7 +52,7 @@ export class TenantService {
                 plan: "trial",
                 status: "trial_active",
                 trialStartDate: new Date().toISOString(),
-                trialEndDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+                trialEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
               },
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
@@ -184,7 +184,11 @@ export class TenantService {
           body: JSON.stringify({
             tenantId,
             action: "set_pro",
-            plan: subscription.plan || "pro_monthly",
+            plan: subscription.plan || (subscription.isLifetime ? "pro_lifetime" : "pro_monthly"),
+            isLifetime: Boolean(subscription.isLifetime || subscription.plan === "pro_lifetime"),
+            currentPeriodEnd: subscription.isLifetime || subscription.plan === "pro_lifetime"
+              ? "2099-12-31T23:59:59.999Z"
+              : subscription.currentPeriodEnd,
           }),
         });
         if (res.ok) {
@@ -207,14 +211,24 @@ export class TenantService {
     if (index === -1) return null;
 
     const existingSub = this.tenants[index].subscription;
+    const isLifetime = Boolean(
+      subscription.isLifetime ||
+      subscription.plan === "pro_lifetime" ||
+      existingSub?.isLifetime ||
+      existingSub?.plan === "pro_lifetime"
+    );
 
     this.tenants[index] = {
       ...this.tenants[index],
       subscription: {
-        plan: subscription.plan || existingSub?.plan || "trial",
+        plan: subscription.plan || existingSub?.plan || (isLifetime ? "pro_lifetime" : "trial"),
         status: subscription.status || existingSub?.status || "trial_active",
         ...existingSub,
         ...subscription,
+        isLifetime,
+        currentPeriodEnd: isLifetime
+          ? "2099-12-31T23:59:59.999Z"
+          : (subscription.currentPeriodEnd || existingSub?.currentPeriodEnd),
       },
       updatedAt: new Date().toISOString(),
     };

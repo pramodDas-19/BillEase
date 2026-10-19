@@ -57,6 +57,10 @@ export function Sidebar() {
   const businessName = currentTenant?.businessName || "My Business Studio";
   const userName = currentUser?.name || "Business Owner";
   const isPaid = currentTenant?.subscription?.status === "active";
+  const isLifetime = Boolean(
+    isPaid && (currentTenant?.subscription?.isLifetime || currentTenant?.subscription?.plan === "pro_lifetime")
+  );
+  const planLabel = isPaid ? (isLifetime ? "Pro Lifetime" : "Pro plan") : "Free plan";
 
   const isSuperAdmin =
     currentUser?.role === "super_admin" ||
@@ -253,7 +257,7 @@ export function Sidebar() {
                     {userName}
                   </p>
                   <p className="text-[10px] font-semibold text-slate-400 truncate mt-0.5">
-                    {isPaid ? "Pro plan" : "Free plan"}
+                    {planLabel}
                   </p>
                 </div>
               )}
@@ -284,7 +288,7 @@ export function Sidebar() {
                         {userName}
                       </span>
                       <span className="text-[10px] text-slate-400 block truncate">
-                        {isPaid ? "Pro plan" : "Free plan"}
+                        {planLabel}
                       </span>
                     </div>
                   </div>
@@ -410,7 +414,7 @@ export function Sidebar() {
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-slate-900 truncate">{userName}</p>
                     <p className="text-[10px] font-semibold text-slate-400 truncate">
-                      {isPaid ? "Pro plan" : "Free plan"}
+                      {planLabel}
                     </p>
                   </div>
                 </div>
@@ -448,7 +452,7 @@ export function Sidebar() {
                             {userName}
                           </span>
                           <span className="text-[10px] text-slate-400 block truncate">
-                            {isPaid ? "Pro plan" : "Free plan"}
+                            {planLabel}
                           </span>
                         </div>
                       </div>

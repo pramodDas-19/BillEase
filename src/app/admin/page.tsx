@@ -72,7 +72,7 @@ interface PlatformConfig {
 }
 
 const DEFAULT_CONFIG: PlatformConfig = {
-  defaultTrialDays: 7,
+  defaultTrialDays: 30,
   gracePeriodHours: 48,
   proMonthlyPrice: 1499,
   proAnnualPrice: 14990,
@@ -293,15 +293,17 @@ function AdminConsoleContent() {
     }
   };
 
-  const handleUpgradeToPro = async (tenant: Tenant, plan: "pro_monthly" | "enterprise" = "pro_monthly") => {
+  const handleUpgradeToPro = async (tenant: Tenant, plan: "pro_monthly" | "pro_annual" | "enterprise" | "pro_lifetime" = "pro_lifetime") => {
     try {
       await TenantService.updateSubscription(tenant.id, {
         plan,
         status: "active",
+        isLifetime: true,
+        currentPeriodEnd: "2099-12-31T23:59:59.999Z",
       });
       await loadTenants();
-      addAuditLog("UPGRADE_PRO", tenant.businessName, tenant.id, `Upgraded to ${plan} in Supabase.`);
-      setActionNotice(`Upgraded "${tenant.businessName}" to ${plan === "enterprise" ? "Enterprise" : "Pro Monthly"}!`);
+      addAuditLog("UPGRADE_PRO", tenant.businessName, tenant.id, `Granted Lifetime Pro in Supabase.`);
+      setActionNotice(`Granted Lifetime Pro access to "${tenant.businessName}"!`);
       setTimeout(() => setActionNotice(null), 4000);
     } catch (e) {
       console.error("Failed to upgrade tenant:", e);
@@ -996,7 +998,13 @@ function AdminConsoleContent() {
                             {isPaid ? (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-800">
                                 <Zap className="h-3 w-3 text-emerald-400 fill-current" />
-                                {sub?.plan === "enterprise" ? "Enterprise" : "Pro Monthly"}
+                                {sub?.isLifetime || sub?.plan === "pro_lifetime"
+                                  ? "Pro Lifetime"
+                                  : sub?.plan === "enterprise"
+                                  ? "Enterprise"
+                                  : sub?.plan === "pro_annual"
+                                  ? "Pro Annual"
+                                  : "Pro Monthly"}
                               </span>
                             ) : isLocked || (isExpired && !isGracePeriod) ? (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-950 text-rose-300 border border-rose-800">
@@ -1011,7 +1019,7 @@ function AdminConsoleContent() {
                             ) : (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-800">
                                 <Sparkles className="h-3 w-3 text-emerald-400" />
-                                7-Day Pro Trial
+                                30-Day Pro Trial
                               </span>
                             )}
                           </div>
@@ -1020,7 +1028,9 @@ function AdminConsoleContent() {
                         {/* Expiry */}
                         <td className="py-3.5 px-4">
                           {isPaid ? (
-                            <span className="text-slate-400 text-xs font-semibold">Active subscriber</span>
+                            <span className="text-emerald-400 text-xs font-semibold">
+                              {sub?.isLifetime || sub?.plan === "pro_lifetime" ? "Lifetime Access" : "Active subscriber"}
+                            </span>
                           ) : isLocked || (isExpired && !isGracePeriod) ? (
                             <span className="inline-flex items-center gap-1.5 text-rose-400 text-xs font-bold">
                               <AlertCircle className="h-3.5 w-3.5" />
@@ -1097,11 +1107,11 @@ function AdminConsoleContent() {
                             {/* Upgrade to Pro */}
                             {!isPaid && (
                               <button
-                                onClick={() => handleUpgradeToPro(t, "pro_monthly")}
-                                title="Manually upgrade to Pro"
+                                onClick={() => handleUpgradeToPro(t, "pro_lifetime")}
+                                title="Grant Lifetime Pro Access"
                                 className="px-2.5 py-1 rounded-xl bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-800 text-[11px] font-bold transition-all cursor-pointer"
                               >
-                                Set Pro
+                                Set Pro (Lifetime)
                               </button>
                             )}
 
@@ -1549,10 +1559,10 @@ function AdminConsoleContent() {
                   +14d Trial
                 </button>
                 <button
-                  onClick={() => handleUpgradeToPro(selectedTenant, "pro_monthly")}
+                  onClick={() => handleUpgradeToPro(selectedTenant, "pro_lifetime")}
                   className="px-3 py-1.5 rounded-xl bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-800 text-xs font-bold cursor-pointer"
                 >
-                  Set Pro Plan
+                  Set Pro (Lifetime)
                 </button>
                 <button
                   onClick={() => handleExportTenantData(selectedTenant)}

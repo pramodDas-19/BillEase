@@ -17,8 +17,8 @@ export function computeTrialDetails(
   if (!sub) {
     return {
       state: "TRIAL_ACTIVE_EARLY",
-      daysRemaining: 7,
-      hoursRemaining: 168,
+      daysRemaining: 30,
+      hoursRemaining: 720,
       isTrial: true,
       isGrace: false,
       isLocked: false,
@@ -39,10 +39,15 @@ export function computeTrialDetails(
   }
 
   if (sub.status === "active" && sub.plan !== "trial") {
+    const isLifetime =
+      Boolean(sub.isLifetime) ||
+      sub.plan === "pro_lifetime" ||
+      (sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd).getFullYear() >= 2099 : false);
+
     return {
       state: "SUBSCRIBED_ACTIVE",
-      daysRemaining: 30,
-      hoursRemaining: 720,
+      daysRemaining: isLifetime ? 99999 : 30,
+      hoursRemaining: isLifetime ? 999999 : 720,
       isTrial: false,
       isGrace: false,
       isLocked: false,
@@ -50,11 +55,11 @@ export function computeTrialDetails(
     };
   }
 
-  // Trial calculation
+  // Trial calculation (1 month / 30-day evaluation)
   const now = currentTimeMs;
   const trialEndMs = sub.trialEndDate
     ? new Date(sub.trialEndDate).getTime()
-    : now + 7 * 24 * 60 * 60 * 1000;
+    : now + 30 * 24 * 60 * 60 * 1000;
 
   const graceEndMs = sub.gracePeriodEndsAt
     ? new Date(sub.gracePeriodEndsAt).getTime()
@@ -69,10 +74,10 @@ export function computeTrialDetails(
   if (now < trialEndMs) {
     if (hoursRemaining <= 24 || daysRemaining <= 1) {
       state = "TRIAL_LAST_DAY";
-    } else if (daysRemaining <= 2) {
-      state = "TRIAL_ACTIVE_MID"; // Days 5–6
+    } else if (daysRemaining <= 3) {
+      state = "TRIAL_ACTIVE_MID";
     } else {
-      state = "TRIAL_ACTIVE_EARLY"; // Days 1–4
+      state = "TRIAL_ACTIVE_EARLY";
     }
   } else if (now < graceEndMs) {
     state = "TRIAL_EXPIRED_GRACE";

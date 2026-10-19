@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { useTrial } from "@/hooks/use-trial";
+import { useTenantContext } from "@/context/tenant-context";
 import { Sparkles, Zap, Clock, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -12,32 +13,35 @@ interface PlanBadgeProps {
 
 export function PlanBadge({ className }: PlanBadgeProps) {
   const { state, daysRemaining, hoursRemaining } = useTrial();
+  const { currentTenant } = useTenantContext();
+  const sub = currentTenant?.subscription;
+  const isLifetime = Boolean(sub?.isLifetime || sub?.plan === "pro_lifetime");
 
-  // 1. Paid Active Plan
+  // 1. Paid Active Plan (Lifetime or Subscribed)
   if (state === "SUBSCRIBED_ACTIVE") {
     return (
       <Link
         href="/pricing"
-        title="Active Subscription"
+        title={isLifetime ? "Lifetime Pro Access (Active)" : "Active Subscription"}
         className={cn(
           "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-purple-50 text-purple-900 border border-purple-200/80 hover:bg-purple-100 transition-all shadow-2xs cursor-pointer",
           className
         )}
       >
         <Zap className="h-3 w-3 text-purple-600 fill-current" />
-        <span>Pro plan</span>
+        <span>{isLifetime ? "Pro Lifetime" : sub?.plan === "enterprise" ? "Enterprise" : "Pro plan"}</span>
         <span className="text-purple-300">•</span>
-        <span className="text-purple-700 font-black">Active</span>
+        <span className="text-purple-700 font-black">{isLifetime ? "Perpetual" : "Active"}</span>
       </Link>
     );
   }
 
-  // 2. Early Trial (Days 1–4): Quiet, neutral slate with subtle green accent
+  // 2. Early Trial (Days 1–25): Quiet, neutral slate with subtle green accent
   if (state === "TRIAL_ACTIVE_EARLY") {
     return (
       <Link
         href="/pricing"
-        title="7-Day Pro Trial Active"
+        title="30-Day Pro Trial Active"
         className={cn(
           "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-slate-900 text-white shadow-xs border border-slate-800 hover:bg-slate-800 transition-all cursor-pointer group",
           className

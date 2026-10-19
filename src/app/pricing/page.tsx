@@ -15,10 +15,10 @@ import {
   HelpCircle,
   Clock,
   ArrowLeft,
-  Printer,
   ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { UpiCheckoutModal } from "@/components/pricing/upi-checkout-modal";
 
 export default function PricingPage() {
   const { currentTenant, refreshTenantData } = useTenantContext();
@@ -29,28 +29,17 @@ export default function PricingPage() {
 
   const sub = currentTenant?.subscription;
   const isPaid = sub?.status === "active";
+  const isLifetime = isPaid && (sub?.isLifetime || sub?.plan === "pro_lifetime");
   const isTrial = !sub || sub.status === "trial_active";
   const isEnterprise = isPaid && sub?.plan === "enterprise";
+  const [selectedPlanForCheckout, setSelectedPlanForCheckout] = useState<"pro_monthly" | "pro_annual" | "enterprise" | null>(null);
 
-  const handleUpgrade = async (plan: "pro_monthly" | "pro_annual" | "enterprise") => {
+  const handleInitiateUpgrade = (plan: "pro_monthly" | "pro_annual" | "enterprise") => {
     if (!currentTenant?.id) {
       window.location.href = `/signup?plan=${plan}`;
       return;
     }
-    setUpgrading(true);
-    try {
-      await TenantService.updateSubscription(currentTenant.id, {
-        plan: plan === "pro_annual" ? "pro_annual" : plan === "enterprise" ? "enterprise" : "pro_monthly",
-        status: "active",
-        currentPeriodEnd: new Date(Date.now() + (plan === "pro_annual" ? 365 : 30) * 24 * 60 * 60 * 1000).toISOString(),
-      });
-      await refreshTenantData();
-      setUpgradedPlan(plan === "enterprise" ? "Enterprise" : "Pro Business");
-    } catch (e) {
-      console.error("Upgrade error:", e);
-    } finally {
-      setUpgrading(false);
-    }
+    setSelectedPlanForCheckout(plan);
   };
 
   const toggleFaq = (index: number) => {
@@ -59,8 +48,8 @@ export default function PricingPage() {
 
   const faqs = [
     {
-      q: "What happens when my 7-day free trial ends?",
-      a: "At the end of 7 days, your account seamlessly transitions to read-only mode if you choose not to upgrade. We will never automatically charge you because no credit card is required to sign up. All your created invoices, quotations, and client records remain 100% safe, readable, and exportable as CSV or PDF forever.",
+      q: "What happens when my 30-day free trial ends?",
+      a: "At the end of 30 days, your account seamlessly transitions to read-only mode if you choose not to upgrade. We will never automatically charge you because no credit card is required to sign up. All your created invoices, quotations, and client records remain 100% safe, readable, and exportable as CSV or PDF forever.",
     },
     {
       q: "Can I switch between monthly and annual plans later?",
@@ -147,13 +136,13 @@ export default function PricingPage() {
       <section className="max-w-4xl mx-auto px-4 sm:px-6 pt-10 sm:pt-14 text-center space-y-4">
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/80 shadow-2xs">
           <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
-          <span>7 Days Free • No Credit Card Required</span>
+          <span>30 Days Free • No Credit Card Required</span>
         </div>
         <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-slate-900">
           Simple, Flat Pricing for Growing Businesses
         </h1>
         <p className="text-xs sm:text-base text-slate-500 max-w-xl mx-auto font-medium">
-          Start with full unrestricted access for 7 days. Upgrade anytime to enjoy unlimited compliant GST invoicing and automated client collection tracking.
+          Start with full unrestricted access for 30 days (1 month). Upgrade anytime to enjoy unlimited compliant GST invoicing and automated client collection tracking.
         </p>
 
         {/* Monthly vs Annual Toggle */}
@@ -195,7 +184,7 @@ export default function PricingPage() {
 
       {/* Pricing Cards Grid */}
       <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-10 sm:pt-14 grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 items-stretch">
-        {/* Tier 1: 7-Day Free Trial */}
+        {/* Tier 1: 30-Day Free Trial */}
         <div className="clay-card p-6 sm:p-8 bg-white flex flex-col justify-between border-slate-200/90 relative">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -204,21 +193,21 @@ export default function PricingPage() {
               </span>
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-50 text-blue-700 border border-blue-200">
                 <Clock className="h-3 w-3" />
-                7 Days Full Access
+                30 Days Full Access
               </span>
             </div>
 
             <div>
-              <h3 className="text-xl font-black text-slate-900">7-Day Free Trial</h3>
+              <h3 className="text-xl font-black text-slate-900">1-Month Free Trial</h3>
               <p className="text-xs text-slate-500 mt-1 font-medium">
-                Experience all premium features with zero commitment.
+                Experience all premium features for 30 days with zero commitment.
               </p>
             </div>
 
             <div className="pt-2 pb-1">
               <div className="flex items-baseline gap-1">
                 <span className="text-3xl sm:text-4xl font-black text-slate-900">₹0</span>
-                <span className="text-xs font-bold text-slate-400">/ 7 days</span>
+                <span className="text-xs font-bold text-slate-400">/ 30 days</span>
               </div>
               <span className="text-[11px] font-semibold text-emerald-600 block mt-0.5">
                 No credit card needed
@@ -258,9 +247,9 @@ export default function PricingPage() {
             ) : (
               <Link
                 href="/signup"
-                className="w-full inline-flex items-center justify-center gap-2 h-11 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition-all shadow-2xs"
+                className="w-full inline-flex items-center justify-center gap-2 h-11 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition-all shadow-2xs app-press"
               >
-                <span>Start 7-Day Free Trial</span>
+                <span>Start 30-Day Free Trial</span>
                 <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             )}
@@ -344,17 +333,16 @@ export default function PricingPage() {
             {isPaid && !isEnterprise ? (
               <div className="w-full inline-flex items-center justify-center gap-2 h-11 px-4 rounded-xl bg-emerald-100 text-emerald-900 font-black text-xs border border-emerald-300">
                 <CheckCircle2 className="h-4 w-4 text-emerald-700" />
-                <span>Your Current Plan (Active)</span>
+                <span>{isLifetime ? "Your Current Plan (Lifetime Active)" : "Your Current Plan (Active)"}</span>
               </div>
             ) : (
               <button
                 type="button"
-                onClick={() => handleUpgrade(billingInterval === "yearly" ? "pro_annual" : "pro_monthly")}
-                disabled={upgrading}
-                className="clay-btn-emerald w-full inline-flex items-center justify-center gap-2 h-11 px-4 rounded-xl font-bold text-xs shadow-md cursor-pointer disabled:opacity-50 active:scale-[0.99]"
+                onClick={() => handleInitiateUpgrade(billingInterval === "yearly" ? "pro_annual" : "pro_monthly")}
+                className="clay-btn-emerald w-full inline-flex items-center justify-center gap-2 h-11 px-4 rounded-xl font-bold text-xs shadow-md cursor-pointer app-press active:scale-[0.99]"
               >
                 <Sparkles className="h-3.5 w-3.5" />
-                <span>{upgrading ? "Upgrading..." : "Upgrade to Pro Business"}</span>
+                <span>Upgrade to Pro Business</span>
                 <ArrowRight className="h-3.5 w-3.5" />
               </button>
             )}
@@ -428,9 +416,8 @@ export default function PricingPage() {
             ) : (
               <button
                 type="button"
-                onClick={() => handleUpgrade("enterprise")}
-                disabled={upgrading}
-                className="w-full inline-flex items-center justify-center gap-2 h-11 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-all shadow-xs cursor-pointer disabled:opacity-50 active:scale-[0.99]"
+                onClick={() => handleInitiateUpgrade("enterprise")}
+                className="w-full inline-flex items-center justify-center gap-2 h-11 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-all shadow-xs cursor-pointer active:scale-[0.99] app-press"
               >
                 <span>Upgrade to Enterprise</span>
                 <ArrowRight className="h-3.5 w-3.5" />
@@ -439,6 +426,18 @@ export default function PricingPage() {
           </div>
         </div>
       </section>
+
+      {/* Official UPI Checkout Modal */}
+      {selectedPlanForCheckout && (
+        <UpiCheckoutModal
+          isOpen={Boolean(selectedPlanForCheckout)}
+          plan={selectedPlanForCheckout}
+          onClose={() => setSelectedPlanForCheckout(null)}
+          onSuccess={() => {
+            refreshTenantData();
+          }}
+        />
+      )}
 
       {/* Upgrade Celebration Modal */}
       {upgradedPlan && (
@@ -599,14 +598,14 @@ export default function PricingPage() {
             Ready to Take Control of Your Billing?
           </h2>
           <p className="text-xs sm:text-sm text-emerald-100 max-w-md mx-auto font-medium">
-            Join thousands of service providers, agencies, freelancers, consultants, contractors, retail shops, and SMBs across India. Start your 7-day free trial in 60 seconds.
+            Join thousands of service providers, agencies, freelancers, consultants, contractors, retail shops, and SMBs across India. Start your 30-day free trial in 60 seconds.
           </p>
           <div className="pt-2">
             <Link
               href="/signup"
-              className="inline-flex items-center justify-center gap-2 h-11 px-6 rounded-xl bg-white text-emerald-900 hover:bg-emerald-50 font-extrabold text-xs sm:text-sm transition-all shadow-md cursor-pointer active:scale-[0.99]"
+              className="inline-flex items-center justify-center gap-2 h-11 px-6 rounded-xl bg-white text-emerald-900 hover:bg-emerald-50 font-extrabold text-xs sm:text-sm transition-all shadow-md cursor-pointer active:scale-[0.99] app-press"
             >
-              <span>Start 7-Day Free Trial</span>
+              <span>Start 30-Day Free Trial</span>
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>

@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
 
       if (!sub) {
         const createdMs = new Date(t.created_at).getTime();
-        const trialEndMs = createdMs + 7 * 24 * 60 * 60 * 1000;
+        const trialEndMs = createdMs + 30 * 24 * 60 * 60 * 1000;
         const isPastTrial = Date.now() > trialEndMs;
 
         sub = {
@@ -183,11 +183,11 @@ export async function PATCH(request: NextRequest) {
       plan: "trial",
       status: "trial_active",
       trialStartDate: new Date().toISOString(),
-      trialEndDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      trialEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     };
 
     if (action === "extend_trial") {
-      const days = Number(additionalDays) || 7;
+      const days = Number(additionalDays) || 30;
       const currentEnd = currentSub.trialEndDate ? new Date(currentSub.trialEndDate).getTime() : Date.now();
       const newEnd = new Date(Math.max(Date.now(), currentEnd) + days * 24 * 60 * 60 * 1000).toISOString();
 
@@ -198,10 +198,12 @@ export async function PATCH(request: NextRequest) {
         trialEndDate: newEnd,
       };
     } else if (action === "set_pro") {
+      // Lifetime Pro granted by Admin Dashboard
       currentSub = {
-        plan: plan || "pro_monthly",
+        plan: plan || "pro_lifetime",
         status: "active",
-        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        isLifetime: true,
+        currentPeriodEnd: "2099-12-31T23:59:59.999Z",
       };
     }
 

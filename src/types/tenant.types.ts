@@ -36,26 +36,29 @@ export interface BusinessSettings {
   onboarding_checklist_dismissed_at?: string;
 }
 
-export type SubscriptionPlan = "trial" | "free" | "pro_monthly" | "pro_annual" | "enterprise";
+export type SubscriptionPlan = "trial" | "free" | "pro_monthly" | "pro_annual" | "enterprise" | "pro_lifetime";
 export type SubscriptionStatus = "trial_active" | "trial_expired" | "active" | "cancelled";
 
 export type TrialLifecycleState =
-  | "TRIAL_ACTIVE_EARLY"    // Days 1–4: Informational slate chip, quiet experience
-  | "TRIAL_ACTIVE_MID"      // Days 5–6: Amber chip, 1 slim dismissible usage banner
-  | "TRIAL_LAST_DAY"        // Day 7: Warm coral chip, 1-time value summary modal
+  | "TRIAL_ACTIVE_EARLY"    // Days 1–25: Informational slate chip, quiet experience
+  | "TRIAL_ACTIVE_MID"      // Final days: Amber chip, 1 slim dismissible usage banner
+  | "TRIAL_LAST_DAY"        // Final 24h: Warm coral chip, 1-time value summary modal
   | "TRIAL_EXPIRED_GRACE"   // 48h post-expiry: Persistent non-blocking coral banner, full access
   | "TRIAL_EXPIRED_LOCKED"  // Post-grace: Soft paywall on create/edit, read/export always allowed
-  | "SUBSCRIBED_ACTIVE"     // Active paid subscription
+  | "SUBSCRIBED_ACTIVE"     // Active paid subscription (Monthly, Annual, Enterprise, or Lifetime)
   | "DOWNGRADED_FREE";      // Explicitly chosen Free Tier
 
 export interface SubscriptionInfo {
   plan: SubscriptionPlan;
   status: SubscriptionStatus;
+  isLifetime?: boolean;
   trialStartDate?: string;
   trialEndDate?: string;
   currentPeriodEnd?: string;
   gracePeriodEndsAt?: string;
   downgradeChoiceMadeAt?: string;
+  utrNumber?: string;
+  paymentMethod?: string;
   dismissedBanners?: {
     day5Banner?: string;
     lastDayModal?: string;

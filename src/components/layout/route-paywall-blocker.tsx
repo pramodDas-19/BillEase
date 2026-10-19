@@ -33,7 +33,7 @@ export function RoutePaywallBlocker({
       </h2>
 
       <p className="text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
-        Your 7-day Pro trial has ended. To continue generating unlimited GST-compliant {documentType.toLowerCase()}s, automated payment reminders, and receipts, please choose a plan.
+        Your 30-day Pro trial has ended. To continue generating unlimited GST-compliant {documentType.toLowerCase()}s, automated payment reminders, and receipts, please choose a plan.
       </p>
 
       {/* Safety Guarantee Callout */}

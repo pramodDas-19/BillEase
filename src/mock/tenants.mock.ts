@@ -84,7 +84,7 @@ export const MOCK_TENANTS: Tenant[] = [
       plan: "trial",
       status: "trial_active",
       trialStartDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      trialEndDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+      trialEndDate: new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString(),
     },
     createdAt: "2026-09-01T10:00:00.000Z",
     updatedAt: new Date().toISOString(),
