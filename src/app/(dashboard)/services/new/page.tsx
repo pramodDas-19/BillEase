@@ -4,16 +4,13 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CatalogService } from "@/services/service.service";
+import { validateService, STANDARD_GST_SLABS } from "@/validations/service.schema";
 import { cn } from "@/lib/utils";
 
 import {
   ArrowLeft,
-  Package,
-  Plus,
   Save,
-  Tag,
-  Check,
-  Percent,
+  AlertCircle,
 } from "lucide-react";
 
 const STANDARD_CATEGORIES = [
@@ -57,6 +54,7 @@ export default function NewServicePage() {
   const [taxRate, setTaxRate] = useState("18");
   const [description, setDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     async function loadCategories() {
@@ -82,18 +80,6 @@ export default function NewServicePage() {
     }
   };
 
-  const handleSaveCustomCategory = () => {
-    const trimmed = customCategoryInput.trim();
-    if (trimmed) {
-      if (!categories.includes(trimmed)) {
-        setCategories((prev) => [...prev, trimmed]);
-      }
-      setSelectedCategory(trimmed);
-      setIsAddingCustomCategory(false);
-      setCustomCategoryInput("");
-    }
-  };
-
   const handleUnitChange = (val: string) => {
     if (val === "__ADD_NEW_UNIT__") {
       setIsAddingCustomUnit(true);
@@ -104,21 +90,8 @@ export default function NewServicePage() {
     }
   };
 
-  const handleSaveCustomUnit = () => {
-    const trimmed = customUnitInput.trim();
-    if (trimmed) {
-      if (!units.includes(trimmed)) {
-        setUnits((prev) => [...prev, trimmed]);
-      }
-      setSelectedUnit(trimmed);
-      setIsAddingCustomUnit(false);
-      setCustomUnitInput("");
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
 
     const categoryToSave = isAddingCustomCategory
       ? customCategoryInput.trim() || selectedCategory || "General"
@@ -127,9 +100,26 @@ export default function NewServicePage() {
     const parsedRate = parseFloat(defaultRate);
     const parsedTax = parseFloat(taxRate);
 
+    // Formal Schema Validation
+    const errors = validateService({
+      name: serviceName,
+      category: categoryToSave,
+      rate: isNaN(parsedRate) ? 0 : parsedRate,
+      gstRate: isNaN(parsedTax) ? 0 : parsedTax,
+      hsnSac: hsnCode,
+    });
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+
+    setFormErrors({});
+    setIsSubmitting(true);
+
     try {
       await CatalogService.createService({
-        name: serviceName,
+        name: serviceName.trim(),
         category: categoryToSave,
         rate: isNaN(parsedRate) ? 0 : parsedRate,
         unit: isAddingCustomUnit ? customUnitInput.trim() : (selectedUnit || ""),
@@ -140,7 +130,6 @@ export default function NewServicePage() {
       });
 
       router.push("/services");
-
     } catch (err) {
       console.error("Failed to create service:", err);
       setIsSubmitting(false);
@@ -176,16 +165,28 @@ export default function NewServicePage() {
           <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
             Item / Service Name <span className="text-rose-500">*</span>
           </label>
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="e.g. Website Design, Consultation, Banner Print"
-              value={serviceName}
-              onChange={(e) => setServiceName(e.target.value)}
-              required
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 font-semibold placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-2xs"
-            />
-          </div>
+          <input
+            type="text"
+            placeholder="e.g. Website Design, Consultation, Banner Print"
+            value={serviceName}
+            onChange={(e) => {
+              setServiceName(e.target.value);
+              if (formErrors.name) setFormErrors((prev) => ({ ...prev, name: "" }));
+            }}
+            required
+            className={cn(
+              "w-full rounded-xl border bg-white px-4 py-2.5 text-sm text-slate-900 font-semibold placeholder:text-slate-400 focus:outline-none focus:ring-2 shadow-2xs",
+              formErrors.name
+                ? "border-rose-400 focus:ring-rose-400/20"
+                : "border-slate-200 focus:border-emerald-500 focus:ring-emerald-500/20"
+            )}
+          />
+          {formErrors.name && (
+            <p className="text-xs text-rose-500 font-medium flex items-center gap-1 mt-1">
+              <AlertCircle className="h-3.5 w-3.5" />
+              <span>{formErrors.name}</span>
+            </p>
+          )}
         </div>
 
         {/* Dynamic Category & Unit */}
@@ -199,8 +200,11 @@ export default function NewServicePage() {
               {!isAddingCustomCategory && (
                 <button
                   type="button"
-                  onClick={() => setIsAddingCustomCategory(true)}
-                  className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer"
+                  onClick={() => {
+                    setIsAddingCustomCategory(true);
+                    setCustomCategoryInput("");
+                  }}
+                  className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 transition-colors cursor-pointer"
                 >
                   + Add Custom Category
                 </button>
@@ -211,22 +215,22 @@ export default function NewServicePage() {
               <div className="flex items-center gap-2">
                 <input
                   type="text"
-                  placeholder="Type new category..."
+                  placeholder="Enter category name"
                   value={customCategoryInput}
                   onChange={(e) => setCustomCategoryInput(e.target.value)}
                   autoFocus
-                  required={categories.length === 0}
-                  className="w-full rounded-xl border border-emerald-500 bg-white px-4 py-2 text-sm text-slate-900 font-semibold placeholder:text-slate-400 focus:outline-none shadow-2xs"
+                  className="w-full rounded-xl border border-emerald-300 bg-emerald-50/20 px-4 py-2 text-sm text-slate-900 font-semibold focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-2xs"
                 />
-                {categories.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setIsAddingCustomCategory(false)}
-                    className="text-xs text-slate-400 hover:text-slate-600 px-2 py-2 cursor-pointer font-bold"
-                  >
-                    Cancel
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddingCustomCategory(false);
+                    setCustomCategoryInput("");
+                  }}
+                  className="text-xs text-slate-400 hover:text-slate-600 px-2 py-2 cursor-pointer font-bold shrink-0"
+                >
+                  Cancel
+                </button>
               </div>
             ) : (
               <select
@@ -240,26 +244,28 @@ export default function NewServicePage() {
                   </option>
                 ))}
                 <option value="__ADD_NEW__" className="font-bold text-emerald-600">
-                  + Add Custom Category...
+                  + Add New Category...
                 </option>
               </select>
             )}
           </div>
 
-          {/* Unit (Optional) */}
+          {/* Dynamic Unit of Measure */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                <span>Unit of Measure</span>
-                <span className="text-[10px] text-slate-400 font-medium lowercase">(optional)</span>
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                Unit of Measure
               </label>
               {!isAddingCustomUnit && (
                 <button
                   type="button"
-                  onClick={() => setIsAddingCustomUnit(true)}
-                  className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer"
+                  onClick={() => {
+                    setIsAddingCustomUnit(true);
+                    setCustomUnitInput("");
+                  }}
+                  className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 transition-colors cursor-pointer"
                 >
-                  + Add Unit
+                  + Add Custom Unit
                 </button>
               )}
             </div>
@@ -268,16 +274,19 @@ export default function NewServicePage() {
               <div className="flex items-center gap-2">
                 <input
                   type="text"
-                  placeholder="e.g. Kg, Bundle, Roll..."
+                  placeholder="e.g. Session, Box, Roll"
                   value={customUnitInput}
                   onChange={(e) => setCustomUnitInput(e.target.value)}
                   autoFocus
-                  className="w-full rounded-xl border border-emerald-500 bg-white px-4 py-2 text-sm text-slate-900 font-semibold placeholder:text-slate-400 focus:outline-none shadow-2xs"
+                  className="w-full rounded-xl border border-emerald-300 bg-emerald-50/20 px-4 py-2 text-sm text-slate-900 font-semibold focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-2xs"
                 />
                 <button
                   type="button"
-                  onClick={() => setIsAddingCustomUnit(false)}
-                  className="text-xs text-slate-400 hover:text-slate-600 px-2 py-2 cursor-pointer font-bold"
+                  onClick={() => {
+                    setIsAddingCustomUnit(false);
+                    setCustomUnitInput("");
+                  }}
+                  className="text-xs text-slate-400 hover:text-slate-600 px-2 py-2 cursor-pointer font-bold shrink-0"
                 >
                   Cancel
                 </button>
@@ -288,7 +297,7 @@ export default function NewServicePage() {
                 onChange={(e) => handleUnitChange(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 font-semibold focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-2xs cursor-pointer"
               >
-                <option value="">None (Flat / Lump sum)</option>
+                <option value="">None (Flat Rate)</option>
                 {units.map((u) => (
                   <option key={u} value={u}>
                     {u}
@@ -300,7 +309,6 @@ export default function NewServicePage() {
               </select>
             )}
           </div>
-
         </div>
 
         {/* Rate, HSN, Tax */}
@@ -310,17 +318,29 @@ export default function NewServicePage() {
             <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
               Standard Rate (₹) <span className="text-rose-500">*</span>
             </label>
-            <div className="relative">
-              <input
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                value={defaultRate}
-                onChange={(e) => setDefaultRate(e.target.value)}
-                required
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 font-semibold placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-2xs"
-              />
-            </div>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="0.00"
+              value={defaultRate}
+              onChange={(e) => {
+                setDefaultRate(e.target.value);
+                if (formErrors.rate) setFormErrors((prev) => ({ ...prev, rate: "" }));
+              }}
+              required
+              className={cn(
+                "w-full rounded-xl border bg-white px-4 py-2.5 text-sm text-slate-900 font-semibold placeholder:text-slate-400 focus:outline-none focus:ring-2 shadow-2xs",
+                formErrors.rate
+                  ? "border-rose-400 focus:ring-rose-400/20"
+                  : "border-slate-200 focus:border-emerald-500 focus:ring-emerald-500/20"
+              )}
+            />
+            {formErrors.rate && (
+              <p className="text-xs text-rose-500 font-medium mt-1">
+                {formErrors.rate}
+              </p>
+            )}
           </div>
 
           {/* HSN / SAC Code */}
@@ -329,15 +349,26 @@ export default function NewServicePage() {
               <span>HSN / SAC Code</span>
               <span className="text-[10px] text-slate-400 font-medium lowercase">optional</span>
             </label>
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="e.g. 998311"
-                value={hsnCode}
-                onChange={(e) => setHsnCode(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 font-semibold placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-2xs"
-              />
-            </div>
+            <input
+              type="text"
+              placeholder="e.g. 998311"
+              value={hsnCode}
+              onChange={(e) => {
+                setHsnCode(e.target.value);
+                if (formErrors.hsnSac) setFormErrors((prev) => ({ ...prev, hsnSac: "" }));
+              }}
+              className={cn(
+                "w-full rounded-xl border bg-white px-4 py-2.5 text-sm text-slate-900 font-semibold placeholder:text-slate-400 focus:outline-none focus:ring-2 shadow-2xs",
+                formErrors.hsnSac
+                  ? "border-rose-400 focus:ring-rose-400/20"
+                  : "border-slate-200 focus:border-emerald-500 focus:ring-emerald-500/20"
+              )}
+            />
+            {formErrors.hsnSac && (
+              <p className="text-xs text-rose-500 font-medium mt-1">
+                {formErrors.hsnSac}
+              </p>
+            )}
           </div>
 
           {/* GST Tax Rate */}
@@ -359,6 +390,26 @@ export default function NewServicePage() {
           </div>
         </div>
 
+        {/* Quick Indian GST Slabs */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[10px] uppercase font-bold text-slate-400 mr-1">Quick GST Slabs:</span>
+          {STANDARD_GST_SLABS.map((slab) => (
+            <button
+              key={slab}
+              type="button"
+              onClick={() => setTaxRate(slab.toString())}
+              className={cn(
+                "clay-tag px-3 py-1 text-xs font-bold rounded-lg border transition-all cursor-pointer",
+                taxRate === slab.toString()
+                  ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                  : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+              )}
+            >
+              {slab}%
+            </button>
+          ))}
+        </div>
+
         {/* Description */}
         <div className="space-y-1.5">
           <label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center justify-between">
@@ -375,11 +426,11 @@ export default function NewServicePage() {
         </div>
 
         {/* Bottom Actions */}
-        <div className="flex items-center justify-end gap-3 pt-5 border-t border-slate-100">
-          <Link href="/services">
+        <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-3 pt-5 border-t border-slate-100">
+          <Link href="/services" className="w-full sm:w-auto">
             <button
               type="button"
-              className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              className="w-full sm:w-auto px-5 py-2.5 min-h-[42px] rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer text-center"
             >
               Cancel
             </button>
@@ -387,7 +438,7 @@ export default function NewServicePage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="clay-btn-emerald inline-flex items-center gap-2 h-11 px-6 font-bold text-xs sm:text-sm rounded-2xl cursor-pointer"
+            className="w-full sm:w-auto clay-btn-emerald inline-flex items-center justify-center gap-2 h-11 px-6 font-bold text-xs sm:text-sm rounded-2xl cursor-pointer"
           >
             <Save className="h-4 w-4" />
             <span>{isSubmitting ? "Saving Service..." : "Save Service Item"}</span>

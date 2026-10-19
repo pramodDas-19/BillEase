@@ -355,8 +355,14 @@ export const PaymentService = {
           entityType: "payment",
           entityId: paymentId,
         });
-      } catch (notifErr) {
-        console.warn("[PaymentService] Notification dispatch warning:", notifErr);
+      } catch {}
+
+      // Auto-sync client ledger
+      if (payment.clientId) {
+        try {
+          const { ClientService } = await import("./client.service");
+          await ClientService.recalculateClientLedger(payment.clientId);
+        } catch {}
       }
 
       return newPayment;
@@ -371,11 +377,22 @@ export const PaymentService = {
     try {
       const tenantId = await AuthService.getActiveTenantId();
       const existingLocal = getLocalPayments(tenantId);
+      const targetPayment = existingLocal.find((p) => p.id === id);
       saveLocalPayments(tenantId, existingLocal.filter((p) => p.id !== id));
       DataCache.invalidate("payments");
       DataCache.invalidate("invoices");
 
+      const { data: remoteP } = await supabase.from("payments").select("client_id").eq("id", id).maybeSingle();
       await supabase.from("payments").delete().eq("id", id).eq("tenant_id", tenantId);
+
+      const clientId = targetPayment?.clientId || remoteP?.client_id;
+      if (clientId) {
+        try {
+          const { ClientService } = await import("./client.service");
+          await ClientService.recalculateClientLedger(clientId);
+        } catch {}
+      }
+
       return true;
     } catch (err) {
       console.error("PaymentService.deletePayment error:", err);

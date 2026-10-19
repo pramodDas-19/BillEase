@@ -1,11 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Client } from "@/types";
 import { ClientService } from "@/services/client.service";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Edit3, X, Save, User, Tag, Plus } from "lucide-react";
+import { Edit3, X, Save, User, Tag, Plus, AlertCircle } from "lucide-react";
+import { validateClient } from "@/validations/client.schema";
+import { GST_STATE_CODES } from "@/lib/gst-engine";
+import { cn } from "@/lib/utils";
 
 interface ClientEditDialogProps {
   isOpen: boolean;
@@ -21,6 +23,8 @@ export function ClientEditDialog({
   onClientUpdated,
 }: ClientEditDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorNotice, setErrorNotice] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const [name, setName] = useState("");
   const [companyName, setCompanyName] = useState("");
@@ -41,8 +45,18 @@ export function ClientEditDialog({
       setAddress(client.address || "");
       setTags(client.segmentTags || []);
       setNewTagInput("");
+      setFieldErrors({});
+      setErrorNotice(null);
     }
   }, [client]);
+
+  const detectedState = useMemo(() => {
+    if (gstin && gstin.trim().length >= 2) {
+      const code = gstin.trim().substring(0, 2);
+      return GST_STATE_CODES[code] ? { code, name: GST_STATE_CODES[code] } : null;
+    }
+    return null;
+  }, [gstin]);
 
   if (!isOpen || !client) return null;
 
@@ -60,6 +74,23 @@ export function ClientEditDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorNotice(null);
+
+    const validationErrors = validateClient({
+      name,
+      companyName,
+      phone,
+      email,
+      gstin,
+    });
+
+    if (Object.keys(validationErrors).length > 0) {
+      setFieldErrors(validationErrors);
+      setErrorNotice("Please resolve the highlighted field errors before saving.");
+      return;
+    }
+
+    setFieldErrors({});
     setIsSubmitting(true);
 
     try {
@@ -89,24 +120,25 @@ export function ClientEditDialog({
         });
         onClose();
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to update client:", err);
+      setErrorNotice(err?.message || "Failed to update client profile.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in-50 duration-200">
-      <div className="clay-card relative z-10 w-full max-w-xl bg-white rounded-3xl p-7 sm:p-8 shadow-2xl border border-slate-200/90 space-y-6 animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in-50 duration-200">
+      <div className="clay-card relative z-10 w-full max-w-xl max-h-[90vh] overflow-y-auto bg-white rounded-3xl p-5 sm:p-8 shadow-2xl border border-slate-200/90 space-y-5 animate-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-4 sticky top-0 bg-white z-10">
           <div className="flex items-center gap-3">
             <div className="clay-icon-squircle p-2.5 rounded-2xl bg-blue-50 text-blue-700 border border-blue-200">
               <User className="h-4 w-4" />
             </div>
             <div>
-              <h3 className="text-lg font-extrabold text-slate-900 tracking-tight">
+              <h3 className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight">
                 Edit Client Profile
               </h3>
               <p className="text-xs text-slate-400 font-medium mt-0.5">
@@ -123,24 +155,55 @@ export function ClientEditDialog({
           </button>
         </div>
 
+        {/* Global Error Banner */}
+        {errorNotice && (
+          <div className="rounded-xl border border-rose-500/30 bg-rose-50 p-3 flex items-start gap-2 text-rose-800 text-xs font-semibold">
+            <AlertCircle className="h-4 w-4 text-rose-500 shrink-0 mt-0.5" />
+            <span>{errorNotice}</span>
+          </div>
+        )}
+
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Row 1: Name & Phone */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input
-              label="Client Name *"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              className="rounded-xl font-semibold"
-            />
-            <Input
-              label="WhatsApp Phone *"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              required
-              className="rounded-xl font-semibold"
-            />
+            <div>
+              <Input
+                label="Client Name *"
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: "" }));
+                }}
+                required
+                className={cn(
+                  "rounded-xl font-semibold",
+                  fieldErrors.name && "border-rose-500 focus:ring-rose-500/20"
+                )}
+              />
+              {fieldErrors.name && (
+                <p className="text-[11px] text-rose-500 font-semibold mt-1">{fieldErrors.name}</p>
+              )}
+            </div>
+
+            <div>
+              <Input
+                label="WhatsApp Phone *"
+                value={phone}
+                onChange={(e) => {
+                  setPhone(e.target.value);
+                  if (fieldErrors.phone) setFieldErrors((prev) => ({ ...prev, phone: "" }));
+                }}
+                required
+                className={cn(
+                  "rounded-xl font-semibold",
+                  fieldErrors.phone && "border-rose-500 focus:ring-rose-500/20"
+                )}
+              />
+              {fieldErrors.phone && (
+                <p className="text-[11px] text-rose-500 font-semibold mt-1">{fieldErrors.phone}</p>
+              )}
+            </div>
           </div>
 
           {/* Row 2: Company & Email */}
@@ -152,25 +215,54 @@ export function ClientEditDialog({
               onChange={(e) => setCompanyName(e.target.value)}
               className="rounded-xl font-semibold"
             />
-            <Input
-              label="Email Address"
-              type="email"
-              placeholder="client@domain.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="rounded-xl font-semibold"
-            />
+            <div>
+              <Input
+                label="Email Address"
+                type="email"
+                placeholder="client@domain.com"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: "" }));
+                }}
+                className={cn(
+                  "rounded-xl font-semibold",
+                  fieldErrors.email && "border-rose-500 focus:ring-rose-500/20"
+                )}
+              />
+              {fieldErrors.email && (
+                <p className="text-[11px] text-rose-500 font-semibold mt-1">{fieldErrors.email}</p>
+              )}
+            </div>
           </div>
 
           {/* Row 3: GSTIN & Address */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input
-              label="Client GSTIN (optional)"
-              placeholder="27AAAAA0000A1Z5"
-              value={gstin}
-              onChange={(e) => setGstin(e.target.value.toUpperCase())}
-              className="rounded-xl font-semibold uppercase"
-            />
+            <div>
+              <Input
+                label="Client GSTIN (optional)"
+                placeholder="27AAAAA0000A1Z5"
+                value={gstin}
+                onChange={(e) => {
+                  setGstin(e.target.value.toUpperCase());
+                  if (fieldErrors.gstin) setFieldErrors((prev) => ({ ...prev, gstin: "" }));
+                }}
+                maxLength={15}
+                className={cn(
+                  "rounded-xl font-semibold uppercase",
+                  fieldErrors.gstin && "border-rose-500 focus:ring-rose-500/20"
+                )}
+              />
+              {detectedState && (
+                <div className="flex items-center gap-1.5 mt-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 w-fit">
+                  <span>📍 State: {detectedState.name} ({detectedState.code})</span>
+                </div>
+              )}
+              {fieldErrors.gstin && (
+                <p className="text-[11px] text-rose-500 font-semibold mt-1">{fieldErrors.gstin}</p>
+              )}
+            </div>
+
             <Input
               label="Billing Address / City"
               placeholder="Street, City, State"
@@ -231,19 +323,19 @@ export function ClientEditDialog({
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+          {/* Action Buttons (Sticky & full width on mobile) */}
+          <div className="pt-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 sticky bottom-0 bg-white pb-1">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              className="w-full sm:w-auto px-5 py-2.5 min-h-[44px] rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer text-center"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="clay-btn-emerald inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold text-white shadow-md cursor-pointer"
+              className="w-full sm:w-auto clay-btn-emerald inline-flex items-center justify-center gap-2 px-6 py-2.5 min-h-[44px] rounded-xl text-xs sm:text-sm font-bold text-white shadow-md cursor-pointer"
             >
               <Save className="h-4 w-4" />
               <span>{isSubmitting ? "Saving..." : "Save Changes"}</span>

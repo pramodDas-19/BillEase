@@ -1,4 +1,5 @@
-import { SignJWT, jwtVerify } from "jose";
+import { SignJWT } from "jose/jwt/sign";
+import { jwtVerify } from "jose/jwt/verify";
 import { NextRequest } from "next/server";
 
 export const ADMIN_COOKIE_NAME = "billease_admin_token";

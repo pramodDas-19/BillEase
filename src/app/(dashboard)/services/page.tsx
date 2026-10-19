@@ -35,6 +35,7 @@ import {
   Wrench,
   Layers,
   FileSpreadsheet,
+  Clock,
 } from "lucide-react";
 
 export default function ServicesPage() {
@@ -64,8 +65,13 @@ export default function ServicesPage() {
 
   const handleDeleteService = async (id: string, name: string) => {
     if (window.confirm(`Are you sure you want to delete service "${name}"?`)) {
+      const prevList = [...servicesList];
       setServicesList((prev) => prev.filter((s) => s.id !== id));
-      await CatalogService.deleteService(id);
+      const success = await CatalogService.deleteService(id);
+      if (!success) {
+        setServicesList(prevList);
+        alert(`Failed to delete "${name}". Please check your connection and try again.`);
+      }
     }
   };
 
@@ -365,7 +371,17 @@ export default function ServicesPage() {
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {item._isPendingSync && (
+                        <span
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-amber-50 text-amber-800 border border-amber-300 shrink-0"
+                          title="Saved locally — will sync when you're back online"
+                        >
+                          <Clock className="h-2.5 w-2.5 animate-pulse text-amber-600" />
+                          Pending Sync
+                        </span>
+                      )}
+
                       {(item.hsnSac || item.hsnSacCode) && (
                         <span className="clay-tag px-2 py-0.5 text-[10px] font-bold bg-slate-50 text-slate-600 border border-slate-200/60">
                           HSN: {item.hsnSac || item.hsnSacCode}
@@ -376,7 +392,7 @@ export default function ServicesPage() {
                       <button
                         onClick={() => handleEditService(item)}
                         title={`Edit ${item.name}`}
-                        className="clay-icon-squircle flex h-8 w-8 items-center justify-center rounded-xl bg-slate-50 border border-slate-200/80 text-slate-600 hover:bg-slate-900 hover:text-white hover:border-slate-900 shadow-2xs transition-all cursor-pointer"
+                        className="clay-icon-squircle flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-xl bg-slate-50 border border-slate-200/80 text-slate-600 hover:bg-slate-900 hover:text-white hover:border-slate-900 shadow-2xs transition-all cursor-pointer"
                       >
                         <Edit3 className="h-3.5 w-3.5" />
                       </button>
@@ -385,7 +401,7 @@ export default function ServicesPage() {
                       <button
                         onClick={() => handleDeleteService(item.id, item.name)}
                         title={`Delete ${item.name}`}
-                        className="clay-icon-squircle flex h-8 w-8 items-center justify-center rounded-xl bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 shadow-2xs transition-all cursor-pointer"
+                        className="clay-icon-squircle flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-xl bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 shadow-2xs transition-all cursor-pointer"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -514,30 +530,30 @@ export default function ServicesPage() {
                           <button
                             onClick={() => handleEditService(item)}
                             title="Edit Service"
-                            className="clay-icon-squircle p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-900 hover:text-white transition-colors cursor-pointer"
+                            className="clay-icon-squircle p-2 min-h-[36px] min-w-[36px] rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-900 hover:text-white transition-colors cursor-pointer"
                           >
                             <Edit3 className="h-3.5 w-3.5" />
                           </button>
                           <Link
                             href={`/quotations/new?serviceId=${item.id}`}
                             title="Use in Quotation"
-                            className="clay-icon-squircle p-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white transition-colors"
+                            className="clay-icon-squircle p-2 min-h-[36px] min-w-[36px] rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white transition-colors"
                           >
                             <FileText className="h-3.5 w-3.5" />
                           </Link>
                           <Link
                             href={`/invoices/new?serviceId=${item.id}`}
                             title="Use in Invoice"
-                            className="clay-icon-squircle p-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white transition-colors"
+                            className="clay-icon-squircle p-2 min-h-[36px] min-w-[36px] rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white transition-colors"
                           >
                             <ReceiptText className="h-3.5 w-3.5" />
                           </Link>
                           <button
                             onClick={() => handleDeleteService(item.id, item.name)}
                             title="Delete Service"
-                            className="clay-icon-squircle p-1.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-600 hover:text-white transition-colors cursor-pointer"
+                            className="clay-icon-squircle p-2 min-h-[36px] min-w-[36px] rounded-lg bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-600 hover:text-white transition-colors cursor-pointer"
                           >
-                            <Trash2 className="h-3 w-3" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
                       </td>

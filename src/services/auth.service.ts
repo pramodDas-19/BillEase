@@ -104,7 +104,38 @@ export class AuthService {
       throw new Error(error.message);
     }
 
-    const tId = data.user?.app_metadata?.tenant_id || data.user?.user_metadata?.tenant_id;
+    let tId = data.user?.app_metadata?.tenant_id || data.user?.user_metadata?.tenant_id;
+
+    // Self-healing: if an authenticated user lacks tenant_id in app_metadata, provision it
+    if (!tId && data.session?.access_token) {
+      try {
+        const res = await fetch("/api/auth/provision-tenant", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${data.session.access_token}`,
+          },
+          body: JSON.stringify({
+            businessName: data.user?.user_metadata?.business_name || "My Business",
+            ownerName: data.user?.user_metadata?.owner_name || data.user?.email?.split("@")[0] || "Account Owner",
+            phone: data.user?.user_metadata?.phone || "",
+          }),
+        });
+
+        if (res.ok) {
+          const json = await res.json();
+          if (json.tenantId) {
+            tId = json.tenantId;
+            try {
+              await supabase.auth.refreshSession();
+            } catch {}
+          }
+        }
+      } catch (e) {
+        console.warn("Self-healing tenant provision warning on sign-in:", e);
+      }
+    }
+
     if (tId) {
       this.setActiveTenantId(tId);
     }
@@ -135,11 +166,16 @@ export class AuthService {
 
     // 2. Call server-only provision-tenant route (service-role writes app_metadata)
     try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (data.session?.access_token) {
+        headers["Authorization"] = `Bearer ${data.session.access_token}`;
+      }
+
       const res = await fetch("/api/auth/provision-tenant", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify({
           businessName: params.businessName,
           ownerName: params.ownerName,
@@ -163,6 +199,10 @@ export class AuthService {
               })
             );
           }
+          // Refresh local session so client JWT reflects app_metadata.tenant_id
+          try {
+            await supabase.auth.refreshSession();
+          } catch {}
         }
       }
     } catch (provisionErr) {
@@ -179,14 +219,17 @@ export class AuthService {
     if (typeof window !== "undefined") {
       localStorage.removeItem("billease_active_tenant_id");
       localStorage.removeItem("billease_registered_user");
+      localStorage.removeItem("billease_is_impersonating");
+      localStorage.removeItem("billease_just_registered");
+      sessionStorage.removeItem("billease_is_impersonating");
+      sessionStorage.removeItem("billease_active_tenant_id");
+      sessionStorage.removeItem("billease_just_registered");
     }
     const { error } = await supabase.auth.signOut();
     if (error) {
       console.error("Sign out error:", error);
     }
   }
-
-
 
   /**
    * Retrieves the currently authenticated user.
@@ -195,7 +238,10 @@ export class AuthService {
     const { data: { user } } = await supabase.auth.getUser();
 
     if (user) {
-      const tenantId = user.user_metadata?.tenant_id || `tenant-${user.id.slice(0, 8)}`;
+      const tenantId =
+        user.app_metadata?.tenant_id ||
+        user.user_metadata?.tenant_id ||
+        `tenant-${user.id.slice(0, 8)}`;
       this.setActiveTenantId(tenantId);
 
       return {

@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
 import { ArrowLeft, Plus, Save, Loader2 } from "lucide-react";
+import { validateQuotation } from "@/validations/quotation.schema";
 
 export default function EditQuotationPage({
   params,
@@ -129,6 +130,28 @@ export default function EditQuotationPage({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const validationErrors = validateQuotation({
+      quotationNumber: state.quotationNumber,
+      clientId: state.clientId,
+      clientName: state.clientName,
+      date: state.date,
+      validUntil: state.validUntil,
+      items: state.items,
+      totalAmount: totals.totalAmount,
+      advanceType: state.advanceType,
+      advanceValue: state.advanceValue,
+      advanceAmount,
+      discountType: state.discountType,
+      discountValue: state.discountValue,
+    });
+
+    if (Object.keys(validationErrors).length > 0) {
+      const firstError = Object.values(validationErrors)[0];
+      alert(firstError);
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {

@@ -146,6 +146,43 @@ export function TenantProvider({ children }: { children: ReactNode }) {
           .eq("id", tenantId)
           .single();
         tenantRow = row;
+
+        // Self-heal: If authenticated user has no tenant record in DB, provision automatically
+        if (authUser && !tenantRow) {
+          try {
+            const { data: sessionData } = await supabase.auth.getSession();
+            const token = sessionData?.session?.access_token;
+            if (token) {
+              const res = await fetch("/api/auth/provision-tenant", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                  businessName: authUser.user_metadata?.business_name || registeredInfo?.businessName || "My Business Studio",
+                  ownerName: authUser.user_metadata?.owner_name || registeredInfo?.ownerName || authUser.email?.split("@")[0] || "Account Owner",
+                  phone: authUser.user_metadata?.phone || registeredInfo?.phone || "",
+                }),
+              });
+              if (res.ok) {
+                const json = await res.json();
+                if (json.tenantId) {
+                  tenantId = json.tenantId;
+                  AuthService.setActiveTenantId(tenantId);
+                  const { data: newRow } = await supabase
+                    .from("tenants")
+                    .select("*")
+                    .eq("id", tenantId)
+                    .single();
+                  tenantRow = newRow;
+                }
+              }
+            }
+          } catch (healErr) {
+            console.warn("Self-healing tenant provision in TenantProvider:", healErr);
+          }
+        }
       }
 
       const businessName =

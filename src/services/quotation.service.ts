@@ -722,13 +722,44 @@ export const QuotationService = {
       await supabase.from("quotation_items").delete().eq("quotation_id", id);
       const { error } = await supabase.from("quotations").delete().eq("id", id);
       if (error) {
+        if (isNetworkError(error)) {
+          console.warn("[QuotationService] Network offline during quotation delete. Enqueuing mutation...");
+          const tenantId = await AuthService.getActiveTenantId();
+          await enqueueMutation({
+            entityType: "quotation",
+            entityId: id,
+            action: "delete",
+            tenantId,
+            payload: { id },
+            displayTitle: `Delete Quotation #${id}`,
+          });
+          DataCache.invalidate("quotations");
+          DataCache.invalidate(`quotation:${id}`);
+          return true;
+        }
         console.error("Supabase delete quotation error:", error);
         return false;
       }
       DataCache.invalidate("quotations");
       DataCache.invalidate(`quotation:${id}`);
       return true;
-    } catch (err) {
+    } catch (err: any) {
+      if (isNetworkError(err)) {
+        try {
+          const tenantId = await AuthService.getActiveTenantId();
+          await enqueueMutation({
+            entityType: "quotation",
+            entityId: id,
+            action: "delete",
+            tenantId,
+            payload: { id },
+            displayTitle: `Delete Quotation #${id}`,
+          });
+          DataCache.invalidate("quotations");
+          DataCache.invalidate(`quotation:${id}`);
+          return true;
+        } catch {}
+      }
       console.error("QuotationService.deleteQuotation error:", err);
       return false;
     }

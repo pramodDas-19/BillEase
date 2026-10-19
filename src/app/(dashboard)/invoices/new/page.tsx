@@ -83,7 +83,11 @@ function NewInvoiceContent() {
     searchParams.get("quotationId") ||
     searchParams.get("fromQuoteId") ||
     searchParams.get("fromQuote");
-  const preSelectedClientId = searchParams.get("clientId");
+  const rawClientId = searchParams.get("clientId");
+  const preSelectedClientId =
+    rawClientId && rawClientId !== "undefined" && rawClientId !== "null"
+      ? rawClientId
+      : undefined;
   const preSelectedServiceId = searchParams.get("serviceId");
 
   const [clients, setClients] = useState<Client[]>([]);
@@ -339,6 +343,29 @@ function NewInvoiceContent() {
           }
 
         } else {
+          let prefilledClientData = {};
+          if (preSelectedClientId && clientsData) {
+            const foundClient = clientsData.find((c) => c.id === preSelectedClientId);
+            if (foundClient) {
+              const detection = detectStateFromGstin(foundClient.gstin);
+              prefilledClientData = {
+                clientId: foundClient.id,
+                clientName: foundClient.name,
+                clientCompanyName: foundClient.companyName || "",
+                clientPan: foundClient.pan || "",
+                clientEmail: foundClient.email || "",
+                clientPhone: foundClient.phone,
+                clientAddress:
+                  foundClient.address ||
+                  (foundClient.billingAddress
+                    ? `${foundClient.billingAddress.street}, ${foundClient.billingAddress.city}`
+                    : ""),
+                clientGstin: foundClient.gstin || "",
+                ...(detection ? { gstType: detection.suggestedGstType } : {}),
+              };
+            }
+          }
+
           setState((prev) => ({
             ...prev,
             invoiceNumber: `${prefix}${nextNum}`,
@@ -346,6 +373,7 @@ function NewInvoiceContent() {
             isTaxEnabled: currentTenant?.settings?.enableGstByDefault ?? prev.isTaxEnabled,
             defaultTaxRate: currentTenant?.settings?.defaultTaxRate || prev.defaultTaxRate,
             termsAndConditions: prev.termsAndConditions || currentTenant?.settings?.defaultTermsAndConditions || "",
+            ...prefilledClientData,
           }));
         }
       } catch (err) {

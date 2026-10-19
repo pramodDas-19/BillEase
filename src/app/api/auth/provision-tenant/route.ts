@@ -15,29 +15,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 1. Authenticate caller from SSR request session cookies
-    const supabaseSsr = createServerClient(supabaseUrl, supabaseAnonKey, {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll() {},
-      },
-    });
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseSsr.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: "Unauthorized. Valid auth session required." },
-        { status: 401 }
-      );
-    }
-
-    // 2. Service-Role Admin Client
+    // 1. Service-Role Admin Client
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
       auth: {
         autoRefreshToken: false,
@@ -45,14 +23,62 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // 3. Idempotency Check: return existing tenant_id if already provisioned in app_metadata
+    // 2. Authenticate caller from Bearer token OR SSR request session cookies
+    let user = null;
+    const authHeader = request.headers.get("authorization") || "";
+    if (authHeader.startsWith("Bearer ")) {
+      const token = authHeader.slice(7).trim();
+      if (token) {
+        const { data: tokenUserData, error: tokenError } = await supabaseAdmin.auth.getUser(token);
+        if (!tokenError && tokenUserData?.user) {
+          user = tokenUserData.user;
+        }
+      }
+    }
+
+    if (!user) {
+      const supabaseSsr = createServerClient(supabaseUrl, supabaseAnonKey, {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll();
+          },
+          setAll() {},
+        },
+      });
+
+      const {
+        data: { user: ssrUser },
+        error: ssrAuthError,
+      } = await supabaseSsr.auth.getUser();
+
+      if (!ssrAuthError && ssrUser) {
+        user = ssrUser;
+      }
+    }
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized. Valid auth session required." },
+        { status: 401 }
+      );
+    }
+
+    // 3. Idempotency Check: if tenant_id is already in app_metadata, verify db record exists
     const existingTenantId = user.app_metadata?.tenant_id;
     if (existingTenantId) {
-      return NextResponse.json({
-        success: true,
-        tenantId: existingTenantId,
-        message: "Tenant already provisioned.",
-      });
+      const { data: existingRow } = await supabaseAdmin
+        .from("tenants")
+        .select("id")
+        .eq("id", existingTenantId)
+        .single();
+
+      if (existingRow?.id) {
+        return NextResponse.json({
+          success: true,
+          tenantId: existingTenantId,
+          message: "Tenant already provisioned.",
+        });
+      }
     }
 
     // Parse business details from request (never accept tenant_id from client)

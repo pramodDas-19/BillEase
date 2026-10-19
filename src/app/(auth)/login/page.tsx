@@ -62,20 +62,8 @@ export default function LoginPage() {
       router.push("/dashboard");
     } catch (err: any) {
       if (err.message && err.message.toLowerCase().includes("email not confirmed")) {
-        const registered = typeof window !== "undefined" ? localStorage.getItem("billease_registered_user") : null;
-        if (registered) {
-          try {
-            const parsed = JSON.parse(registered);
-            if (parsed.email && parsed.email.toLowerCase() === email.toLowerCase()) {
-              AuthService.setActiveTenantId(parsed.tenantId);
-              router.push("/dashboard");
-              return;
-            }
-          } catch (e) {}
-        }
-
         setErrorMsg(
-          "Email confirmation is pending in Supabase. Please check your email inbox or disable 'Confirm email' in your Supabase Auth dashboard."
+          "Your email address has not been confirmed yet. Please check your inbox for the verification email, or disable 'Confirm email' in your Supabase Auth dashboard."
         );
       } else {
         setErrorMsg(err.message || "Failed to sign in. Please verify your email & password.");

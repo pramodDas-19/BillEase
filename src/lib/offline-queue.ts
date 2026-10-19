@@ -4,8 +4,8 @@
 // Strictly enforces single pending mutation per record (Constraint 4).
 // ============================================================================
 
-export type MutationEntityType = "invoice" | "quotation" | "client" | "payment";
-export type MutationAction = "create" | "update";
+export type MutationEntityType = "invoice" | "quotation" | "client" | "payment" | "service";
+export type MutationAction = "create" | "update" | "delete";
 export type MutationStatus = "pending" | "retrying" | "failed";
 
 export interface PendingMutation {

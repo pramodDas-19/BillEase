@@ -1,24 +1,55 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AuthService } from "@/services/auth.service";
+import { supabase } from "@/lib/supabase/client";
 import {
   Lock,
   ArrowRight,
   ShieldCheck,
   AlertCircle,
   CheckCircle2,
+  Loader2,
 } from "lucide-react";
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isExchangingCode, setIsExchangingCode] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function initRecoverySession() {
+      try {
+        const errorDescription = searchParams.get("error_description");
+        if (errorDescription) {
+          setErrorMsg(decodeURIComponent(errorDescription));
+          setIsExchangingCode(false);
+          return;
+        }
+
+        const code = searchParams.get("code");
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) {
+            setErrorMsg(error.message || "Invalid or expired recovery code. Please request a new reset link.");
+          }
+        }
+      } catch (err: any) {
+        console.warn("Recovery code exchange warning:", err);
+      } finally {
+        setIsExchangingCode(false);
+      }
+    }
+
+    initRecoverySession();
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +83,7 @@ export default function ResetPasswordPage() {
       <div className="space-y-2 text-left">
         <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
           <ShieldCheck className="h-3 w-3" />
-          <span>Set New Password</span>
+          <span>Account Recovery</span>
         </div>
         <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
           Create New Password
@@ -61,6 +92,14 @@ export default function ResetPasswordPage() {
           Choose a strong password for your business studio account.
         </p>
       </div>
+
+      {/* Exchanging Code Loader */}
+      {isExchangingCode && (
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 flex items-center gap-2.5 text-emerald-400 text-xs font-semibold">
+          <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+          <span>Validating recovery security credentials...</span>
+        </div>
+      )}
 
       {/* Alerts */}
       {errorMsg && (
@@ -93,7 +132,8 @@ export default function ResetPasswordPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full rounded-xl border border-slate-700/80 bg-slate-900/90 pl-10 pr-4 py-3 text-sm text-white placeholder:text-slate-500 font-medium focus:border-emerald-500 focus:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all shadow-inner"
+              disabled={isExchangingCode || isLoading || !!successMsg}
+              className="w-full rounded-xl border border-slate-700/80 bg-slate-900/90 pl-10 pr-4 py-3 text-sm text-white placeholder:text-slate-500 font-medium focus:border-emerald-500 focus:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all shadow-inner disabled:opacity-60"
             />
           </div>
         </div>
@@ -112,7 +152,8 @@ export default function ResetPasswordPage() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
-              className="w-full rounded-xl border border-slate-700/80 bg-slate-900/90 pl-10 pr-4 py-3 text-sm text-white placeholder:text-slate-500 font-medium focus:border-emerald-500 focus:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all shadow-inner"
+              disabled={isExchangingCode || isLoading || !!successMsg}
+              className="w-full rounded-xl border border-slate-700/80 bg-slate-900/90 pl-10 pr-4 py-3 text-sm text-white placeholder:text-slate-500 font-medium focus:border-emerald-500 focus:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all shadow-inner disabled:opacity-60"
             />
           </div>
         </div>
@@ -120,8 +161,8 @@ export default function ResetPasswordPage() {
         <div className="pt-2">
           <button
             type="submit"
-            disabled={isLoading || !!successMsg}
-            className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/50 hover:shadow-emerald-900/60 active:scale-[0.99] transition-all cursor-pointer"
+            disabled={isExchangingCode || isLoading || !!successMsg}
+            className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/50 hover:shadow-emerald-900/60 active:scale-[0.99] transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <span>{isLoading ? "Updating..." : "Update Password & Sign In"}</span>
             <ArrowRight className="h-4 w-4" />
@@ -136,5 +177,20 @@ export default function ResetPasswordPage() {
         </Link>
       </div>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center py-12 text-slate-400 text-sm">
+          <Loader2 className="h-5 w-5 animate-spin mr-2 text-emerald-400" />
+          <span>Loading reset session...</span>
+        </div>
+      }
+    >
+      <ResetPasswordForm />
+    </Suspense>
   );
 }

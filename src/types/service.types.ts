@@ -17,6 +17,8 @@ export interface ProductOrService {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  _isPendingSync?: boolean;
+  _pendingMessage?: string;
 }
 
 export type ServiceItem = ProductOrService;

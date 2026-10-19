@@ -67,16 +67,36 @@ export default function QuotationsPage() {
 
   const handleDeleteQuote = async (id: string, quoteNum: string) => {
     if (window.confirm(`Are you sure you want to delete quotation "${quoteNum}"?`)) {
+      const backup = [...quotationsList];
       setQuotationsList((prev) => prev.filter((q) => q.id !== id));
-      await QuotationService.deleteQuotation(id);
+      try {
+        const ok = await QuotationService.deleteQuotation(id);
+        if (!ok) {
+          setQuotationsList(backup);
+          alert("Failed to delete quotation. Please try again.");
+        }
+      } catch (err) {
+        setQuotationsList(backup);
+        alert("Failed to delete quotation. Please check your network connection.");
+      }
     }
   };
 
   const handleStatusChange = async (id: string, newStatus: QuotationStatus) => {
+    const backup = [...quotationsList];
     setQuotationsList((prev) =>
       prev.map((q) => (q.id === id ? { ...q, status: newStatus } : q))
     );
-    await QuotationService.updateQuotationStatus(id, newStatus);
+    try {
+      const ok = await QuotationService.updateQuotationStatus(id, newStatus);
+      if (!ok) {
+        setQuotationsList(backup);
+        alert("Failed to update status. Please try again.");
+      }
+    } catch (err) {
+      setQuotationsList(backup);
+      alert("Failed to update status. Please check your network connection.");
+    }
   };
 
 
@@ -150,7 +170,11 @@ export default function QuotationsPage() {
 
   // Convert quotation to invoice handler
   const handleConvertToInvoice = (quote: Quotation) => {
-    router.push(`/invoices/new?fromQuoteId=${quote.id}&clientId=${quote.clientId}`);
+    const params = new URLSearchParams({ fromQuoteId: quote.id });
+    if (quote.clientId && quote.clientId !== "undefined" && quote.clientId !== "null") {
+      params.set("clientId", quote.clientId);
+    }
+    router.push(`/invoices/new?${params.toString()}`);
   };
 
   // Search & filter logic
@@ -422,9 +446,9 @@ export default function QuotationsPage() {
                     <div className="flex items-center gap-1.5 shrink-0 self-end xs:self-start pt-1 xs:pt-0">
                       {q.clientPhone && (
                         <a
-                          href={`tel:${q.clientPhone}`}
+                          href={`tel:${q.clientPhone.replace(/[^0-9+]/g, "")}`}
                           title={`Call ${q.clientName}`}
-                          className="clay-icon-squircle flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-colors"
+                          className="clay-icon-squircle flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-colors"
                         >
                           <Phone className="h-3.5 w-3.5" />
                         </a>
@@ -449,7 +473,7 @@ export default function QuotationsPage() {
                           target="_blank"
                           rel="noopener noreferrer"
                           title="Share Quote & 1-Click Pay on WhatsApp"
-                          className="clay-icon-squircle flex h-8 w-8 items-center justify-center rounded-xl bg-teal-50 border border-teal-200 text-teal-700 hover:bg-teal-600 hover:text-white hover:border-teal-600 transition-colors"
+                          className="clay-icon-squircle flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-xl bg-teal-50 border border-teal-200 text-teal-700 hover:bg-teal-600 hover:text-white hover:border-teal-600 transition-colors"
                         >
                           <MessageSquare className="h-3.5 w-3.5" />
                         </a>
@@ -458,7 +482,7 @@ export default function QuotationsPage() {
                       <button
                         onClick={() => downloadDocumentPdf(`/quotations/${q.id}/preview`)}
                         title={`Download / Print Quotation #${q.quotationNumber}`}
-                        className="clay-icon-squircle flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 shadow-2xs transition-all cursor-pointer"
+                        className="clay-icon-squircle flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 shadow-2xs transition-all cursor-pointer"
                       >
                         <Download className="h-3.5 w-3.5" />
                       </button>
@@ -466,7 +490,7 @@ export default function QuotationsPage() {
                       <Link
                         href={`/quotations/${q.id}/edit`}
                         title={`Edit Quotation #${q.quotationNumber}`}
-                        className="clay-icon-squircle flex h-8 w-8 items-center justify-center rounded-xl bg-slate-50 border border-slate-200/80 text-slate-600 hover:bg-slate-900 hover:text-white hover:border-slate-900 shadow-2xs transition-all cursor-pointer"
+                        className="clay-icon-squircle flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-xl bg-slate-50 border border-slate-200/80 text-slate-600 hover:bg-slate-900 hover:text-white hover:border-slate-900 shadow-2xs transition-all cursor-pointer"
                       >
                         <Edit3 className="h-3.5 w-3.5" />
                       </Link>
@@ -474,7 +498,7 @@ export default function QuotationsPage() {
                       <button
                         onClick={() => handleDeleteQuote(q.id, q.quotationNumber)}
                         title="Delete Quotation"
-                        className="clay-icon-squircle flex h-8 w-8 items-center justify-center rounded-xl bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 shadow-2xs transition-all cursor-pointer ml-0.5"
+                        className="clay-icon-squircle flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-xl bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 shadow-2xs transition-all cursor-pointer ml-0.5"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -525,7 +549,7 @@ export default function QuotationsPage() {
                     {q.status === "converted" ? (
                       <Link
                         href={q.convertedToInvoiceId ? `/invoices/${q.convertedToInvoiceId}` : `/invoices`}
-                        className="clay-tag flex items-center justify-center gap-1.5 py-2 text-xs font-bold bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 transition-colors"
+                        className="clay-tag flex items-center justify-center gap-1.5 min-h-[38px] py-2 px-3 text-xs font-bold bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 transition-colors"
                       >
                         <ReceiptText className="h-3.5 w-3.5 text-purple-600" />
                         <span>View Invoice</span>
@@ -533,7 +557,7 @@ export default function QuotationsPage() {
                     ) : (
                       <button
                         onClick={() => handleConvertToInvoice(q)}
-                        className="clay-tag flex items-center justify-center gap-1.5 py-2 text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-2xs transition-all cursor-pointer"
+                        className="clay-tag flex items-center justify-center gap-1.5 min-h-[38px] py-2 px-3 text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-2xs transition-all cursor-pointer"
                       >
                         <ReceiptText className="h-3.5 w-3.5 text-emerald-600" />
                         <span>To Invoice</span>
@@ -544,7 +568,7 @@ export default function QuotationsPage() {
                     {/* Preview / Details Button */}
                     <Link
                       href={`/quotations/${q.id}/preview`}
-                      className="clay-tag flex items-center justify-center gap-1.5 py-2 text-xs font-bold bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80 transition-colors"
+                      className="clay-tag flex items-center justify-center gap-1.5 min-h-[38px] py-2 px-3 text-xs font-bold bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80 transition-colors"
                     >
                       <Eye className="h-3.5 w-3.5 text-slate-500" />
                       <span>Preview PDF</span>
@@ -644,9 +668,9 @@ export default function QuotationsPage() {
                             <button
                               onClick={() => handleConvertToInvoice(q)}
                               title="Convert to Invoice"
-                              className="clay-icon-squircle p-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white transition-colors cursor-pointer"
+                              className="clay-icon-squircle flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white transition-colors cursor-pointer"
                             >
-                              <ReceiptText className="h-3 w-3" />
+                              <ReceiptText className="h-3.5 w-3.5" />
                             </button>
                           )}
 
@@ -670,9 +694,9 @@ export default function QuotationsPage() {
                               target="_blank"
                               rel="noopener noreferrer"
                               title="Share Quote & 1-Click Pay on WhatsApp"
-                              className="clay-icon-squircle p-1.5 rounded-lg bg-teal-50 text-teal-700 hover:bg-teal-600 hover:text-white transition-colors"
+                              className="clay-icon-squircle flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-xl bg-teal-50 text-teal-700 hover:bg-teal-600 hover:text-white transition-colors"
                             >
-                              <MessageSquare className="h-3 w-3" />
+                              <MessageSquare className="h-3.5 w-3.5" />
                             </a>
                           )}
 
@@ -681,36 +705,36 @@ export default function QuotationsPage() {
                           <button
                             onClick={() => downloadDocumentPdf(`/quotations/${q.id}/preview`)}
                             title="Download / Print PDF"
-                            className="clay-icon-squircle p-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white transition-colors cursor-pointer"
+                            className="clay-icon-squircle flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white transition-colors cursor-pointer"
                           >
-                            <Download className="h-3 w-3" />
+                            <Download className="h-3.5 w-3.5" />
                           </button>
 
                           {/* Preview PDF */}
                           <Link
                             href={`/quotations/${q.id}/preview`}
                             title="Preview PDF"
-                            className="clay-icon-squircle p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-900 hover:text-white transition-colors"
+                            className="clay-icon-squircle flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-900 hover:text-white transition-colors"
                           >
-                            <Eye className="h-3 w-3" />
+                            <Eye className="h-3.5 w-3.5" />
                           </Link>
 
                           {/* Edit Quote */}
                           <Link
                             href={`/quotations/${q.id}/edit`}
                             title="Edit Quotation"
-                            className="clay-icon-squircle p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-900 hover:text-white transition-colors"
+                            className="clay-icon-squircle flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-900 hover:text-white transition-colors"
                           >
-                            <Edit3 className="h-3 w-3" />
+                            <Edit3 className="h-3.5 w-3.5" />
                           </Link>
 
                           {/* Red Clay Delete */}
                           <button
                             onClick={() => handleDeleteQuote(q.id, q.quotationNumber)}
                             title="Delete Quote"
-                            className="clay-icon-squircle p-1.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-600 hover:text-white transition-colors cursor-pointer"
+                            className="clay-icon-squircle flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-xl bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-600 hover:text-white transition-colors cursor-pointer"
                           >
-                            <Trash2 className="h-3 w-3" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </button>
 
                         </div>

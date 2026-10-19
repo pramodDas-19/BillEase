@@ -322,11 +322,11 @@ export function CatalogImportModal({
         </div>
 
         {/* Bottom Actions */}
-        <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 shrink-0">
+        <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 shrink-0 w-full">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+            className="flex-1 sm:flex-none px-4 py-2.5 min-h-[38px] rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer text-center"
           >
             Cancel
           </button>
@@ -336,7 +336,7 @@ export function CatalogImportModal({
               type="button"
               onClick={handleConfirmImport}
               disabled={isImporting || importStatus === "success"}
-              className="clay-btn-emerald inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold cursor-pointer"
+              className="flex-1 sm:flex-none clay-btn-emerald inline-flex items-center justify-center gap-2 px-6 py-2.5 min-h-[38px] rounded-xl text-xs font-bold cursor-pointer"
             >
               {isImporting ? (
                 <>

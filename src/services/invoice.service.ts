@@ -513,11 +513,18 @@ export const InvoiceService = {
           entityType: "invoice",
           entityId: invoiceId,
         });
-      } catch (notifErr) {
-        console.warn("[InvoiceService] Notification dispatch warning:", notifErr);
-      }
-
+      } catch {}
       DataCache.invalidate("invoices");
+
+      // Auto-sync client ledger balances in PostgreSQL
+      if (invoice.clientId) {
+        try {
+          const { ClientService } = await import("./client.service");
+          await ClientService.recalculateClientLedger(invoice.clientId);
+        } catch (lErr) {
+          console.warn("[InvoiceService] Could not auto-sync client ledger:", lErr);
+        }
+      }
       return {
         ...invoice,
         id: invoiceId,
@@ -650,6 +657,16 @@ export const InvoiceService = {
 
       DataCache.invalidate("invoices");
       DataCache.invalidate(`invoice:${id}`);
+
+      // Auto-sync client ledger
+      const targetClientId = invPayload.client_id || invoice.clientId;
+      if (targetClientId) {
+        try {
+          const { ClientService } = await import("./client.service");
+          await ClientService.recalculateClientLedger(targetClientId);
+        } catch {}
+      }
+
       return {
         ...invoice,
         id,
@@ -685,6 +702,7 @@ export const InvoiceService = {
   // Delete an invoice
   async deleteInvoice(id: string): Promise<boolean> {
     try {
+      const { data: inv } = await supabase.from("invoices").select("client_id").eq("id", id).maybeSingle();
       await supabase.from("invoice_items").delete().eq("invoice_id", id);
       const { error } = await supabase.from("invoices").delete().eq("id", id);
       if (error) {
@@ -693,6 +711,14 @@ export const InvoiceService = {
       }
       DataCache.invalidate("invoices");
       DataCache.invalidate(`invoice:${id}`);
+
+      if (inv?.client_id) {
+        try {
+          const { ClientService } = await import("./client.service");
+          await ClientService.recalculateClientLedger(inv.client_id);
+        } catch {}
+      }
+
       return true;
     } catch (err) {
       console.error("InvoiceService.deleteInvoice error:", err);

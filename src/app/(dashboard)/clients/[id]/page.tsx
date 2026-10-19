@@ -109,6 +109,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   }
 
   const cleanPhone = formatWhatsAppPhoneNumber(client.phone);
+  const sanitizedTel = (client.phone || "").replace(/[^0-9+]/g, "");
   const hasDue = balanceDue > 0;
 
   return (
@@ -148,13 +149,13 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
           {/* Call Button */}
           {client.phone && (
             <a
-              href={`tel:${client.phone}`}
+              href={`tel:${sanitizedTel}`}
               title={`Direct call ${client.name} (${client.phone})`}
-              className="clay-icon-squircle flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-600 hover:text-white transition-all cursor-pointer"
+              className="clay-icon-squircle flex h-9 w-9 min-h-[38px] min-w-[38px] items-center justify-center rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-600 hover:text-white transition-all cursor-pointer"
             >
               <Phone className="h-4 w-4" />
             </a>
@@ -167,7 +168,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               target="_blank"
               rel="noopener noreferrer"
               title={`WhatsApp ${client.name}`}
-              className="clay-icon-squircle flex h-9 w-9 items-center justify-center rounded-xl bg-teal-50 border border-teal-200 text-teal-700 hover:bg-teal-600 hover:text-white transition-all cursor-pointer"
+              className="clay-icon-squircle flex h-9 w-9 min-h-[38px] min-w-[38px] items-center justify-center rounded-xl bg-teal-50 border border-teal-200 text-teal-700 hover:bg-teal-600 hover:text-white transition-all cursor-pointer"
             >
               <MessageSquare className="h-4 w-4" />
             </a>
@@ -187,7 +188,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               target="_blank"
               rel="noopener noreferrer"
               title={`Send WhatsApp balance reminder (${formatCurrency(balanceDue, "INR")})`}
-              className="clay-tag inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/90 shadow-2xs transition-all cursor-pointer"
+              className="clay-tag inline-flex items-center justify-center gap-1.5 px-3 py-2 min-h-[38px] text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/90 shadow-2xs transition-all cursor-pointer flex-1 sm:flex-none"
             >
               <BellRing className="h-3.5 w-3.5 text-amber-600" />
               <span>Send Reminder</span>
@@ -198,7 +199,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           <button
             onClick={() => setIsEditDialogOpen(true)}
             title="Edit Client Information"
-            className="clay-tag inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80 shadow-2xs transition-all cursor-pointer"
+            className="clay-tag inline-flex items-center justify-center gap-1.5 px-3 py-2 min-h-[38px] text-xs font-bold bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80 shadow-2xs transition-all cursor-pointer flex-1 sm:flex-none"
           >
             <Edit3 className="h-3.5 w-3.5 text-slate-500" />
             <span>Edit Profile</span>
@@ -207,7 +208,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           {/* Create Quote Button */}
           <Link
             href={`/quotations/new?clientId=${client.id}`}
-            className="clay-tag inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 shadow-2xs transition-all"
+            className="clay-tag inline-flex items-center justify-center gap-1.5 px-3 py-2 min-h-[38px] text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 shadow-2xs transition-all flex-1 sm:flex-none"
           >
             <FileText className="h-3.5 w-3.5 text-blue-600" />
             <span>+ Quote</span>
@@ -216,7 +217,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           {/* Create Invoice Button */}
           <Link
             href={`/invoices/new?clientId=${client.id}`}
-            className="clay-btn-primary inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold"
+            className="clay-btn-primary inline-flex items-center justify-center gap-1.5 px-4 py-2 min-h-[38px] rounded-xl text-xs font-bold flex-1 sm:flex-none"
           >
             <Plus className="h-3.5 w-3.5" />
             <span>+ Invoice</span>
@@ -333,10 +334,16 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           <div className="space-y-3 text-xs text-slate-600">
             <div>
               <span className="block text-[10px] uppercase font-bold text-slate-400">Phone</span>
-              <p className="flex items-center gap-2 font-semibold text-slate-800 mt-0.5">
-                <Phone className="h-3.5 w-3.5 text-slate-400" />
-                <span>{client.phone}</span>
-              </p>
+              <div className="flex items-center gap-2 font-semibold text-slate-800 mt-0.5">
+                <Phone className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                <a
+                  href={`tel:${sanitizedTel}`}
+                  className="hover:text-emerald-700 transition-colors"
+                  title={`Call ${client.phone}`}
+                >
+                  {client.phone}
+                </a>
+              </div>
             </div>
 
             {client.email && (
@@ -344,7 +351,13 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                 <span className="block text-[10px] uppercase font-bold text-slate-400">Email</span>
                 <p className="flex items-center gap-2 font-semibold text-slate-800 mt-0.5 truncate">
                   <Mail className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                  <span className="truncate">{client.email}</span>
+                  <a
+                    href={`mailto:${client.email}`}
+                    className="hover:text-emerald-700 transition-colors truncate"
+                    title={`Email ${client.email}`}
+                  >
+                    {client.email}
+                  </a>
                 </p>
               </div>
             )}

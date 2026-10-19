@@ -68,7 +68,7 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
     );
   }
 
-  const cleanPhone = quote.clientPhone ? quote.clientPhone.replace(/[^0-9]/g, "") : "";
+  const cleanPhone = quote.clientPhone ? quote.clientPhone.replace(/[^0-9+]/g, "") : "";
   const whatsappUrl = cleanPhone
     ? getWhatsAppQuotationShareUrl({
         clientPhone: quote.clientPhone || "",
@@ -91,7 +91,7 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
       {/* Action Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Link href="/quotations" className="clay-icon-squircle p-2 rounded-xl bg-slate-50 text-slate-600 hover:text-slate-900 border border-slate-200/80">
+          <Link href="/quotations" className="clay-icon-squircle p-2 rounded-xl min-h-[36px] min-w-[36px] flex items-center justify-center bg-slate-50 text-slate-600 hover:text-slate-900 border border-slate-200/80">
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div>
@@ -112,7 +112,7 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
           <Button
             size="sm"
             onClick={() => downloadDocumentPdf(`/quotations/${quote.id}/preview`)}
-            className="gap-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-xs"
+            className="gap-1.5 text-xs font-bold min-h-[38px] bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-xs"
           >
             <Download className="h-3.5 w-3.5" />
             <span>Download PDF</span>
@@ -120,7 +120,7 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
 
           {/* Preview PDF */}
           <Link href={`/quotations/${quote.id}/preview`}>
-            <Button size="sm" variant="outline" className="gap-1.5 text-xs font-bold bg-white border-slate-200 text-slate-700 hover:bg-slate-50">
+            <Button size="sm" variant="outline" className="gap-1.5 text-xs font-bold min-h-[38px] bg-white border-slate-200 text-slate-700 hover:bg-slate-50">
               <Eye className="h-3.5 w-3.5 text-slate-500" />
               <span>Preview</span>
             </Button>
@@ -128,7 +128,7 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
 
           {/* Edit Button */}
           <Link href={`/quotations/${quote.id}/edit`}>
-            <Button size="sm" variant="outline" className="gap-1.5 text-xs font-bold text-slate-700 bg-white border-slate-200 hover:bg-slate-50">
+            <Button size="sm" variant="outline" className="gap-1.5 text-xs font-bold min-h-[38px] text-slate-700 bg-white border-slate-200 hover:bg-slate-50">
               <Edit2 className="h-3.5 w-3.5 text-slate-500" />
               <span>Edit</span>
             </Button>
@@ -137,7 +137,7 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
           {/* WhatsApp Share */}
           {cleanPhone && (
             <a href={whatsappUrl} target="_blank" rel="noopener noreferrer">
-              <Button size="sm" variant="outline" className="gap-1.5 text-xs font-bold text-teal-700 bg-teal-50 border-teal-200 hover:bg-teal-100">
+              <Button size="sm" variant="outline" className="gap-1.5 text-xs font-bold min-h-[38px] text-teal-700 bg-teal-50 border-teal-200 hover:bg-teal-100">
                 <Share2 className="h-3.5 w-3.5" />
                 <span>WhatsApp</span>
               </Button>
@@ -147,14 +147,14 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
           {/* Convert to Invoice or View Invoice */}
           {quote.status === "converted" ? (
             <Link href={quote.convertedToInvoiceId ? `/invoices/${quote.convertedToInvoiceId}` : `/invoices`}>
-              <Button size="sm" className="gap-1.5 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white shadow-xs">
+              <Button size="sm" className="gap-1.5 text-xs font-bold min-h-[38px] bg-purple-600 hover:bg-purple-700 text-white shadow-xs">
                 <Receipt className="h-3.5 w-3.5" />
                 <span>View Invoice</span>
               </Button>
             </Link>
           ) : (
             <Link href={`/invoices/new?quotationId=${quote.id}`}>
-              <Button size="sm" className="gap-1.5 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white shadow-xs">
+              <Button size="sm" className="gap-1.5 text-xs font-bold min-h-[38px] bg-slate-900 hover:bg-slate-800 text-white shadow-xs">
                 <Receipt className="h-3.5 w-3.5 text-emerald-400" />
                 <span>Convert to Invoice</span>
               </Button>
@@ -203,7 +203,7 @@ export default function QuotationDetailPage({ params }: { params: Promise<{ id: 
             {quote.clientPhone && (
               <p className="text-slate-600 flex items-center gap-2">
                 <Phone className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                <a href={`tel:${quote.clientPhone}`} className="hover:text-emerald-700 font-medium">{quote.clientPhone}</a>
+                <a href={`tel:${cleanPhone}`} className="hover:text-emerald-700 font-medium">{quote.clientPhone}</a>
               </p>
             )}
             {quote.clientEmail && (

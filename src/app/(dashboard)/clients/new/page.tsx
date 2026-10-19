@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { ClientService } from "@/services/client.service";
 import { useTenant } from "@/hooks/use-tenant";
 import { cn } from "@/lib/utils";
+import { validateClient } from "@/validations/client.schema";
+import { GST_STATE_CODES } from "@/lib/gst-engine";
 
 import {
   ArrowLeft,
@@ -20,6 +22,7 @@ import {
   Plus,
   X,
   AlertCircle,
+  CheckCircle2,
 } from "lucide-react";
 
 export default function NewClientPage() {
@@ -40,6 +43,7 @@ export default function NewClientPage() {
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorNotice, setErrorNotice] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     async function loadExistingTags() {
@@ -81,19 +85,43 @@ export default function NewClientPage() {
     setSelectedTags((prev) => prev.filter((t) => t !== tagToRemove));
   };
 
+  const detectedState = React.useMemo(() => {
+    if (gstin && gstin.trim().length >= 2) {
+      const code = gstin.trim().substring(0, 2);
+      return GST_STATE_CODES[code] ? { code, name: GST_STATE_CODES[code] } : null;
+    }
+    return null;
+  }, [gstin]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
     setErrorNotice(null);
+
+    const validationErrors = validateClient({
+      name,
+      companyName,
+      phone,
+      email,
+      gstin,
+    });
+
+    if (Object.keys(validationErrors).length > 0) {
+      setFieldErrors(validationErrors);
+      setErrorNotice("Please resolve the highlighted field errors before continuing.");
+      return;
+    }
+
+    setFieldErrors({});
+    setIsSubmitting(true);
 
     try {
       const created = await ClientService.createClient({
         tenantId: currentTenant?.id,
-        name,
-        companyName: companyName || undefined,
-        phone,
-        email: email || undefined,
-        gstin: gstin || undefined,
+        name: name.trim(),
+        companyName: companyName.trim() || undefined,
+        phone: phone.trim(),
+        email: email.trim() || undefined,
+        gstin: gstin.trim().toUpperCase() || undefined,
         address: address.trim() || city.trim() || undefined,
         segmentTags: selectedTags,
         totalBilled: 0,
@@ -168,11 +196,22 @@ export default function NewClientPage() {
                 type="text"
                 placeholder="e.g. Ramesh Patel"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: "" }));
+                }}
                 required
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 font-semibold placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-2xs"
+                className={cn(
+                  "w-full rounded-xl border bg-white px-4 py-2.5 text-sm text-slate-900 font-semibold placeholder:text-slate-400 focus:outline-none focus:ring-2 shadow-2xs",
+                  fieldErrors.name
+                    ? "border-rose-500 focus:ring-rose-500/20"
+                    : "border-slate-200 focus:border-emerald-500 focus:ring-emerald-500/20"
+                )}
               />
             </div>
+            {fieldErrors.name && (
+              <p className="text-xs text-rose-500 font-semibold mt-1">{fieldErrors.name}</p>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -206,11 +245,22 @@ export default function NewClientPage() {
                 type="tel"
                 placeholder="+91 98765 43210"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) => {
+                  setPhone(e.target.value);
+                  if (fieldErrors.phone) setFieldErrors((prev) => ({ ...prev, phone: "" }));
+                }}
                 required
-                className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2.5 text-sm text-slate-900 font-semibold placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-2xs"
+                className={cn(
+                  "w-full rounded-xl border bg-white pl-10 pr-4 py-2.5 text-sm text-slate-900 font-semibold placeholder:text-slate-400 focus:outline-none focus:ring-2 shadow-2xs",
+                  fieldErrors.phone
+                    ? "border-rose-500 focus:ring-rose-500/20"
+                    : "border-slate-200 focus:border-emerald-500 focus:ring-emerald-500/20"
+                )}
               />
             </div>
+            {fieldErrors.phone && (
+              <p className="text-xs text-rose-500 font-semibold mt-1">{fieldErrors.phone}</p>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -226,10 +276,21 @@ export default function NewClientPage() {
                 type="email"
                 placeholder="client@company.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2.5 text-sm text-slate-900 font-semibold placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-2xs"
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: "" }));
+                }}
+                className={cn(
+                  "w-full rounded-xl border bg-white pl-10 pr-4 py-2.5 text-sm text-slate-900 font-semibold placeholder:text-slate-400 focus:outline-none focus:ring-2 shadow-2xs",
+                  fieldErrors.email
+                    ? "border-rose-500 focus:ring-rose-500/20"
+                    : "border-slate-200 focus:border-emerald-500 focus:ring-emerald-500/20"
+                )}
               />
             </div>
+            {fieldErrors.email && (
+              <p className="text-xs text-rose-500 font-semibold mt-1">{fieldErrors.email}</p>
+            )}
           </div>
         </div>
 
@@ -248,11 +309,27 @@ export default function NewClientPage() {
                 type="text"
                 placeholder="27AAAAA0000A1Z5"
                 value={gstin}
-                onChange={(e) => setGstin(e.target.value.toUpperCase())}
+                onChange={(e) => {
+                  setGstin(e.target.value.toUpperCase());
+                  if (fieldErrors.gstin) setFieldErrors((prev) => ({ ...prev, gstin: "" }));
+                }}
                 maxLength={15}
-                className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2.5 text-sm text-slate-900 font-semibold placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-2xs uppercase"
+                className={cn(
+                  "w-full rounded-xl border bg-white pl-10 pr-4 py-2.5 text-sm text-slate-900 font-semibold placeholder:text-slate-400 focus:outline-none focus:ring-2 shadow-2xs uppercase",
+                  fieldErrors.gstin
+                    ? "border-rose-500 focus:ring-rose-500/20"
+                    : "border-slate-200 focus:border-emerald-500 focus:ring-emerald-500/20"
+                )}
               />
             </div>
+            {detectedState && (
+              <div className="flex items-center gap-1.5 mt-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 w-fit">
+                <span>📍 State: {detectedState.name} ({detectedState.code})</span>
+              </div>
+            )}
+            {fieldErrors.gstin && (
+              <p className="text-xs text-rose-500 font-semibold mt-1">{fieldErrors.gstin}</p>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -375,11 +452,11 @@ export default function NewClientPage() {
         </div>
 
         {/* Bottom Actions */}
-        <div className="flex items-center justify-end gap-3 pt-5 border-t border-slate-100">
-          <Link href="/clients">
+        <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 pt-5 border-t border-slate-100">
+          <Link href="/clients" className="w-full sm:w-auto">
             <button
               type="button"
-              className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              className="w-full sm:w-auto px-5 py-2.5 min-h-[44px] rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
             >
               Cancel
             </button>
@@ -387,7 +464,7 @@ export default function NewClientPage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="clay-btn-emerald inline-flex items-center gap-2 h-11 px-6 font-bold text-xs sm:text-sm rounded-2xl cursor-pointer"
+            className="w-full sm:w-auto clay-btn-emerald inline-flex items-center justify-center gap-2 min-h-[44px] px-6 font-bold text-xs sm:text-sm rounded-2xl cursor-pointer"
           >
             <Save className="h-4 w-4" />
             <span>{isSubmitting ? "Saving Client..." : "Save Client Profile"}</span>

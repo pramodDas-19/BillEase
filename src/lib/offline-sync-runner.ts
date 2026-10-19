@@ -54,6 +54,11 @@ async function replayMutation(item: PendingMutation): Promise<{ success: boolean
           if (itemRows && itemRows.length > 0) {
             await supabase.from("quotation_items").insert(itemRows);
           }
+        } else if (item.action === "delete") {
+          const { id } = item.payload;
+          await supabase.from("quotation_items").delete().eq("quotation_id", id);
+          const { error: qError } = await supabase.from("quotations").delete().eq("id", id);
+          if (qError) throw qError;
         } else {
           const { id, quotePayload, itemRows } = item.payload;
           const { error: qError } = await supabase.from("quotations").update(quotePayload).eq("id", id);
@@ -98,6 +103,19 @@ async function replayMutation(item: PendingMutation): Promise<{ success: boolean
           const { id, clientPayload } = item.payload;
           const { error: cError } = await supabase.from("clients").update(clientPayload).eq("id", id);
           if (cError) throw cError;
+        }
+        return { success: true };
+      }
+
+      case "service": {
+        if (item.action === "create") {
+          const { servicePayload } = item.payload;
+          const { error: sError } = await supabase.from("services").insert(servicePayload);
+          if (sError) throw sError;
+        } else {
+          const { id, servicePayload } = item.payload;
+          const { error: sError } = await supabase.from("services").update(servicePayload).eq("id", id);
+          if (sError) throw sError;
         }
         return { success: true };
       }

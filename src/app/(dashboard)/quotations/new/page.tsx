@@ -24,6 +24,7 @@ import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import { UnsavedChangesDialog } from "@/components/ui/unsaved-changes-dialog";
 import { useTrial } from "@/hooks/use-trial";
 import { RoutePaywallBlocker } from "@/components/layout/route-paywall-blocker";
+import { validateQuotation } from "@/validations/quotation.schema";
 
 const GST_STATE_CODES: Record<string, string> = {
   "01": "Jammu & Kashmir",
@@ -282,6 +283,28 @@ function NewQuotationContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmittingRef.current || isSubmitting) return;
+
+    const validationErrors = validateQuotation({
+      quotationNumber: state.quotationNumber,
+      clientId: state.clientId,
+      clientName: state.clientName,
+      date: state.date,
+      validUntil: state.validUntil,
+      items: state.items,
+      totalAmount: totals.totalAmount,
+      advanceType: state.advanceType,
+      advanceValue: state.advanceValue,
+      advanceAmount,
+      discountType: state.discountType,
+      discountValue: state.discountValue,
+    });
+
+    if (Object.keys(validationErrors).length > 0) {
+      const firstError = Object.values(validationErrors)[0];
+      alert(firstError);
+      return;
+    }
+
     isSubmittingRef.current = true;
     setIsSubmitting(true);
 

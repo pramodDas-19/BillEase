@@ -357,20 +357,77 @@ export const ClientService = {
     }
   },
 
-  // Delete a client from Supabase
-  async deleteClient(id: string): Promise<boolean> {
+  // Recalculate client ledger from live invoices & update PostgreSQL
+  async recalculateClientLedger(clientId: string): Promise<{ totalBilled: number; totalPaid: number; balanceDue: number } | null> {
+    if (!clientId) return null;
     try {
+      const { data: invoices, error: invError } = await supabase
+        .from("invoices")
+        .select("total_amount, paid_amount, status")
+        .eq("client_id", clientId);
+
+      if (invError) {
+        console.warn("[ClientService] Could not fetch invoices for ledger recalc:", invError.message);
+        return null;
+      }
+
+      const activeInvoices = (invoices || []).filter((i: any) => i.status !== "cancelled");
+      const totalBilled = activeInvoices.reduce((sum: number, i: any) => sum + parseFloat(i.total_amount || "0"), 0);
+      const totalPaid = activeInvoices.reduce((sum: number, i: any) => sum + parseFloat(i.paid_amount || "0"), 0);
+      const balanceDue = Math.max(0, totalBilled - totalPaid);
+
+      const { error: updateErr } = await supabase
+        .from("clients")
+        .update({
+          total_billed: totalBilled,
+          total_paid: totalPaid,
+          balance_due: balanceDue,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", clientId);
+
+      if (updateErr) {
+        console.warn("[ClientService] Could not update client ledger in database:", updateErr.message);
+      }
+
+      DataCache.invalidate("clients");
+      DataCache.invalidate(`client:${clientId}`);
+
+      return { totalBilled, totalPaid, balanceDue };
+    } catch (err) {
+      console.error("[ClientService] recalculateClientLedger error:", err);
+      return null;
+    }
+  },
+
+  // Delete a client from Supabase (safe check for linked invoices)
+  async deleteClient(id: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Check for existing invoices before deleting
+      const { data: linkedInvoices, error: checkError } = await supabase
+        .from("invoices")
+        .select("id, invoice_number")
+        .eq("client_id", id)
+        .limit(5);
+
+      if (!checkError && linkedInvoices && linkedInvoices.length > 0) {
+        return {
+          success: false,
+          error: `Cannot delete client: ${linkedInvoices.length} linked invoice(s) exist (e.g. #${linkedInvoices[0].invoice_number}). Please delete or reassign them first.`,
+        };
+      }
+
       const { error } = await supabase.from("clients").delete().eq("id", id);
       if (error) {
         console.error("Supabase delete client error:", error);
-        return false;
+        return { success: false, error: error.message || "Failed to delete client from database." };
       }
       DataCache.invalidate("clients");
       DataCache.invalidate(`client:${id}`);
-      return true;
-    } catch (err) {
+      return { success: true };
+    } catch (err: any) {
       console.error("ClientService.deleteClient error:", err);
-      return false;
+      return { success: false, error: err?.message || "An unexpected error occurred while deleting client." };
     }
   },
 };

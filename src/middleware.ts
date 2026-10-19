@@ -28,20 +28,11 @@ export async function middleware(request: NextRequest) {
 
   // 3. Public customer portal and static marketing routes that require zero authentication
   if (
-    pathname === "/" ||
     pathname.startsWith("/pay/") ||
     pathname.startsWith("/pricing") ||
     pathname.startsWith("/terms") ||
     pathname.startsWith("/privacy")
   ) {
-    if (pathname === "/") {
-      if (hasAdminSession) {
-        return NextResponse.redirect(new URL("/admin", request.url));
-      }
-      if (hasAuthCookie) {
-        return NextResponse.redirect(new URL("/dashboard", request.url));
-      }
-    }
     return NextResponse.next();
   }
 
@@ -120,12 +111,12 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/reports") ||
     pathname.startsWith("/settings");
 
-  // Auth pages (login, signup, password resets)
+  // Auth pages (login, signup, password reset request)
+  // Note: /reset-password is NOT an auto-redirecting auth page because users MUST be able to view it when authenticated via recovery token!
   const isAuthPage =
     pathname === "/login" ||
     pathname === "/signup" ||
-    pathname === "/forgot-password" ||
-    pathname === "/reset-password";
+    pathname === "/forgot-password";
 
   // 5. Route Protection Enforcement:
   // A. If accessing protected routes while NOT authenticated -> redirect to /login

@@ -101,12 +101,20 @@ export default function ClientsPage() {
 
   const handleDeleteClient = async (id: string, name: string) => {
     if (
-      window.confirm(
+      !window.confirm(
         `Are you sure you want to delete client "${name}"? This action cannot be undone.`
       )
     ) {
-      setClientsList((prev) => prev.filter((c) => c.id !== id));
-      await ClientService.deleteClient(id);
+      return;
+    }
+
+    const prevList = [...clientsList];
+    setClientsList((prev) => prev.filter((c) => c.id !== id));
+
+    const res = await ClientService.deleteClient(id);
+    if (!res.success) {
+      setClientsList(prevList);
+      alert(res.error || "Cannot delete client. They may have active invoices.");
     }
   };
 
@@ -345,6 +353,7 @@ export default function ClientsPage() {
           {filteredClients.map((client) => {
             const hasDue = (client.balanceDue || 0) > 0;
             const cleanPhone = formatWhatsAppPhoneNumber(client.phone);
+            const sanitizedTel = (client.phone || "").replace(/[^0-9+]/g, "");
 
             return (
               <div
@@ -388,27 +397,31 @@ export default function ClientsPage() {
                     {/* Direct Contact Actions */}
                     <div className="flex items-center gap-1.5 shrink-0">
                       {/* Green Call Button */}
-                      <a
-                        href={`tel:${client.phone}`}
-                        title={`Call ${client.name} (${client.phone})`}
-                        className="clay-icon-squircle flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 shadow-2xs transition-all cursor-pointer"
-                      >
-                        <Phone className="h-3.5 w-3.5" />
-                      </a>
+                      {client.phone && (
+                        <a
+                          href={`tel:${sanitizedTel}`}
+                          title={`Call ${client.name} (${client.phone})`}
+                          className="clay-icon-squircle flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 shadow-2xs transition-all cursor-pointer"
+                        >
+                          <Phone className="h-3.5 w-3.5" />
+                        </a>
+                      )}
 
                       {/* WhatsApp Button */}
-                      <a
-                        href={`https://wa.me/${cleanPhone}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title={`WhatsApp ${client.name}`}
-                        className="clay-icon-squircle flex h-8 w-8 items-center justify-center rounded-xl bg-teal-50 border border-teal-200 text-teal-700 hover:bg-teal-600 hover:text-white hover:border-teal-600 shadow-2xs transition-all cursor-pointer"
-                      >
-                        <MessageSquare className="h-3.5 w-3.5" />
-                      </a>
+                      {client.phone && (
+                        <a
+                          href={`https://wa.me/${cleanPhone}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={`WhatsApp ${client.name}`}
+                          className="clay-icon-squircle flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-xl bg-teal-50 border border-teal-200 text-teal-700 hover:bg-teal-600 hover:text-white hover:border-teal-600 shadow-2xs transition-all cursor-pointer"
+                        >
+                          <MessageSquare className="h-3.5 w-3.5" />
+                        </a>
+                      )}
 
                       {/* WhatsApp Reminder for Overdue Clients */}
-                      {hasDue && (
+                      {hasDue && client.phone && (
                         <a
                           href={getWhatsAppReminderUrl({
                             clientPhone: client.phone,
@@ -421,7 +434,7 @@ export default function ClientsPage() {
                           target="_blank"
                           rel="noopener noreferrer"
                           title={`Send WhatsApp Payment Reminder (${formatCurrency(client.balanceDue || 0, "INR")} due)`}
-                          className="clay-icon-squircle flex h-8 w-8 items-center justify-center rounded-xl bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-600 hover:text-white hover:border-amber-600 shadow-2xs transition-all cursor-pointer"
+                          className="clay-icon-squircle flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-xl bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-600 hover:text-white hover:border-amber-600 shadow-2xs transition-all cursor-pointer"
                         >
                           <BellRing className="h-3.5 w-3.5" />
                         </a>
@@ -431,7 +444,7 @@ export default function ClientsPage() {
                       <button
                         onClick={() => handleEditClient(client)}
                         title={`Edit ${client.name}`}
-                        className="clay-icon-squircle flex h-8 w-8 items-center justify-center rounded-xl bg-slate-50 border border-slate-200/80 text-slate-600 hover:text-slate-900 hover:bg-white shadow-2xs transition-colors cursor-pointer"
+                        className="clay-icon-squircle flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-xl bg-slate-50 border border-slate-200/80 text-slate-600 hover:text-slate-900 hover:bg-white shadow-2xs transition-colors cursor-pointer"
                       >
                         <Edit3 className="h-3.5 w-3.5" />
                       </button>
@@ -440,7 +453,7 @@ export default function ClientsPage() {
                       <button
                         onClick={() => handleDeleteClient(client.id, client.name)}
                         title={`Delete ${client.name}`}
-                        className="clay-icon-squircle flex h-8 w-8 items-center justify-center rounded-xl bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 shadow-2xs transition-all cursor-pointer"
+                        className="clay-icon-squircle flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-xl bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 shadow-2xs transition-all cursor-pointer"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -570,6 +583,7 @@ export default function ClientsPage() {
                 {filteredClients.map((client) => {
                   const hasDue = (client.balanceDue || 0) > 0;
                   const cleanPhone = formatWhatsAppPhoneNumber(client.phone);
+                  const sanitizedTel = (client.phone || "").replace(/[^0-9+]/g, "");
 
                   return (
                     <tr key={client.id} className="hover:bg-slate-50/70 transition-colors group">
@@ -599,7 +613,17 @@ export default function ClientsPage() {
                       </td>
 
                       <td className="py-3.5 px-4 font-semibold text-slate-700">
-                        {client.phone}
+                        {client.phone ? (
+                          <a
+                            href={`tel:${sanitizedTel}`}
+                            className="hover:text-emerald-700 transition-colors"
+                            title={`Call ${client.phone}`}
+                          >
+                            {client.phone}
+                          </a>
+                        ) : (
+                          "-"
+                        )}
                       </td>
 
                       <td className="py-3.5 px-4 font-mono text-[11px] text-slate-500">
@@ -623,24 +647,28 @@ export default function ClientsPage() {
 
                       <td className="py-3.5 px-4 text-center">
                         <div className="flex items-center justify-center gap-1.5">
-                          <a
-                            href={`tel:${client.phone}`}
-                            title={`Call ${client.name}`}
-                            className="clay-icon-squircle p-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white transition-colors"
-                          >
-                            <Phone className="h-3 w-3" />
-                          </a>
-                          <a
-                            href={`https://wa.me/${cleanPhone}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title={`WhatsApp ${client.name}`}
-                            className="clay-icon-squircle p-1.5 rounded-lg bg-teal-50 text-teal-700 hover:bg-teal-600 hover:text-white transition-colors"
-                          >
-                            <MessageSquare className="h-3 w-3" />
-                          </a>
+                          {client.phone && (
+                            <a
+                              href={`tel:${sanitizedTel}`}
+                              title={`Call ${client.name}`}
+                              className="clay-icon-squircle p-2 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white transition-colors"
+                            >
+                              <Phone className="h-3.5 w-3.5" />
+                            </a>
+                          )}
+                          {client.phone && (
+                            <a
+                              href={`https://wa.me/${cleanPhone}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title={`WhatsApp ${client.name}`}
+                              className="clay-icon-squircle p-2 rounded-lg bg-teal-50 text-teal-700 hover:bg-teal-600 hover:text-white transition-colors"
+                            >
+                              <MessageSquare className="h-3.5 w-3.5" />
+                            </a>
+                          )}
                           {/* WhatsApp Reminder for Overdue Clients */}
-                          {hasDue && (
+                          {hasDue && client.phone && (
                             <a
                               href={getWhatsAppReminderUrl({
                                 clientPhone: client.phone,
@@ -653,44 +681,43 @@ export default function ClientsPage() {
                               target="_blank"
                               rel="noopener noreferrer"
                               title={`Send WhatsApp Reminder`}
-                              className="clay-icon-squircle p-1.5 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-600 hover:text-white transition-colors"
+                              className="clay-icon-squircle p-2 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-600 hover:text-white transition-colors"
                             >
-                              <BellRing className="h-3 w-3" />
+                              <BellRing className="h-3.5 w-3.5" />
                             </a>
                           )}
-
 
                           {/* Edit Client */}
                           <button
                             onClick={() => handleEditClient(client)}
                             title={`Edit ${client.name}`}
-                            className="clay-icon-squircle p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-900 hover:text-white transition-colors cursor-pointer"
+                            className="clay-icon-squircle p-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-900 hover:text-white transition-colors cursor-pointer"
                           >
-                            <Edit3 className="h-3 w-3" />
+                            <Edit3 className="h-3.5 w-3.5" />
                           </button>
 
                           <Link
                             href={`/invoices/new?clientId=${client.id}`}
                             title="Create Invoice"
-                            className="clay-icon-squircle p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-900 hover:text-white transition-colors"
+                            className="clay-icon-squircle p-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-900 hover:text-white transition-colors"
                           >
-                            <ReceiptText className="h-3 w-3" />
+                            <ReceiptText className="h-3.5 w-3.5" />
                           </Link>
 
                           <Link
                             href={`/clients/${client.id}`}
                             title="View Client Ledger"
-                            className="clay-icon-squircle p-1.5 rounded-lg bg-slate-50 text-slate-500 hover:text-slate-900 transition-colors"
+                            className="clay-icon-squircle p-2 rounded-lg bg-slate-50 text-slate-500 hover:text-slate-900 transition-colors"
                           >
-                            <ArrowUpRight className="h-3 w-3" />
+                            <ArrowUpRight className="h-3.5 w-3.5" />
                           </Link>
 
                           <button
                             onClick={() => handleDeleteClient(client.id, client.name)}
                             title={`Delete ${client.name}`}
-                            className="clay-icon-squircle p-1.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-600 hover:text-white transition-colors cursor-pointer"
+                            className="clay-icon-squircle p-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-600 hover:text-white transition-colors cursor-pointer"
                           >
-                            <Trash2 className="h-3 w-3" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
                       </td>

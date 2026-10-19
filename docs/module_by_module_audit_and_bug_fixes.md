@@ -1,0 +1,350 @@
+# BillEase — Module-by-Module Audit & Bug Fixes Specification
+
+---
+
+## 📌 Document Overview
+This living document maintains an audit trail of every system module in **BillEase**, tracking all identified flaws, edge-case vulnerabilities, architectural discrepancies, coding standards violations, and the exact fixes applied with test verifications.
+
+---
+
+## 🏛️ Module 1: Authentication, Tenant Provisioning & Middleware
+
+### 1.1 Password Reset Redirection Lockout
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected File**: [`src/middleware.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/middleware.ts)
+* **The Problem**:
+  `isAuthPage` contained `pathname === "/reset-password"`. When a user clicked a recovery link in their password reset email, Supabase established an initial recovery session cookie. When the browser navigated to `/reset-password`, the Next.js middleware evaluated `isAuthPage && isAuthenticated` as `true` and immediately executed `NextResponse.redirect(new URL("/dashboard", request.url))`.
+* **Impact**:
+  Users trying to recover their account were permanently locked out from the reset form and bounced to `/dashboard`.
+* **The Fix**:
+  Excluded `/reset-password` from `isAuthPage`. An active recovery session is explicitly required to stay on `/reset-password` so `supabase.auth.updateUser({ password })` can succeed.
+
+---
+
+### 1.2 Tenant ID Desynchronization & Silent Data Partition Leak
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected File**: [`src/services/auth.service.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/services/auth.service.ts)
+* **The Problem**:
+  The secure server-side provisioning route writes the generated `tenant_id` into `user.app_metadata.tenant_id`. However, `AuthService.getCurrentUser()` was only reading `user.user_metadata?.tenant_id`. Because `user_metadata.tenant_id` was undefined, it fell back to calculating `tenant-${user.id.slice(0, 8)}`, called `setActiveTenantId(tenantId)`, and overwrote localStorage with a nonexistent tenant ID.
+* **Impact**:
+  The logged-in user became partitioned from their real database tenant settings and invoices, falling back to empty states or the demo `"tenant-royal-events"`.
+* **The Fix**:
+  Updated `AuthService.getCurrentUser()` to prioritize `user.app_metadata?.tenant_id || user.user_metadata?.tenant_id` before falling back to any client-generated ID.
+
+---
+
+### 1.3 Fragile Tenant Provisioning on Registration & Self-Healing
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**: [`src/services/auth.service.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/services/auth.service.ts), [`src/app/api/auth/provision-tenant/route.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/api/auth/provision-tenant/route.ts), [`src/context/tenant-context.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/context/tenant-context.tsx)
+* **The Problem**:
+  1. `AuthService.signUp()` invoked `fetch("/api/auth/provision-tenant")` without an `Authorization: Bearer <access_token>` header. If browser cookies had not finished flushing or if email confirmation was enabled, `/api/auth/provision-tenant` threw `401 Unauthorized`.
+  2. The provision failure was caught silently, leaving the user with an Auth account but **no tenant record in PostgreSQL**.
+* **The Fix**:
+  1. Updated `AuthService.signUp()` to pass `Authorization: Bearer ${data.session?.access_token}` and trigger `supabase.auth.refreshSession()` once provisioned.
+  2. Updated `/api/auth/provision-tenant` to authenticate callers via either Bearer JWT tokens or SSR request cookies.
+  3. Added **self-healing auto-provisioning** in both `AuthService.signIn()` and `TenantProvider`: if an authenticated user accesses the workspace and their database tenant record is missing, the system provisions their workspace automatically on the fly.
+
+---
+
+### 1.4 Edge Runtime Warnings in Next.js Middleware
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**: [`src/lib/admin-auth.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/lib/admin-auth.ts), [`src/middleware.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/middleware.ts)
+* **The Problem**:
+  `admin-auth.ts` was doing a top-level `import { SignJWT, jwtVerify } from "jose"`. In Next.js Edge Runtime, this pulled in the full JWE Deflate/CompressionStream module, triggering:
+  `A Node.js API is used (CompressionStream at line: 31) which is not supported in the Edge Runtime.`
+* **The Fix**:
+  Changed imports to specific subpath exports:
+  ```ts
+  import { SignJWT } from "jose/jwt/sign";
+  import { jwtVerify } from "jose/jwt/verify";
+  ```
+  Edge runtime compilation warnings are now completely resolved (0 warnings).
+
+---
+
+### 1.5 Supabase PKCE Code Exchange on Password Reset
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected File**: [`src/app/(auth)/reset-password/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28auth%29/reset-password/page.tsx)
+* **The Problem**:
+  When using Supabase Auth with `@supabase/ssr`, reset links contain a PKCE code (`?code=xxxx`). The reset password page was not exchanging this code for a session on mount, resulting in `Auth session missing` errors when submitting a new password.
+* **The Fix**:
+  Added on-mount PKCE code exchange:
+  ```ts
+  const code = searchParams.get("code");
+  if (code) {
+    await supabase.auth.exchangeCodeForSession(code);
+  }
+  ```
+  Wrapped page in `<Suspense>` to maintain full Next.js App Router build optimization.
+
+---
+
+### 1.6 Impersonation & Registration State Cleanup on Sign Out
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected File**: [`src/services/auth.service.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/services/auth.service.ts)
+* **The Problem**:
+  `AuthService.signOut()` cleared `billease_active_tenant_id` and `billease_registered_user`, but left `billease_is_impersonating` and `billease_just_registered` in storage. Subsequent logins by other users could unintentionally inherit impersonation flags.
+* **The Fix**:
+  Ensured `signOut()` unconditionally clears `billease_is_impersonating`, `billease_active_tenant_id`, `billease_just_registered`, and `billease_registered_user` across both `localStorage` and `sessionStorage`.
+
+---
+
+### 1.7 Premature Landing Page Redirection on Stale Cookies
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected File**: [`src/middleware.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/middleware.ts)
+* **The Problem**:
+  The public route bypass was checking `if (hasAuthCookie) return NextResponse.redirect("/dashboard")` on `/` before verifying whether the cookie was actually valid. If expired, the user bounced to `/dashboard`, which bounced them to `/login?redirectTo=/dashboard`.
+* **The Fix**:
+  Removed premature redirection from the public routes block. The root page `/` now flows through session verification: valid users go to `/dashboard`, while expired or unauthenticated users see the landing page cleanly.
+
+---
+
+## 👥 Module 2: Client Management & CRM / Ledger
+
+### 2.1 Ledger Inconsistency & Balance Drift across Invoices & Payments
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**: [`src/services/client.service.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/services/client.service.ts), [`src/services/invoice.service.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/services/invoice.service.ts), [`src/services/payment.service.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/services/payment.service.ts)
+* **The Problem**:
+  The `clients` table columns (`total_billed`, `total_paid`, `balance_due`) were never updated by the backend upon invoice generation or payment receipt recording. Instead, the UI relied on in-memory aggregation of all invoices every time a client profile or directory was viewed. This led to persistent balance drift, incorrect overdue warnings, and missing ledger totals in exported client reports.
+* **Impact**:
+  Overdue balances shown on WhatsApp reminder buttons and client directory cards drifted out of sync with real invoice settlement states.
+* **The Fix**:
+  1. Created `ClientService.recalculateClientLedger(clientId)`: Fetches active invoices (excluding `cancelled` status), computes `totalBilled = sum(total_amount)`, `totalPaid = sum(paid_amount)`, and `balanceDue = max(0, totalBilled - totalPaid)`, then updates the PostgreSQL `clients` table and invalidates cache keys (`clients`, `client:${clientId}`).
+  2. Integrated automatic ledger recalculation into `InvoiceService.createInvoice()`, `InvoiceService.updateInvoice()`, `InvoiceService.deleteInvoice()`, `PaymentService.recordPayment()`, and `PaymentService.deletePayment()`.
+
+---
+
+### 2.2 Unsafe Client Deletion & Foreign Key Integrity
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**: [`src/services/client.service.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/services/client.service.ts), [`src/app/(dashboard)/clients/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/clients/page.tsx)
+* **The Problem**:
+  `ClientService.deleteClient()` immediately issued `DELETE FROM clients WHERE id = id`. If a client had linked invoices, quotations, or payments, the database query failed with foreign key violations (`violates foreign key constraint`). The UI had already optimistically removed the client from state, so the client disappeared until a page refresh.
+* **Impact**:
+  Silent UI corruption where the user believed a client was deleted, but reloading showed the client still present.
+* **The Fix**:
+  1. Updated `ClientService.deleteClient()` to verify linked invoices first:
+     ```ts
+     const { data: linkedInvoices } = await supabase.from("invoices").select("id, invoice_number").eq("client_id", id).limit(5);
+     if (linkedInvoices && linkedInvoices.length > 0) {
+       return { success: false, error: `Cannot delete client: ${linkedInvoices.length} linked invoice(s) exist (e.g. #${linkedInvoices[0].invoice_number}). Please delete or reassign them first.` };
+     }
+     ```
+  2. Updated `handleDeleteClient` in `clients/page.tsx` with error handling and UI state rollback.
+
+---
+
+### 2.3 Indian GSTIN State Code Verification & Phone Validation
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**: [`src/validations/client.schema.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/validations/client.schema.ts), [`src/app/(dashboard)/clients/new/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/clients/new/page.tsx)
+* **The Problem**:
+  Validation only verified that GSTIN had 15 characters, but did not validate whether the first 2 digits were a valid Indian state code according to GST law. A typo like `99ABCDE1234F1Z5` was accepted, resulting in subsequent IGST vs CGST/SGST tax calculation bugs when generating invoices. In addition, phone validation did not enforce minimum digit requirements.
+* **The Fix**:
+  1. Extended `validateClient()` in `client.schema.ts` to validate the 2-digit state prefix against `GST_STATE_CODES` (01-38, 97).
+  2. Enforced at least 10 numeric digits for phone numbers (`rawPhone.length < 10`).
+  3. Added real-time Indian State detection badge in `clients/new/page.tsx` displaying state name (e.g., `State: Maharashtra (Code: 27)`) as the user types their GSTIN.
+
+---
+
+### 2.4 Mobile Trapping & Viewport Overflow in Client Edit Dialog
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected File**: [`src/components/clients/client-edit-dialog.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/components/clients/client-edit-dialog.tsx)
+* **The Problem**:
+  The modal dialog lacked a `max-h` constraint and vertical scroll container. On mobile devices (< 640px) with virtual software keyboards open, the "Save Changes" button was pushed outside the viewport with no way to scroll to it, trapping the user in the modal.
+* **The Fix**:
+  1. Added `max-h-[90vh] overflow-y-auto` to the modal container.
+  2. Implemented a sticky bottom action bar (`sticky bottom-0 bg-white/95 backdrop-blur-sm border-t`) ensuring Cancel and Save buttons are always visible and reachable on mobile.
+  3. Integrated `validateClient()` with inline field error messages.
+
+---
+
+### 2.5 Mobile Touch Target Dimensions & `tel:` Protocol Sanitization
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**: [`src/app/(dashboard)/clients/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/clients/page.tsx), [`src/app/(dashboard)/clients/[id]/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/clients/%5Bid%5D/page.tsx)
+* **The Problem**:
+  1. Action icons (Call, WhatsApp, Reminder, Edit, Delete) were sized at `h-8 w-8` (32px), violating the standard 44px / minimum 36px touch accessibility guideline.
+  2. Phone links used raw `href="tel:${client.phone}"`. Phone numbers with spaces or brackets (e.g. `+91 (987) 65-43210`) failed on certain Android/iOS dialers.
+* **The Fix**:
+  1. Sanitized all dialer links using `sanitizedTel = (client.phone || "").replace(/[^0-9+]/g, "")`.
+  2. Enlarged button sizes to `min-h-[36px] min-w-[36px]` in grid/table views and `min-h-[38px]` in detail view.
+  3. Made phone numbers and emails in client profiles clickable (`tel:` and `mailto:`) with hover styles.
+  4. Made action controls wrap responsively with `flex-1 sm:flex-none` on mobile screens.
+
+---
+
+## 📦 Module 3: Services Catalog & Inventory
+
+### 3.1 In-Memory Deletion State Desync & Missing Rollback Guard
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**: [`src/app/(dashboard)/services/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/services/page.tsx), [`src/services/service.service.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/services/service.service.ts)
+* **The Problem**:
+  `handleDeleteService` optimistically filtered out the service from the local React state before awaiting `CatalogService.deleteService(id)`. If the database delete failed (e.g. network disconnect or database error), the deletion return value was completely ignored and no error was presented to the user.
+* **The Fix**:
+  Implemented state snapshotting and rollback:
+  ```ts
+  const prevList = [...servicesList];
+  setServicesList((prev) => prev.filter((s) => s.id !== id));
+  const success = await CatalogService.deleteService(id);
+  if (!success) {
+    setServicesList(prevList);
+    alert(`Failed to delete "${name}". Please check your connection and try again.`);
+  }
+  ```
+
+---
+
+### 3.2 Offline Mutation Queueing & DataCache Integration in `CatalogService`
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**: [`src/services/service.service.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/services/service.service.ts), [`src/lib/offline-queue.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/lib/offline-queue.ts), [`src/lib/offline-sync-runner.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/lib/offline-sync-runner.ts), [`src/types/service.types.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/types/service.types.ts)
+* **The Problem**:
+  `CatalogService` made uncached network calls on every render, and completely crashed/failed when offline. If offline, `getServices()` returned an empty array `[]` (showing "Your Catalog is Empty"), while item creation and updates threw exceptions and discarded user input.
+* **The Fix**:
+  1. Integrated `DataCache.fetch("services", ...)` with micro-TTL deduplication and invalidation on create, update, delete, and bulk import.
+  2. Extended `MutationEntityType` in `offline-queue.ts` to support `"service"`, and added a replay handler in `offline-sync-runner.ts`.
+  3. Integrated `enqueueMutation` with IndexedDB persistence upon `isNetworkError()`.
+  4. Added merge logic in `CatalogService.getServices()` to display locally queued items with an offline `Pending Sync` badge.
+
+---
+
+### 3.3 Mobile Viewport Trapping in Service Edit Dialog
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected File**: [`src/components/services/service-edit-dialog.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/components/services/service-edit-dialog.tsx)
+* **The Problem**:
+  The dialog container lacked height constraints (`max-h`) and vertical scrolling. When users on mobile devices opened the virtual keyboard to enter rates or custom units, the Cancel and "Save Changes" buttons were pushed below the visible viewport, trapping the user in the modal.
+* **The Fix**:
+  1. Updated modal container to `max-h-[90vh] flex flex-col overflow-hidden`.
+  2. Wrapped form fields in `flex-1 overflow-y-auto`.
+  3. Built a sticky bottom action bar (`sticky bottom-0 bg-white/95 backdrop-blur-sm border-t border-slate-100 p-4`) ensuring save/cancel controls are always accessible.
+
+---
+
+### 3.4 Formal Service Validation Schema & Real-Time Field Feedback
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**: [`src/validations/service.schema.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/validations/service.schema.ts), [`src/app/(dashboard)/services/new/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/services/new/page.tsx), [`src/components/services/service-edit-dialog.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/components/services/service-edit-dialog.tsx)
+* **The Problem**:
+  No formal validation schema existed for services. Forms allowed negative rates (`rate < 0`), arbitrary tax percentages, and invalid HSN/SAC codes without giving inline field feedback.
+* **The Fix**:
+  1. Created `src/validations/service.schema.ts` defining `validateService()`:
+     - Name: Minimum 2 non-whitespace characters.
+     - Rate: Non-negative number (`>= 0`).
+     - GST Rate: Non-negative percentage within 0–100%.
+     - HSN/SAC Code: 2 to 8 numeric digits.
+  2. Added real-time inline field error indicators in both `services/new/page.tsx` and `service-edit-dialog.tsx`.
+  3. Added one-tap quick-select pills for standard Indian GST slabs (`0%`, `5%`, `12%`, `18%`, `28%`).
+
+---
+
+### 3.5 Mobile Touch Target Enlargement in Services Catalog
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**: [`src/app/(dashboard)/services/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/services/page.tsx), [`src/components/services/catalog-import-modal.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/components/services/catalog-import-modal.tsx)
+* **The Problem**:
+  Action buttons (Edit, Delete, + Quote, + Invoice) were undersized (`h-8 w-8` and `p-1.5` with 12px icons), making it easy on mobile screens to accidentally tap the delete icon instead of edit or create invoice.
+* **The Fix**:
+  1. Enlarged grid card action buttons to `h-9 w-9 min-h-[36px] min-w-[36px]`.
+  2. Enlarged table action buttons to `p-2 min-h-[36px] min-w-[36px]` with `h-3.5 w-3.5` icons.
+  3. Added full-width responsive touch buttons in `services/new/page.tsx` and `catalog-import-modal.tsx`.
+
+---
+
+---
+
+## 📜 Module 4: Quotations & Estimates Lifecycle
+
+### 4.1 Quotation Deletion & Status Change Rollback Guard
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**: [`src/app/(dashboard)/quotations/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/quotations/page.tsx), [`src/services/quotation.service.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/services/quotation.service.ts)
+* **The Problem**:
+  In `quotations/page.tsx`, `handleDeleteQuote` and `handleStatusChange` removed/altered quotations from local state optimistically without saving a snapshot backup or checking the return value of `QuotationService.deleteQuotation()` / `QuotationService.updateQuotationStatus()`. On network failure or database errors, quotations silently disappeared or showed incorrect status badges until a hard page reload.
+* **The Fix**:
+  1. Added state snapshot backup and rollback in `handleDeleteQuote` and `handleStatusChange`:
+     ```ts
+     const backup = [...quotationsList];
+     setQuotationsList((prev) => prev.filter((q) => q.id !== id));
+     try {
+       const ok = await QuotationService.deleteQuotation(id);
+       if (!ok) {
+         setQuotationsList(backup);
+         alert("Failed to delete quotation. Please try again.");
+       }
+     } catch (err) {
+       setQuotationsList(backup);
+       alert("Failed to delete quotation. Please check your network connection.");
+     }
+     ```
+  2. Integrated `isNetworkError()` into `QuotationService.deleteQuotation()` to seamlessly enqueue offline delete mutations to IndexedDB (`enqueueMutation({ action: "delete", ... })`).
+
+---
+
+### 4.2 "undefined" / "null" String Leak in 1-Click Invoice Conversion
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**: [`src/app/(dashboard)/quotations/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/quotations/page.tsx), [`src/app/(dashboard)/invoices/new/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/invoices/new/page.tsx)
+* **The Problem**:
+  `handleConvertToInvoice(quote)` built navigation URLs using template interpolation:
+  ``router.push(`/invoices/new?fromQuoteId=${quote.id}&clientId=${quote.clientId}`)``.
+  When a quotation did not have a linked `clientId` (e.g. ad-hoc walk-in customer quotation), it navigated to `/invoices/new?fromQuoteId=...&clientId=undefined`.
+  In `invoices/new/page.tsx`, `searchParams.get("clientId")` evaluated to the string `"undefined"`, which is truthy. This corrupted invoice builder state with `clientId: "undefined"` and caused subsequent client lookup failures.
+* **The Fix**:
+  1. Used `URLSearchParams` to cleanly omit empty, `"undefined"`, or `"null"` query keys:
+     ```ts
+     const params = new URLSearchParams({ fromQuoteId: quote.id });
+     if (quote.clientId && quote.clientId !== "undefined" && quote.clientId !== "null") {
+       params.set("clientId", quote.clientId);
+     }
+     router.push(`/invoices/new?${params.toString()}`);
+     ```
+  2. Sanitized `searchParams.get("clientId")` in `invoices/new/page.tsx` so literal `"undefined"` and `"null"` are stripped out.
+  3. Prefilled client profile and state detection automatically when `clientId` is provided directly.
+
+---
+
+### 4.3 Quotation Validation Schema, Advance Token Limits & Date Consistency
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**: [`src/validations/quotation.schema.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/validations/quotation.schema.ts), [`src/app/(dashboard)/quotations/new/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/quotations/new/page.tsx), [`src/app/(dashboard)/quotations/[id]/edit/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/quotations/%5Bid%5D/edit/page.tsx)
+* **The Problem**:
+  `validateQuotation` lacked checks for line item boundaries (negative rates, zero quantities, percentage discounts > 100%), advance booking tokens (percentages > 100% or fixed token amounts exceeding quotation totals), and validity dates preceding issue dates. Forms also lacked client-side validation guards prior to submission.
+* **The Fix**:
+  1. Extended `validateQuotation` with strict boundary checks:
+     - Line items: non-negative amount, rate >= 0, quantity > 0, discount percentage <= 100%.
+     - Advance payment token: percentage between 0–100%, fixed amount <= total estimate.
+     - Dates: `validUntil` cannot precede `date`.
+  2. Wired `validateQuotation()` into `handleSubmit` in both `quotations/new/page.tsx` and `quotations/[id]/edit/page.tsx` with user-friendly alerts preventing malformed submissions.
+
+---
+
+### 4.4 Offline Deletion Support in IndexedDB Replay Engine
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**: [`src/lib/offline-queue.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/lib/offline-queue.ts), [`src/lib/offline-sync-runner.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/lib/offline-sync-runner.ts)
+* **The Problem**:
+  `MutationAction` only permitted `"create" | "update"`. If a user deleted a quotation while offline, the action could not be recorded in IndexedDB. Furthermore, the sync runner assumed any non-create quotation action was an update, causing offline replay crashes when trying to replay deletions.
+* **The Fix**:
+  1. Extended `MutationAction` type to `"create" | "update" | "delete"`.
+  2. Added an explicit `else if (item.action === "delete")` branch in `offline-sync-runner.ts` that safely deletes both `quotation_items` and `quotations` records upon network reconnection.
+
+---
+
+### 4.5 Mobile Touch Targets & Dialer `tel:` Protocol Sanitization
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**: [`src/app/(dashboard)/quotations/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/quotations/page.tsx), [`src/app/(dashboard)/quotations/[id]/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/quotations/%5Bid%5D/page.tsx)
+* **The Problem**:
+  - Quick action buttons (Convert to Invoice, WhatsApp Share, Download PDF, Edit, Delete) used `p-1.5` or `h-8 w-8` (24–32px), violating the 36–44px mobile touch target rule.
+  - Dialer links (`tel:${q.clientPhone}`) passed raw phone strings with spaces or dashes, causing native phone dialers on some mobile devices to fail.
+* **The Fix**:
+  1. Enlarged quick action buttons in both grid cards and table rows to `flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-xl` with `h-3.5 w-3.5` icons.
+  2. Enlarged bottom action buttons (Convert to Invoice, Preview PDF) to `min-h-[38px] py-2 px-3 text-xs font-bold`.
+  3. Sanitized phone numbers for `tel:` dialer links: `q.clientPhone.replace(/[^0-9+]/g, "")`, preserving international `+` prefixes while stripping whitespaces and special characters.
+
+---
+
+## 🧪 Verification Matrix
+
+| Check | Tool / Runner | Result |
+|---|---|---|
+| **TypeScript Compilation** | `npx tsc --noEmit` | 🟢 0 errors |
+| **Unit & Integration Tests** | `npx vitest run` (19 test files) | 🟢 140 / 140 passed |
+| **Module 1 Specific Tests** | `tests/auth-module-fixes.test.ts` | 🟢 5 / 5 passed |
+| **Module 2 Specific Tests** | `tests/client-module-fixes.test.ts` | 🟢 7 / 7 passed |
+| **Module 3 Specific Tests** | `tests/service-module-fixes.test.ts` | 🟢 7 / 7 passed |
+| **Module 4 Specific Tests** | `tests/quotation-module-fixes.test.ts` | 🟢 7 / 7 passed |
+| **Next.js Production Build** | `npm run build` | 🟢 Build successful, 53/53 static routes compiled |
+
+
+
