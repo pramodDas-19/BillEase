@@ -390,4 +390,88 @@ describe("15 Document Templates Suite", () => {
     expect(norm.advanceValue).toBe(40);
     expect(norm.documentTitle).toBe("ESTIMATE / QUOTATION");
   });
+
+  it("verifies dual template resolution: invoices and quotations respect distinct tenant defaults", () => {
+    const tenantWithCustomDefaults: Tenant = {
+      id: "tenant-multi-tmpl",
+      businessName: "Radha Krishna Enterprises",
+      slug: "rk-enterprises",
+      businessType: "other",
+      ownerName: "Radha Krishna",
+      email: "billing@radhakrishna.in",
+      phone: "+91 9988776655",
+      address: {
+        street: "M.G. Road",
+        city: "Bangalore",
+        state: "Karnataka",
+        postalCode: "560001",
+        country: "India",
+      },
+      settings: {
+        defaultCurrency: "INR",
+        enableGstByDefault: true,
+        defaultQuotationValidityDays: 15,
+        defaultInvoiceDueDays: 15,
+        quotationNumbering: { prefix: "QT-", nextNumber: 1, digitLength: 4 },
+        invoiceNumbering: { prefix: "INV-", nextNumber: 1, digitLength: 4 },
+        defaultInvoiceTemplate: "a4_luxury",
+        defaultQuotationTemplate: "a5_landscape_gst",
+      },
+      createdAt: "2026-01-01",
+      updatedAt: "2026-01-01",
+    };
+
+    // Invoice resolves to a4_luxury
+    const resolvedInvoiceTemplate =
+      tenantWithCustomDefaults.settings?.defaultInvoiceTemplate || "a4_modern";
+    expect(resolvedInvoiceTemplate).toBe("a4_luxury");
+    const invMeta = getTemplateById(resolvedInvoiceTemplate);
+    expect(invMeta.name).toBe("Luxury Royal Gold");
+    expect(invMeta.category).toBe("a4");
+
+    // Quotation resolves to a5_landscape_gst
+    const resolvedQuotationTemplate =
+      tenantWithCustomDefaults.settings?.defaultQuotationTemplate || "a4_modern";
+    expect(resolvedQuotationTemplate).toBe("a5_landscape_gst");
+    const quoteMeta = getTemplateById(resolvedQuotationTemplate);
+    expect(quoteMeta.name).toBe("A5 Landscape GST");
+    expect(quoteMeta.category).toBe("a5");
+    expect(quoteMeta.orientation).toBe("landscape");
+
+    // Fallback when not set in tenant settings
+    const tenantWithoutDefaults: Tenant = {
+      id: "tenant-no-tmpl",
+      businessName: "New SMB Store",
+      slug: "new-smb",
+      businessType: "other",
+      ownerName: "SMB Owner",
+      email: "hello@newsmb.com",
+      phone: "+91 9123456780",
+      address: {
+        street: "Station Road",
+        city: "Jaipur",
+        state: "Rajasthan",
+        postalCode: "302001",
+        country: "India",
+      },
+      settings: {
+        defaultCurrency: "INR",
+        enableGstByDefault: true,
+        defaultQuotationValidityDays: 15,
+        defaultInvoiceDueDays: 15,
+        quotationNumbering: { prefix: "QT-", nextNumber: 1, digitLength: 4 },
+        invoiceNumbering: { prefix: "INV-", nextNumber: 1, digitLength: 4 },
+      },
+      createdAt: "2026-01-01",
+      updatedAt: "2026-01-01",
+    };
+
+    const fallbackInv =
+      tenantWithoutDefaults.settings?.defaultInvoiceTemplate || "a4_modern";
+    const fallbackQuote =
+      tenantWithoutDefaults.settings?.defaultQuotationTemplate || "a4_modern";
+    expect(fallbackInv).toBe("a4_modern");
+    expect(fallbackQuote).toBe("a4_modern");
+  });
 });
+

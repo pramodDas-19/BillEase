@@ -29,8 +29,7 @@ import {
   Globe,
 } from "lucide-react";
 import { ClientSearchCombobox } from "@/components/clients/client-search-combobox";
-import { InvoicePrintDocument } from "@/components/documents/invoice-print-document";
-import { ResponsiveDocumentSheet } from "@/components/documents/responsive-document-sheet";
+import { DocumentTemplateRenderer } from "@/components/documents/document-template-renderer";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import { UnsavedChangesDialog } from "@/components/ui/unsaved-changes-dialog";
 import { useTrial } from "@/hooks/use-trial";
@@ -1361,61 +1360,61 @@ function NewInvoiceContent() {
             </div>
 
             {/* Document Content Container (Scrollable) */}
-            <div className="flex-1 overflow-y-auto p-2 sm:p-6 bg-slate-100/50 custom-scrollbar">
-              <ResponsiveDocumentSheet baseWidth={800} paperEffect={true}>
-                <InvoicePrintDocument
-                  invoice={{
-                    id: "preview",
-                    tenantId: currentTenant?.id || "default",
-                    invoiceNumber: state.invoiceNumber,
-                    quotationId: state.quotationId,
-                    quotationNumber: state.quotationNumber,
-                    clientId: state.clientId,
-                    clientName: state.clientName || "Client Name",
-                    clientCompanyName: state.clientCompanyName,
-                    clientEmail: state.clientEmail,
-                    clientPhone: state.clientPhone,
-                    clientAddress: state.clientAddress,
-                    clientGstin: state.clientGstin,
-                    clientPan: state.clientPan,
-                    issueDate: state.issueDate,
-                    dueDate: state.dueDate,
-                    currency: state.currency,
-                    items: state.items,
-                    subtotal: totals.subtotal,
-                    discountType: state.discountType,
-                    discountValue: state.discountValue,
-                    discountAmount: totals.discountAmount,
-                    isTaxEnabled: state.isTaxEnabled,
-                    gstType: state.gstType,
-                    taxBreakdown: totals.taxBreakdown,
-                    totalTax: totals.totalTax,
-                    totalAmount: totals.totalAmount,
-                    paidAmount: state.paidAmount || 0,
-                    balanceDue: totals.balanceDue,
-                    isRoundOffEnabled: state.isRoundOffEnabled,
-                    roundOffAmount: totals.roundOffAmount,
-                    termsAndConditions: state.termsAndConditions,
-                    notes: state.notes,
-                    status: totals.balanceDue <= 0 ? "paid" : (state.paidAmount || 0) > 0 ? "partially_paid" : "due",
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                  }}
-                  tenant={currentTenant || {
-                    id: "default",
-                    businessName: "Your Company",
-                    email: "info@example.com",
-                    phone: "+91 9876543210",
-                    address: "Business Address",
-                    currency: "INR",
-                    settings: {
-                      defaultCurrency: "INR",
-                    },
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                  }}
-                />
-              </ResponsiveDocumentSheet>
+            <div className="flex-1 overflow-y-auto p-2 sm:p-6 bg-slate-100/50 custom-scrollbar flex justify-center">
+              <DocumentTemplateRenderer
+                document={{
+                  id: "preview",
+                  tenantId: currentTenant?.id || "default",
+                  invoiceNumber: state.invoiceNumber,
+                  quotationId: state.quotationId,
+                  quotationNumber: state.quotationNumber,
+                  clientId: state.clientId,
+                  clientName: state.clientName || "Client Name",
+                  clientCompanyName: state.clientCompanyName,
+                  clientEmail: state.clientEmail,
+                  clientPhone: state.clientPhone,
+                  clientAddress: state.clientAddress,
+                  clientGstin: state.clientGstin,
+                  clientPan: state.clientPan,
+                  issueDate: state.issueDate,
+                  dueDate: state.dueDate,
+                  currency: state.currency,
+                  items: state.items,
+                  subtotal: totals.subtotal,
+                  discountType: state.discountType,
+                  discountValue: state.discountValue,
+                  discountAmount: totals.discountAmount,
+                  isTaxEnabled: state.isTaxEnabled,
+                  gstType: state.gstType,
+                  taxBreakdown: totals.taxBreakdown,
+                  totalTax: totals.totalTax,
+                  totalAmount: totals.totalAmount,
+                  paidAmount: state.paidAmount || 0,
+                  balanceDue: totals.balanceDue,
+                  isRoundOffEnabled: state.isRoundOffEnabled,
+                  roundOffAmount: totals.roundOffAmount,
+                  termsAndConditions: state.termsAndConditions,
+                  notes: state.notes,
+                  status: totals.balanceDue <= 0 ? "paid" : (state.paidAmount || 0) > 0 ? "partially_paid" : "due",
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                }}
+                type="invoice"
+                tenant={currentTenant || {
+                  id: "default",
+                  businessName: "Your Company",
+                  email: "info@example.com",
+                  phone: "+91 9876543210",
+                  address: "Business Address",
+                  currency: "INR",
+                  settings: {
+                    defaultCurrency: "INR",
+                  },
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                }}
+                templateId={currentTenant?.settings?.defaultInvoiceTemplate || "a4_modern"}
+              />
             </div>
 
             {/* Modal Footer */}

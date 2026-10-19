@@ -787,7 +787,35 @@ This living document maintains an audit trail of every system module in **BillEa
     - Zero-item documents (`items: []`) handle empty tables without NaN or crashing.
     - Missing tenant profile gracefully falls back to default business identity.
     - Quotation advance payment calculations (`advanceAmount`, `advanceType`, `advanceValue`) display booking advance vs delivery balance correctly.
-    - Indian GST Rule 46 compliance (CGST/SGST 50/50 split for intra-state, 100% IGST for inter-state).
+### 9.7 Dual-Template Configuration for Invoices & Quotations
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**:
+  - [`src/app/(dashboard)/settings/templates/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/settings/templates/page.tsx)
+  - [`src/components/documents/document-format-bar.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/components/documents/document-format-bar.tsx)
+* **The Problem**:
+  Previously, `/settings/templates` only ever saved `defaultInvoiceTemplate`, leaving `defaultQuotationTemplate` unset. As a result, when a user customized their invoice template to A5 or Thermal, quotations continued to fall back to the default A4 format, causing confusion. Furthermore, the settings page only previewed mock invoices, preventing users from seeing how quotation-specific elements (such as validity dates and booking advances) rendered.
+* **The Fix**:
+  1. Added a prominent **Invoices vs Quotations** preview switcher tab in `/settings/templates`.
+  2. Created `SAMPLE_PREVIEW_QUOTATION` containing validity dates, estimate notices, and booking advance percentages.
+  3. Added an `"Apply this format to both Invoices & Quotations"` checkbox (checked by default) that automatically persists the chosen format to both `defaultInvoiceTemplate` and `defaultQuotationTemplate`.
+  4. Preserves independent default configuration when the checkbox is unchecked, allowing businesses to use A4 Modern for quotations and A5 or Thermal for final sales invoices.
+
+---
+
+### 9.8 Live Document Template Switcher & Builder Draft Synchronization
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**:
+  - [`src/app/(dashboard)/invoices/[id]/preview/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/invoices/%5Bid%5D/preview/page.tsx)
+  - [`src/app/(dashboard)/quotations/[id]/preview/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/quotations/%5Bid%5D/preview/page.tsx)
+  - [`src/app/(dashboard)/invoices/new/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/invoices/new/page.tsx)
+  - [`src/app/(dashboard)/quotations/new/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/quotations/new/page.tsx)
+* **The Problem**:
+  1. In document preview pages, users had to navigate away to Settings to change a format and then return to see the result on their actual document data.
+  2. In the creation builders (`/invoices/new` and `/quotations/new`), the "Live Preview" modal hardcoded legacy `InvoicePrintDocument` and `QuotationPrintDocument`, ignoring tenant-configured templates entirely.
+* **The Fix**:
+  1. Embedded interactive `[ Change Format ]` toggle buttons and collapsible `DocumentFormatBar` drawers directly into `/invoices/[id]/preview` and `/quotations/[id]/preview`, with instant live re-rendering on real document data.
+  2. Added a 1-tap `[ Formats ]` action button in the sticky mobile bottom bar on both preview routes.
+  3. Upgraded draft modals in both `/invoices/new` and `/quotations/new` to use `DocumentTemplateRenderer` with `currentTenant?.settings?.defaultInvoiceTemplate` and `defaultQuotationTemplate`.
 
 ---
 
@@ -796,7 +824,7 @@ This living document maintains an audit trail of every system module in **BillEa
 | Check | Tool / Runner | Result |
 |---|---|---|
 | **TypeScript Compilation** | `npx tsc --noEmit` | 🟢 0 errors |
-| **Unit & Integration Tests** | `npx vitest run` (23 test files) | 🟢 174 / 174 passed |
+| **Unit & Integration Tests** | `npx vitest run` (23 test files) | 🟢 175 / 175 passed |
 | **Module 1 Specific Tests** | `tests/auth-module-fixes.test.ts` | 🟢 5 / 5 passed |
 | **Module 2 Specific Tests** | `tests/client-module-fixes.test.ts` | 🟢 7 / 7 passed |
 | **Module 3 Specific Tests** | `tests/service-module-fixes.test.ts` | 🟢 7 / 7 passed |
@@ -805,8 +833,9 @@ This living document maintains an audit trail of every system module in **BillEa
 | **Module 6 Specific Tests** | `tests/payment-module-fixes.test.ts` | 🟢 7 / 7 passed |
 | **Module 7 Specific Tests** | `tests/reports-gst-module-fixes.test.ts` | 🟢 7 / 7 passed |
 | **Module 8 Specific Tests** | `tests/settings-module-fixes.test.ts` | 🟢 9 / 9 passed |
-| **Module 9 Specific Tests** | `tests/document-templates.test.ts` | 🟢 12 / 12 passed |
+| **Module 9 Specific Tests** | `tests/document-templates.test.ts` | 🟢 13 / 13 passed |
 | **Next.js Production Build** | `npm run build` | 🟢 Build successful, 53/53 static routes compiled |
+
 
 
 

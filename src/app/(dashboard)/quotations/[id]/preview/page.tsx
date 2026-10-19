@@ -8,11 +8,13 @@ import { Quotation } from "@/types";
 import { useTenant } from "@/hooks/use-tenant";
 import {
   DocumentTemplateRenderer,
+  DocumentFormatBar,
 } from "@/components/documents";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Printer, Loader2, Palette, Download } from "lucide-react";
 import { triggerDocumentPrint } from "@/lib/print-page-helper";
 import { downloadElementAsPdf } from "@/lib/pdf-download-helper";
+import { cn } from "@/lib/utils";
 
 export default function QuotationPreviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -20,6 +22,7 @@ export default function QuotationPreviewPage({ params }: { params: Promise<{ id:
   const [quote, setQuote] = useState<Quotation | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [showFormatSelector, setShowFormatSelector] = useState(false);
   const documentRef = useRef<HTMLDivElement>(null);
 
   // Default to tenant preferred template or fallback to Advanced GST
@@ -142,14 +145,21 @@ export default function QuotationPreviewPage({ params }: { params: Promise<{ id:
         </Link>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href="/settings/templates"
-            className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 text-xs font-bold shadow-xs transition-colors"
+          {/* Change Format Button */}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowFormatSelector((prev) => !prev)}
+            className={cn(
+              "gap-1.5 min-h-[40px] px-3.5 py-2 text-xs font-bold cursor-pointer rounded-xl shadow-xs transition-all",
+              showFormatSelector
+                ? "bg-teal-50 border-teal-300 text-[#0C9484] ring-2 ring-teal-500/20"
+                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+            )}
           >
             <Palette className="h-3.5 w-3.5 text-[#0C9484]" />
-            <span className="hidden xs:inline">Customize Template</span>
-            <span className="xs:hidden">Customize</span>
-          </Link>
+            <span>{showFormatSelector ? "Close Formats" : "Change Format"}</span>
+          </Button>
 
           <Button
             size="sm"
@@ -182,8 +192,36 @@ export default function QuotationPreviewPage({ params }: { params: Promise<{ id:
         </div>
       </div>
 
+      {/* Dynamic Format Selector Dropdown/Bar (Real-time template switching) */}
+      {showFormatSelector && (
+        <div className="animate-in fade-in slide-in-from-top-2 duration-200 print:hidden">
+          <DocumentFormatBar
+            currentTemplateId={selectedTemplateId}
+            onSelectTemplate={(tmplId) => setSelectedTemplateId(tmplId)}
+            documentType="quotation"
+            tenantId={currentTenant?.id}
+            defaultTemplateId={currentTenant?.settings?.defaultQuotationTemplate || "a4_modern"}
+            onSavedAsDefault={refreshTenantData}
+            hideCardsOnMobile={false}
+          />
+        </div>
+      )}
+
       {/* Sticky Mobile Quick Action Bar (Bottom of Phone Screen) */}
       <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 p-2.5 flex items-center gap-2 shadow-2xl print:hidden">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setShowFormatSelector((prev) => !prev)}
+          className={cn(
+            "min-h-[42px] px-3 gap-1.5 text-xs font-bold cursor-pointer rounded-xl shadow-xs",
+            showFormatSelector ? "bg-teal-50 border-teal-300 text-[#0C9484]" : "bg-white border-slate-300 text-slate-800"
+          )}
+        >
+          <Palette className="h-3.5 w-3.5 text-[#0C9484]" />
+          <span>{showFormatSelector ? "Close" : "Formats"}</span>
+        </Button>
+
         <Button
           size="sm"
           onClick={handleDownloadPdf}
@@ -207,7 +245,7 @@ export default function QuotationPreviewPage({ params }: { params: Promise<{ id:
           size="sm"
           variant="outline"
           onClick={handlePrint}
-          className="min-h-[42px] px-4 gap-1.5 text-xs font-bold cursor-pointer bg-white border-slate-300 text-slate-800 rounded-xl shadow-xs"
+          className="min-h-[42px] px-3.5 gap-1.5 text-xs font-bold cursor-pointer bg-white border-slate-300 text-slate-800 rounded-xl shadow-xs"
         >
           <Printer className="h-3.5 w-3.5 text-slate-600" />
           <span>Print</span>
