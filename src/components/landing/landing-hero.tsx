@@ -72,7 +72,7 @@ export function LandingHero() {
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-4 text-base font-extrabold rounded-2xl clay-dark-btn text-white group"
             >
               <Sparkles className="w-5 h-5 text-emerald-100 group-hover:rotate-12 transition-transform" />
-              <span>Start Free 14-Day Trial</span>
+              <span>Start Free 30-Day Trial</span>
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Link>
 

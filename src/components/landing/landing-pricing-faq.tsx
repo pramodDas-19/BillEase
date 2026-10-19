@@ -58,7 +58,7 @@ export function LandingPricingFaq() {
         "Custom units (Sq Ft, Brass, Sets, Hours)",
         "Multi-staff roles & permissions",
       ],
-      ctaText: "Start 14-Day Free Trial",
+      ctaText: "Start 30-Day Free Trial",
       ctaLink: "/signup?plan=pro",
       popular: true,
     },

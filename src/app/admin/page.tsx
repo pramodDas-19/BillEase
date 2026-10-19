@@ -281,7 +281,7 @@ function AdminConsoleContent() {
   };
 
   // Actions on Tenants (Live in Supabase)
-  const handleExtendTrial = async (tenant: Tenant, days: number = 7) => {
+  const handleExtendTrial = async (tenant: Tenant, days: number = 30) => {
     try {
       await TenantService.extendTrial(tenant.id, days);
       await loadTenants();
@@ -808,7 +808,7 @@ function AdminConsoleContent() {
 
         <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-xs">
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-xs font-black uppercase tracking-wider">Active 7-Day Trials</span>
+            <span className="text-xs font-black uppercase tracking-wider">Active 30-Day Trials</span>
             <Clock className="h-4 w-4 text-amber-400" />
           </div>
           <div className="mt-3">
@@ -1096,11 +1096,11 @@ function AdminConsoleContent() {
                             {/* Extend Trial */}
                             {!isPaid && (
                               <button
-                                onClick={() => handleExtendTrial(t, 7)}
-                                title="Extend 7-day free trial"
+                                onClick={() => handleExtendTrial(t, 30)}
+                                title="Extend 30-day free trial"
                                 className="px-2.5 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px] font-bold transition-all cursor-pointer shadow-2xs active:translate-y-[1px]"
                               >
-                                +7d Trial
+                                +30d Trial
                               </button>
                             )}
 

@@ -488,7 +488,7 @@ export default function PricingPage() {
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/80">
                 <th className="p-4 font-bold text-slate-900">Feature</th>
-                <th className="p-4 font-bold text-slate-900 text-center">7-Day Free Trial</th>
+                <th className="p-4 font-bold text-slate-900 text-center">30-Day Free Trial</th>
                 <th className="p-4 font-bold text-emerald-800 text-center bg-emerald-50/50">Pro Business</th>
                 <th className="p-4 font-bold text-slate-900 text-center">Enterprise</th>
               </tr>
@@ -496,7 +496,7 @@ export default function PricingPage() {
             <tbody className="divide-y divide-slate-100 text-slate-600">
               <tr>
                 <td className="p-4 font-semibold text-slate-900">Invoice & Quotation Volume</td>
-                <td className="p-4 text-center">Unlimited for 7d</td>
+                <td className="p-4 text-center">Unlimited for 30d</td>
                 <td className="p-4 text-center font-bold text-emerald-800 bg-emerald-50/30">Unlimited</td>
                 <td className="p-4 text-center">Unlimited</td>
               </tr>

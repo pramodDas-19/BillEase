@@ -133,7 +133,7 @@ export function LandingNavbar() {
               className="w-full inline-flex items-center justify-center gap-2 py-3 text-xs font-bold rounded-xl clay-dark-btn text-white"
             >
               <Sparkles className="w-4 h-4" />
-              <span>Start Free 14-Day Trial</span>
+              <span>Start Free 30-Day Trial</span>
             </Link>
           </div>
         </div>
