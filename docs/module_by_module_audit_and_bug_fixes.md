@@ -1004,6 +1004,30 @@ This living document maintains an audit trail of every system module in **BillEa
 
 ---
 
+### 10.8 Mobile Scroll-Direction Auto-Hide & Generous Safety Clearance (`h-28 pb-safe`)
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**:
+  - [`src/components/layout/mobile-bottom-bar.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/components/layout/mobile-bottom-bar.tsx)
+  - [`src/components/layout/dashboard-shell.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/components/layout/dashboard-shell.tsx)
+  - [`src/app/(dashboard)/clients/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/clients/page.tsx)
+  - [`src/app/(dashboard)/services/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/services/page.tsx)
+  - [`src/app/(dashboard)/payments/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/payments/page.tsx)
+* **The Problem**:
+  On mobile devices (e.g. iPhone, Android), card action buttons at the bottom of lists (such as `+ Quote`, `+ Invoice`, and `Ledger` on the client cards) could get obscured or partially clipped under the fixed bottom navigation bar when resting or scrolling near the bottom.
+* **The Fix**:
+  1. **Scroll-Direction Auto-Hide**:
+     - `MobileBottomBar` now monitors scroll direction with `requestAnimationFrame` throttling and an 8px threshold to avoid micro-scroll jitter.
+     - When scrolling down, the bottom bar smoothly translates down (`translate-y-full opacity-0 pointer-events-none`) with `transition-all duration-300 ease-in-out` to give 100% fullscreen viewing.
+     - When scrolling up or when near top of the page (`scrollY <= 25px`), the bottom bar smoothly slides back into view.
+     - If Quick Create menu is open or on route transitions, visibility is automatically preserved.
+  2. **Dedicated Bottom Safety Spacer (`h-28 pb-safe`)**:
+     - Added `<div className="h-28 pb-safe lg:hidden pointer-events-none" aria-hidden="true" />` at the bottom of `<main>` in `DashboardShell`.
+     - Ensures even single-item lists or short pages allow scrolling well above the bottom navigation bar with zero occlusion.
+  3. **Touch Action Targets**:
+     - Upgraded action buttons on client, service, and payment cards to `min-h-[38px] rounded-xl app-press cursor-pointer` matching mobile OS guidelines.
+
+---
+
 ## 🧪 Comprehensive Verification Matrix (All 10 Modules)
 
 | Check | Tool / Runner | Result |

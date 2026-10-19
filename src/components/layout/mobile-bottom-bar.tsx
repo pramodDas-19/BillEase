@@ -19,7 +19,56 @@ import { useTrial } from "@/hooks/use-trial";
 export function MobileBottomBar() {
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
+  const lastScrollY = React.useRef(0);
   const { checkCanPerformAction } = useTrial();
+
+  // Reset visibility and close popup on page navigation
+  React.useEffect(() => {
+    setIsVisible(true);
+    setIsMenuOpen(false);
+  }, [pathname]);
+
+  // Intelligent scroll-direction detection (native mobile app feel: hide on scroll down, reveal on scroll up)
+  React.useEffect(() => {
+    let ticking = false;
+
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const currentScrollY = window.scrollY;
+
+          // Always reveal when near the top of the page
+          if (currentScrollY <= 25) {
+            setIsVisible(true);
+            lastScrollY.current = currentScrollY;
+            ticking = false;
+            return;
+          }
+
+          const delta = currentScrollY - lastScrollY.current;
+          // Threshold of 8px to prevent jitter on micro-scrolls
+          if (Math.abs(delta) > 8) {
+            if (delta > 0 && currentScrollY > 40) {
+              // Scrolling down: hide bottom bar
+              setIsVisible(false);
+              setIsMenuOpen(false);
+            } else {
+              // Scrolling up: reveal bottom bar
+              setIsVisible(true);
+            }
+            lastScrollY.current = currentScrollY;
+          }
+
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   // On builder, preview, and settings pages with dedicated floating action bars, yield for clean edge-to-edge view
   const hasDedicatedMobileBar =
@@ -138,7 +187,14 @@ export function MobileBottomBar() {
       )}
 
       {/* Floating Bottom Nav Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-30 lg:hidden bg-white/95 backdrop-blur-md border-t border-slate-200/80 px-2 pt-1.5 pb-safe shadow-lg print:hidden w-full max-w-[100vw]">
+      <nav
+        className={cn(
+          "fixed bottom-0 left-0 right-0 z-30 lg:hidden bg-white/95 backdrop-blur-md border-t border-slate-200/80 px-2 pt-1.5 pb-safe shadow-lg print:hidden w-full max-w-[100vw] transition-all duration-300 ease-in-out",
+          isVisible || isMenuOpen
+            ? "translate-y-0 opacity-100"
+            : "translate-y-full opacity-0 pointer-events-none"
+        )}
+      >
         <div className="flex items-center justify-between w-full">
           {navItems.map((item, idx) => {
             if (item.isAction) {

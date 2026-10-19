@@ -535,7 +535,7 @@ export default function ClientsPage() {
                   <div className="grid grid-cols-3 gap-1.5">
                     <Link
                       href={`/quotations/new?clientId=${client.id}`}
-                      className="clay-tag flex items-center justify-center gap-1 py-1.5 text-[11px] font-bold bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80 transition-colors"
+                      className="clay-tag flex items-center justify-center gap-1 min-h-[38px] py-1.5 text-[11px] font-bold bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80 rounded-xl transition-all app-press cursor-pointer"
                     >
                       <FileText className="h-3 w-3 text-blue-600" />
                       <span>+ Quote</span>
@@ -543,7 +543,7 @@ export default function ClientsPage() {
 
                     <Link
                       href={`/invoices/new?clientId=${client.id}`}
-                      className="clay-tag flex items-center justify-center gap-1 py-1.5 text-[11px] font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition-colors"
+                      className="clay-tag flex items-center justify-center gap-1 min-h-[38px] py-1.5 text-[11px] font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl transition-all app-press cursor-pointer"
                     >
                       <ReceiptText className="h-3 w-3 text-emerald-600" />
                       <span>+ Invoice</span>
@@ -551,7 +551,7 @@ export default function ClientsPage() {
 
                     <Link
                       href={`/clients/${client.id}`}
-                      className="clay-tag flex items-center justify-center gap-1 py-1.5 text-[11px] font-bold bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80 transition-colors"
+                      className="clay-tag flex items-center justify-center gap-1 min-h-[38px] py-1.5 text-[11px] font-bold bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80 rounded-xl transition-all app-press cursor-pointer"
                     >
                       <span>Ledger</span>
                       <ArrowUpRight className="h-3 w-3 text-slate-400" />

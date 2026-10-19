@@ -452,7 +452,7 @@ export default function ServicesPage() {
                   <div className="grid grid-cols-2 gap-2">
                     <Link
                       href={`/quotations/new?serviceId=${item.id}`}
-                      className="clay-tag flex items-center justify-center gap-1.5 py-2 text-xs font-bold bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80 transition-colors"
+                      className="clay-tag flex items-center justify-center gap-1.5 min-h-[38px] py-2 text-xs font-bold bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80 rounded-xl transition-all app-press cursor-pointer"
                     >
                       <FileText className="h-3.5 w-3.5 text-blue-600" />
                       <span>+ Quote</span>
@@ -460,7 +460,7 @@ export default function ServicesPage() {
 
                     <Link
                       href={`/invoices/new?serviceId=${item.id}`}
-                      className="clay-tag flex items-center justify-center gap-1.5 py-2 text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition-colors"
+                      className="clay-tag flex items-center justify-center gap-1.5 min-h-[38px] py-2 text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl transition-all app-press cursor-pointer"
                     >
                       <ReceiptText className="h-3.5 w-3.5 text-emerald-600" />
                       <span>+ Invoice</span>

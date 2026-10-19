@@ -473,7 +473,7 @@ export default function PaymentsPage() {
                       })}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="clay-tag flex items-center justify-center gap-1.5 py-2 text-xs font-bold bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 transition-colors"
+                      className="clay-tag flex items-center justify-center gap-1.5 min-h-[38px] py-2 text-xs font-bold bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 rounded-xl transition-all app-press cursor-pointer"
                     >
                       <MessageSquare className="h-3.5 w-3.5 text-teal-600" />
                       <span>WhatsApp</span>
@@ -482,7 +482,7 @@ export default function PaymentsPage() {
                     {/* View Linked Invoice */}
                     <Link
                       href={`/invoices/${p.invoiceId}`}
-                      className="clay-tag flex items-center justify-center gap-1.5 py-2 text-xs font-bold bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80 transition-colors"
+                      className="clay-tag flex items-center justify-center gap-1.5 min-h-[38px] py-2 text-xs font-bold bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80 rounded-xl transition-all app-press cursor-pointer"
                     >
                       <ReceiptText className="h-3.5 w-3.5 text-slate-500" />
                       <span>View Bill</span>
