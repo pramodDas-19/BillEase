@@ -334,17 +334,90 @@ This living document maintains an audit trail of every system module in **BillEa
 
 ---
 
+---
+
+## 🧾 Module 5: Invoices & Core Billing Engine
+
+### 5.1 Invoice Deletion Rollback, Linked Payments Cleanup & Ledger Recalculation
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**: [`src/app/(dashboard)/invoices/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/invoices/page.tsx), [`src/services/invoice.service.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/services/invoice.service.ts)
+* **The Problem**:
+  1. `handleDeleteInvoice` optimistically removed the invoice from component state without saving a backup snapshot or checking the result of `InvoiceService.deleteInvoice(id)`. If the deletion failed, the invoice vanished from the UI until a hard reload.
+  2. `InvoiceService.deleteInvoice(id)` attempted `delete from invoices` without first cleaning up linked payment receipts in `payments`, triggering foreign key constraint rejections in PostgreSQL.
+  3. Deletion did not catch `isNetworkError()` to enqueue offline mutations to IndexedDB.
+* **The Fix**:
+  1. Added state snapshot backup and rollback in `handleDeleteInvoice`:
+     ```ts
+     const backup = [...invoicesList];
+     setInvoicesList((prev) => prev.filter((inv) => inv.id !== id));
+     try {
+       const ok = await InvoiceService.deleteInvoice(id);
+       if (!ok) {
+         setInvoicesList(backup);
+         alert("Failed to delete invoice. Please try again.");
+       }
+     } catch (err) {
+       setInvoicesList(backup);
+       alert("Failed to delete invoice. Please check your network connection.");
+     }
+     ```
+  2. Updated `InvoiceService.deleteInvoice(id)` to safely delete linked `payments` and `invoice_items` records before deleting the invoice.
+  3. Integrated `ClientService.recalculateClientLedger(inv.client_id)` to keep customer balance due and billed totals accurate.
+  4. Added offline network error detection with `enqueueMutation({ entityType: "invoice", action: "delete", ... })`.
+
+---
+
+### 5.2 Strict Invoice Validation Schema & Boundary Checking
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**: [`src/validations/invoice.schema.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/validations/invoice.schema.ts), [`src/app/(dashboard)/invoices/new/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/invoices/new/page.tsx), [`src/app/(dashboard)/invoices/[id]/edit/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/invoices/%5Bid%5D/edit/page.tsx)
+* **The Problem**:
+  `validateInvoice` lacked date ordering enforcement (`dueDate >= issueDate`), paid amount boundaries (preventing negative paid amounts or paid amounts exceeding total bills), discount percentage limits (> 100%), and line item boundary checks. In addition, `validateInvoice()` was not wired into `handleSubmit` in `invoices/new/page.tsx` and `invoices/[id]/edit/page.tsx`.
+* **The Fix**:
+  1. Extended `validateInvoice()`:
+     - Date ordering: `dueDate` cannot precede `issueDate`.
+     - Paid amount: non-negative and capped at `totalAmount`.
+     - Overall discount: percentage between 0–100%, non-negative.
+     - Line items: non-negative amount, rate >= 0, quantity > 0, discount percentage <= 100%.
+  2. Wired `validateInvoice()` into `handleSubmit` in both `invoices/new/page.tsx` and `invoices/[id]/edit/page.tsx` with user-friendly alerts.
+
+---
+
+### 5.3 Offline Invoice Deletion Replay Support
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected File**: [`src/lib/offline-sync-runner.ts`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/lib/offline-sync-runner.ts)
+* **The Problem**:
+  In `offline-sync-runner.ts`, `case "invoice"` only checked `if (item.action === "create")`, assuming all other actions were updates requiring `item.payload.invPayload`. If an offline invoice deletion was queued, replay crashed.
+* **The Fix**:
+  Added an explicit `else if (item.action === "delete")` branch in `offline-sync-runner.ts` that safely deletes linked payments, invoice items, and the invoice upon network recovery.
+
+---
+
+### 5.4 Mobile Touch Target Enlargement & Dialer Link Sanitization
+* **Status**: 🟢 FIXED & VERIFIED
+* **Affected Files**: [`src/app/(dashboard)/invoices/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/invoices/page.tsx), [`src/app/(dashboard)/invoices/[id]/page.tsx`](file:///c:/Users/ASUS/Downloads/BILLING%20SOFTWARE/src/app/%28dashboard%29/invoices/%5Bid%5D/page.tsx)
+* **The Problem**:
+  - Quick action buttons (Record Pay, WhatsApp Share, PDF, Preview, Edit, Delete) in table view and card view were undersized (`p-1.5` and `h-8 w-8`), making them hard to tap on mobile touchscreens.
+  - Dialer links (`tel:${invoice.clientPhone}`) stripped leading `+` signs or passed raw unformatted strings.
+* **The Fix**:
+  1. Enlarged quick action buttons in table rows and grid cards to `flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-xl` with `h-3.5 w-3.5` icons.
+  2. Enlarged bottom action buttons (Record Pay, Preview PDF) to `min-h-[38px] py-2 px-3 text-xs font-bold`.
+  3. Sanitized dialer phone links: `phone.replace(/[^0-9+]/g, "")`, preserving international `+` prefixes while removing spaces and dashes.
+
+---
+
 ## 🧪 Verification Matrix
 
 | Check | Tool / Runner | Result |
 |---|---|---|
 | **TypeScript Compilation** | `npx tsc --noEmit` | 🟢 0 errors |
-| **Unit & Integration Tests** | `npx vitest run` (19 test files) | 🟢 140 / 140 passed |
+| **Unit & Integration Tests** | `npx vitest run` (20 test files) | 🟢 148 / 148 passed |
 | **Module 1 Specific Tests** | `tests/auth-module-fixes.test.ts` | 🟢 5 / 5 passed |
 | **Module 2 Specific Tests** | `tests/client-module-fixes.test.ts` | 🟢 7 / 7 passed |
 | **Module 3 Specific Tests** | `tests/service-module-fixes.test.ts` | 🟢 7 / 7 passed |
 | **Module 4 Specific Tests** | `tests/quotation-module-fixes.test.ts` | 🟢 7 / 7 passed |
+| **Module 5 Specific Tests** | `tests/invoice-module-fixes.test.ts` | 🟢 8 / 8 passed |
 | **Next.js Production Build** | `npm run build` | 🟢 Build successful, 53/53 static routes compiled |
+
 
 
 

@@ -35,6 +35,7 @@ import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import { UnsavedChangesDialog } from "@/components/ui/unsaved-changes-dialog";
 import { useTrial } from "@/hooks/use-trial";
 import { RoutePaywallBlocker } from "@/components/layout/route-paywall-blocker";
+import { validateInvoice } from "@/validations/invoice.schema";
 import dynamic from "next/dynamic";
 
 const FirstInvoiceSuccess = dynamic(
@@ -411,6 +412,26 @@ function NewInvoiceContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmittingRef.current || isSubmitting) return;
+
+    const validationErrors = validateInvoice({
+      invoiceNumber: state.invoiceNumber,
+      clientId: state.clientId,
+      clientName: state.clientName,
+      issueDate: state.issueDate,
+      dueDate: state.dueDate,
+      items: state.items,
+      totalAmount: totals.totalAmount,
+      paidAmount: state.paidAmount,
+      discountType: state.discountType,
+      discountValue: state.discountValue,
+    });
+
+    if (Object.keys(validationErrors).length > 0) {
+      const firstError = Object.values(validationErrors)[0];
+      alert(firstError);
+      return;
+    }
+
     isSubmittingRef.current = true;
     setIsSubmitting(true);
 

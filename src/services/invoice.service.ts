@@ -703,9 +703,25 @@ export const InvoiceService = {
   async deleteInvoice(id: string): Promise<boolean> {
     try {
       const { data: inv } = await supabase.from("invoices").select("client_id").eq("id", id).maybeSingle();
+      await supabase.from("payments").delete().eq("invoice_id", id);
       await supabase.from("invoice_items").delete().eq("invoice_id", id);
       const { error } = await supabase.from("invoices").delete().eq("id", id);
       if (error) {
+        if (isNetworkError(error)) {
+          console.warn("[InvoiceService] Network offline during invoice delete. Enqueuing mutation...");
+          const tenantId = await AuthService.getActiveTenantId();
+          await enqueueMutation({
+            entityType: "invoice",
+            entityId: id,
+            action: "delete",
+            tenantId,
+            payload: { id },
+            displayTitle: `Delete Invoice #${id}`,
+          });
+          DataCache.invalidate("invoices");
+          DataCache.invalidate(`invoice:${id}`);
+          return true;
+        }
         console.error("Supabase delete invoice error:", error);
         return false;
       }
@@ -720,7 +736,23 @@ export const InvoiceService = {
       }
 
       return true;
-    } catch (err) {
+    } catch (err: any) {
+      if (isNetworkError(err)) {
+        try {
+          const tenantId = await AuthService.getActiveTenantId();
+          await enqueueMutation({
+            entityType: "invoice",
+            entityId: id,
+            action: "delete",
+            tenantId,
+            payload: { id },
+            displayTitle: `Delete Invoice #${id}`,
+          });
+          DataCache.invalidate("invoices");
+          DataCache.invalidate(`invoice:${id}`);
+          return true;
+        } catch {}
+      }
       console.error("InvoiceService.deleteInvoice error:", err);
       return false;
     }

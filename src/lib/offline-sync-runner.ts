@@ -18,7 +18,7 @@ let isInitialized = false;
 /**
  * Executes a single queued mutation directly against Supabase
  */
-async function replayMutation(item: PendingMutation): Promise<{ success: boolean; error?: any }> {
+export async function replayMutation(item: PendingMutation): Promise<{ success: boolean; error?: any }> {
   try {
     switch (item.entityType) {
       case "invoice": {
@@ -31,6 +31,12 @@ async function replayMutation(item: PendingMutation): Promise<{ success: boolean
             const { error: itemsError } = await supabase.from("invoice_items").insert(itemRows);
             if (itemsError) console.warn("[OfflineSync] invoice_items insert error:", itemsError);
           }
+        } else if (item.action === "delete") {
+          const { id } = item.payload;
+          await supabase.from("payments").delete().eq("invoice_id", id);
+          await supabase.from("invoice_items").delete().eq("invoice_id", id);
+          const { error: invError } = await supabase.from("invoices").delete().eq("id", id);
+          if (invError) throw invError;
         } else {
           // update
           const { id, invPayload, itemRows } = item.payload;
