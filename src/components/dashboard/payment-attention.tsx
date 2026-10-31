@@ -26,15 +26,25 @@ export function PaymentAttention() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+    setIsLoading(true);
     InvoiceService.getInvoices().then((invoices) => {
+      if (!isMounted) return;
+      const scopedInvs = currentTenant?.id
+        ? (invoices || []).filter((i) => i.tenantId === currentTenant.id)
+        : (invoices || []);
       const today = new Date().toISOString().split("T")[0];
-      const pending = (invoices || []).filter(
+      const pending = scopedInvs.filter(
         (i) => i.balanceDue > 0 && (i.status === "overdue" || (i.dueDate && i.dueDate.split("T")[0] <= today))
       );
       setAttentionInvoices(pending.slice(0, 5));
       setIsLoading(false);
     });
-  }, []);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentTenant?.id]);
 
   const handleSendReminder = (inv: Invoice, e: React.MouseEvent) => {
     e.stopPropagation();

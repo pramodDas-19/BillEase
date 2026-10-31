@@ -8,16 +8,43 @@ import { QUOTATION_STATUSES } from "@/constants/status-types";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { FileText, ArrowUpRight, Plus } from "lucide-react";
 
+import { useTenant } from "@/hooks/use-tenant";
+
 export function RecentQuotationsCard() {
+  const { currentTenant } = useTenant();
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+    setIsLoading(true);
     QuotationService.getQuotations().then((data) => {
-      setQuotations(data ? data.slice(0, 5) : []);
+      if (!isMounted) return;
+      const scoped = currentTenant?.id
+        ? (data || []).filter((q) => q.tenantId === currentTenant.id)
+        : (data || []);
+      setQuotations(scoped.slice(0, 5));
       setIsLoading(false);
     });
-  }, []);
+
+    const handleSync = () => {
+      QuotationService.getQuotations().then((data) => {
+        if (!isMounted) return;
+        const scoped = currentTenant?.id
+          ? (data || []).filter((q) => q.tenantId === currentTenant.id)
+          : (data || []);
+        setQuotations(scoped.slice(0, 5));
+      });
+    };
+    window.addEventListener("billease:data-synced", handleSync);
+    window.addEventListener("billease:queue-updated", handleSync);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener("billease:data-synced", handleSync);
+      window.removeEventListener("billease:queue-updated", handleSync);
+    };
+  }, [currentTenant?.id]);
 
   return (
     <div className="clay-card p-5 sm:p-6 flex flex-col justify-between h-full">

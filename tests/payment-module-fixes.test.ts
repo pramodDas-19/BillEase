@@ -287,5 +287,71 @@ describe("Module 6: Payments, Receipts & Public Pay Portal Fixes", () => {
       expect(updatedInvoicePayload.balance_due).toBe(5000);
       expect(updatedInvoicePayload.status).toBe("due");
     });
+
+    it("respects skipInvoiceUpdate option to avoid double-counting advance payments upon invoice creation", async () => {
+      let insertedPaymentPayload: any = null;
+      let invoiceUpdateCalled = false;
+
+      vi.spyOn(supabase, "from").mockImplementation((table: string) => {
+        if (table === "payments") {
+          return {
+            insert: vi.fn().mockImplementation((payload) => {
+              insertedPaymentPayload = payload[0];
+              return Promise.resolve({ error: null });
+            }),
+          } as any;
+        }
+
+        if (table === "invoices") {
+          return {
+            select: vi.fn().mockImplementation(() => {
+              invoiceUpdateCalled = true;
+              return {
+                eq: vi.fn().mockReturnValue({
+                  single: vi.fn().mockResolvedValue({
+                    data: {
+                      id: "inv-1001",
+                      total_amount: "52000.12",
+                      paid_amount: "26000.06",
+                      balance_due: "26000.06",
+                    },
+                  }),
+                }),
+              };
+            }),
+            update: vi.fn().mockImplementation(() => {
+              invoiceUpdateCalled = true;
+              return {
+                eq: vi.fn().mockResolvedValue({ error: null }),
+              };
+            }),
+          } as any;
+        }
+        return {} as any;
+      });
+
+      const payment = await PaymentService.recordPayment(
+        {
+          invoiceId: "inv-1001",
+          invoiceNumber: "INV-1001",
+          clientId: "client-1",
+          clientName: "Solsticepower",
+          amount: 26000.06,
+          currency: "INR",
+          paymentMethod: "cash",
+          transactionReference: "Advance for Quote #QT-1005",
+          notes: "Advance payment recorded upon issuing Invoice #INV-1001.",
+          status: "completed",
+        },
+        { skipInvoiceUpdate: true }
+      );
+
+      expect(payment).not.toBeNull();
+      expect(insertedPaymentPayload).not.toBeNull();
+      expect(insertedPaymentPayload.amount).toBe(26000.06);
+      expect(insertedPaymentPayload.invoice_id).toBe("inv-1001");
+      // Critical check: invoices table must NOT have been queried or updated when skipInvoiceUpdate is true
+      expect(invoiceUpdateCalled).toBe(false);
+    });
   });
 });

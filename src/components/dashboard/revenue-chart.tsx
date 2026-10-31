@@ -31,7 +31,10 @@ function parseDate(dateStr?: string | null): Date | null {
   return isNaN(parsed.getTime()) ? null : parsed;
 }
 
+import { useTenant } from "@/hooks/use-tenant";
+
 export function RevenueChart() {
+  const { currentTenant } = useTenant();
   const [selectedRange, setSelectedRange] = useState<TimeRange>("30D");
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -40,11 +43,18 @@ export function RevenueChart() {
 
   useEffect(() => {
     let mounted = true;
+    setIsLoading(true);
     Promise.all([InvoiceService.getInvoices(), PaymentService.getPayments()])
       .then(([invs, pays]) => {
         if (mounted) {
-          setInvoices(invs || []);
-          setPayments(pays || []);
+          const scopedInvs = currentTenant?.id
+            ? (invs || []).filter((i) => i.tenantId === currentTenant.id)
+            : (invs || []);
+          const scopedPays = currentTenant?.id
+            ? (pays || []).filter((p) => p.tenantId === currentTenant.id)
+            : (pays || []);
+          setInvoices(scopedInvs);
+          setPayments(scopedPays);
           setIsLoading(false);
         }
       })
@@ -56,7 +66,7 @@ export function RevenueChart() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [currentTenant?.id]);
 
   const ranges: TimeRange[] = ["7D", "30D", "3M", "6M", "1Y"];
 

@@ -205,12 +205,18 @@ export const PaymentService = {
   },
 
   // Create payment alias
-  async createPayment(payment: Partial<Payment>): Promise<Payment | null> {
-    return this.recordPayment(payment);
+  async createPayment(
+    payment: Partial<Payment>,
+    options?: { skipInvoiceUpdate?: boolean }
+  ): Promise<Payment | null> {
+    return this.recordPayment(payment, options);
   },
 
   // Record a new payment in Supabase and update invoice balance
-  async recordPayment(payment: Partial<Payment>): Promise<Payment | null> {
+  async recordPayment(
+    payment: Partial<Payment>,
+    options?: { skipInvoiceUpdate?: boolean }
+  ): Promise<Payment | null> {
     try {
       const tenantId = await AuthService.getActiveTenantId();
       const paymentId = payment.id || `pay-${Date.now()}`;
@@ -278,11 +284,12 @@ export const PaymentService = {
       }
 
       // 2. If attached to an invoice, auto-update invoice paid_amount & balance_due
+      // (Unless skipInvoiceUpdate is set, e.g. when an advance was already applied during invoice creation/update)
       let newBalance: number | undefined;
       let newStatus: string | undefined;
       let newPaid: number | undefined;
 
-      if (payment.invoiceId) {
+      if (payment.invoiceId && !options?.skipInvoiceUpdate) {
         try {
           const { data: invData } = await supabase
             .from("invoices")
@@ -349,7 +356,7 @@ export const PaymentService = {
           displayTitle: `Payment #${paymentNumber} (${payment.currency || "₹"}${payment.amount || 0})`,
           payload: {
             paymentPayload: payload,
-            invoiceId: payment.invoiceId || null,
+            invoiceId: options?.skipInvoiceUpdate ? null : (payment.invoiceId || null),
             newBalance,
             newStatus,
             newPaid,

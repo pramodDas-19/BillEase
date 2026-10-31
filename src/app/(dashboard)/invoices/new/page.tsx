@@ -529,25 +529,28 @@ function NewInvoiceContent() {
       // Automatically generate official payment receipt in Payments & Receipts ledger for Advance Paid
       if (createdInvoice && state.paidAmount && state.paidAmount > 0) {
         try {
-          await PaymentService.recordPayment({
-            invoiceId: createdInvoice.id,
-            invoiceNumber: createdInvoice.invoiceNumber,
-            clientId: finalClientId || createdInvoice.clientId,
-            clientName: createdInvoice.clientName,
-            amount: state.paidAmount,
-            currency: state.currency,
-            paymentDate: state.issueDate || new Date().toISOString().split("T")[0],
-            paymentMethod: advancePaymentMethod,
-            transactionReference:
-              advanceReference.trim() ||
-              (sourceQuote
-                ? `Advance for Quote #${sourceQuote.quotationNumber}`
-                : `Advance for Invoice #${createdInvoice.invoiceNumber}`),
-            notes: `Advance payment recorded upon issuing Invoice #${createdInvoice.invoiceNumber}${
-              sourceQuote ? ` (converted from Quote #${sourceQuote.quotationNumber})` : ""
-            }.`,
-            status: "completed",
-          });
+          await PaymentService.recordPayment(
+            {
+              invoiceId: createdInvoice.id,
+              invoiceNumber: createdInvoice.invoiceNumber,
+              clientId: finalClientId || createdInvoice.clientId,
+              clientName: createdInvoice.clientName,
+              amount: state.paidAmount,
+              currency: state.currency,
+              paymentDate: state.issueDate || new Date().toISOString().split("T")[0],
+              paymentMethod: advancePaymentMethod,
+              transactionReference:
+                advanceReference.trim() ||
+                (sourceQuote
+                  ? `Advance for Quote #${sourceQuote.quotationNumber}`
+                  : `Advance for Invoice #${createdInvoice.invoiceNumber}`),
+              notes: `Advance payment recorded upon issuing Invoice #${createdInvoice.invoiceNumber}${
+                sourceQuote ? ` (converted from Quote #${sourceQuote.quotationNumber})` : ""
+              }.`,
+              status: "completed",
+            },
+            { skipInvoiceUpdate: true }
+          );
         } catch (payErr) {
           console.warn("Failed to auto-record advance payment receipt:", payErr);
         }

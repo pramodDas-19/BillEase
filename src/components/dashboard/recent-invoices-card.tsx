@@ -8,16 +8,43 @@ import { INVOICE_STATUSES } from "@/constants/status-types";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { Receipt, ArrowUpRight, Plus, ReceiptText } from "lucide-react";
 
+import { useTenant } from "@/hooks/use-tenant";
+
 export function RecentInvoicesCard() {
+  const { currentTenant } = useTenant();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+    setIsLoading(true);
     InvoiceService.getInvoices().then((data) => {
-      setInvoices(data ? data.slice(0, 5) : []);
+      if (!isMounted) return;
+      const scoped = currentTenant?.id
+        ? (data || []).filter((i) => i.tenantId === currentTenant.id)
+        : (data || []);
+      setInvoices(scoped.slice(0, 5));
       setIsLoading(false);
     });
-  }, []);
+
+    const handleSync = () => {
+      InvoiceService.getInvoices().then((data) => {
+        if (!isMounted) return;
+        const scoped = currentTenant?.id
+          ? (data || []).filter((i) => i.tenantId === currentTenant.id)
+          : (data || []);
+        setInvoices(scoped.slice(0, 5));
+      });
+    };
+    window.addEventListener("billease:data-synced", handleSync);
+    window.addEventListener("billease:queue-updated", handleSync);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener("billease:data-synced", handleSync);
+      window.removeEventListener("billease:queue-updated", handleSync);
+    };
+  }, [currentTenant?.id]);
 
   return (
     <div className="clay-card p-5 sm:p-6 flex flex-col justify-between h-full">

@@ -225,20 +225,23 @@ export default function EditInvoicePage({
 
       if (deltaPaid > 0) {
         try {
-          await PaymentService.recordPayment({
-            invoiceId: id,
-            invoiceNumber: state.invoiceNumber,
-            clientId: resolvedClientId || undefined,
-            clientName: state.clientName,
-            amount: deltaPaid,
-            currency: state.currency,
-            paymentDate: new Date().toISOString().split("T")[0],
-            paymentMethod: advancePaymentMethod,
-            transactionReference:
-              advanceReference.trim() || `Payment on Invoice #${state.invoiceNumber}`,
-            notes: `Payment of ₹${deltaPaid} recorded while updating Invoice #${state.invoiceNumber}.`,
-            status: "completed",
-          });
+          await PaymentService.recordPayment(
+            {
+              invoiceId: id,
+              invoiceNumber: state.invoiceNumber,
+              clientId: resolvedClientId || undefined,
+              clientName: state.clientName,
+              amount: deltaPaid,
+              currency: state.currency,
+              paymentDate: new Date().toISOString().split("T")[0],
+              paymentMethod: advancePaymentMethod,
+              transactionReference:
+                advanceReference.trim() || `Payment on Invoice #${state.invoiceNumber}`,
+              notes: `Payment of ₹${deltaPaid} recorded while updating Invoice #${state.invoiceNumber}.`,
+              status: "completed",
+            },
+            { skipInvoiceUpdate: true }
+          );
         } catch (payErr) {
           console.warn("Failed to record payment in edit invoice:", payErr);
         }
