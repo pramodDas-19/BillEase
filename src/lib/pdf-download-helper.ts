@@ -64,6 +64,8 @@ export async function downloadElementAsPdf(
     clone.style.width = `${targetWidthPx}px`;
     clone.style.minWidth = `${targetWidthPx}px`;
     clone.style.maxWidth = `${targetWidthPx}px`;
+    clone.style.minHeight = "0";
+    clone.style.height = "auto";
     clone.style.margin = "0 auto";
     clone.style.padding = isThermal ? "8px" : "24px 28px";
     clone.style.boxShadow = "none";

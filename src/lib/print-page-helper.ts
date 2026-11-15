@@ -10,35 +10,35 @@ export function triggerDocumentPrint(
   const meta = getTemplateById(templateId);
   const styleId = "dynamic-print-page-override";
 
-  // Determine exact @page size, physical document width, and margins
-  let pageSizeRule = "A4 portrait";
+  // Determine exact standard @page size and physical document width
+  let pageSizeRule = "A4";
   let docWidthRule = "210mm";
-  let docPadding = "6mm 8mm 6mm 8mm";
+  let docPadding = "6mm 8mm";
 
   if (meta.category === "a5") {
     if (meta.orientation === "landscape") {
       pageSizeRule = "A5 landscape";
       docWidthRule = "210mm";
-      docPadding = "4mm 6mm 4mm 6mm";
+      docPadding = "4mm 6mm";
     } else {
       pageSizeRule = "A5 portrait";
       docWidthRule = "148mm";
-      docPadding = "4mm 6mm 4mm 6mm";
+      docPadding = "4mm 6mm";
     }
   } else if (meta.category === "thermal") {
     if (meta.paperWidthMm <= 58) {
       pageSizeRule = "58mm auto";
       docWidthRule = "58mm";
-      docPadding = "1mm 1mm 1mm 1mm";
+      docPadding = "1mm 1mm";
     } else {
       pageSizeRule = "80mm auto";
       docWidthRule = "80mm";
-      docPadding = "2mm 2mm 2mm 2mm";
+      docPadding = "2mm 2mm";
     }
   } else if (meta.orientation === "landscape") {
     pageSizeRule = "A4 landscape";
     docWidthRule = "297mm";
-    docPadding = "6mm 8mm 6mm 8mm";
+    docPadding = "6mm 8mm";
   }
 
   // Inject or update the dynamic print style tag
@@ -49,11 +49,11 @@ export function triggerDocumentPrint(
     document.head.appendChild(styleEl);
   }
 
-  // Note: !important is forbidden inside @page according to CSS Paged Media specs.
-  // Using margin: 0 in @page suppresses default browser header (URL) and footer (page #).
-  // Critical for Mobile (iOS & Android):
-  // Mobile browsers use the mobile viewport (375px) unless we enforce explicit physical paper widths (210mm)
-  // on html, body, and all document containers.
+  // Strict single-page mobile & desktop print stylesheet:
+  // 1. @page explicitly locks standard A4 dimensions (preventing mobile Android spooler from defaulting to Foolscap).
+  // 2. html & body take exact 100% width with 0 margins, preventing viewport clipping.
+  // 3. .responsive-sheet-outer and .responsive-sheet-inner are normalized to 0 padding/margin.
+  // 4. .document-print-root gets the exact page padding and enforces single-page break avoidance.
   styleEl.textContent = `
     @page {
       size: ${pageSizeRule};
@@ -61,29 +61,71 @@ export function triggerDocumentPrint(
     }
     @media print {
       html, body {
-        width: ${docWidthRule} !important;
-        min-width: ${docWidthRule} !important;
-        margin: 0 auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
+        min-height: 0 !important;
+        margin: 0 !important;
         padding: 0 !important;
         background: #ffffff !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
         color-adjust: exact !important;
+        overflow: visible !important;
       }
-      .responsive-sheet-outer,
-      .responsive-sheet-inner,
+      .responsive-sheet-outer {
+        width: 100% !important;
+        min-width: 100% !important;
+        max-width: none !important;
+        height: auto !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        transform: none !important;
+        overflow: visible !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        border: none !important;
+      }
+      .responsive-sheet-inner {
+        width: 100% !important;
+        min-width: 100% !important;
+        max-width: none !important;
+        height: auto !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        transform: none !important;
+        overflow: visible !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        border: none !important;
+        border-radius: 0 !important;
+      }
       .document-print-root {
-        width: ${docWidthRule} !important;
-        min-width: ${docWidthRule} !important;
+        width: 100% !important;
         max-width: ${docWidthRule} !important;
+        min-height: 0 !important;
+        height: auto !important;
+        box-sizing: border-box !important;
+        margin: 0 auto !important;
+        padding: ${docPadding} !important;
         transform: none !important;
         box-shadow: none !important;
         border: none !important;
         border-radius: 0 !important;
-        margin: 0 auto !important;
-        padding: ${docPadding} !important;
         overflow: visible !important;
         background: #ffffff !important;
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+        break-after: avoid !important;
+        page-break-after: avoid !important;
+      }
+      .avoid-break {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+        break-after: avoid !important;
+        page-break-after: avoid !important;
       }
       .responsive-sheet-controls,
       .print\\:hidden,
@@ -100,15 +142,6 @@ export function triggerDocumentPrint(
     }
   `;
 
-  // Mobile Viewport Switcher for AirPrint & Android Print:
-  // Temporarily switch viewport to desktop width (1024px) during print so mobile engines format desktop layout
-  const viewportMeta = document.querySelector('meta[name="viewport"]');
-  const originalViewport = viewportMeta?.getAttribute("content") || "width=device-width, initial-scale=1";
-
-  if (viewportMeta) {
-    viewportMeta.setAttribute("content", "width=1024, initial-scale=1");
-  }
-
   // Set document title for PDF saving
   const originalTitle = document.title;
   if (docNumber) {
@@ -116,9 +149,6 @@ export function triggerDocumentPrint(
   }
 
   const cleanup = () => {
-    if (viewportMeta) {
-      viewportMeta.setAttribute("content", originalViewport);
-    }
     document.title = originalTitle;
   };
 

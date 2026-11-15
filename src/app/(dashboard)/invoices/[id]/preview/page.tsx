@@ -133,7 +133,7 @@ export default function InvoicePreviewPage({ params }: { params: Promise<{ id: s
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6 max-w-5xl mx-auto pb-28 sm:pb-12">
+    <div className="space-y-4 sm:space-y-6 max-w-5xl mx-auto pb-28 sm:pb-12 print:p-0 print:pb-0 print:m-0 print:space-y-0 print:max-w-none">
       {/* 1. Navigation & Quick Actions Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <Link

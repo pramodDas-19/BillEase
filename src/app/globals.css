@@ -257,7 +257,8 @@ html, body {
   .document-print-root {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
-    page-break-after: auto !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
   }
 }
 

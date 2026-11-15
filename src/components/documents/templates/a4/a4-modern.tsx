@@ -32,7 +32,7 @@ export function A4ModernTemplate({ doc }: { doc: NormalizedDocument }) {
   ].filter(Boolean);
 
   return (
-    <div className="w-full mx-auto max-w-4xl min-h-[960px] print:min-h-[265mm] flex flex-col justify-between bg-white p-6 sm:p-7 text-slate-900 shadow-sm print:p-0 print:shadow-none print:max-w-none text-xs font-sans document-print-root avoid-break">
+    <div className="w-full mx-auto max-w-4xl min-h-[960px] print:min-h-0 print:h-auto flex flex-col justify-between bg-white p-6 sm:p-7 text-slate-900 shadow-sm print:p-0 print:shadow-none print:max-w-none text-xs font-sans document-print-root avoid-break">
       <div className="space-y-4 print:space-y-3">
         {/* 1. Header */}
         <div className="flex justify-between items-start border-b-2 border-slate-900 pb-3 mb-4 print:pb-2 print:mb-3">
