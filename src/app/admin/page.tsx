@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Tenant } from "@/types";
+import { Tenant, SubscriptionPlan } from "@/types";
 import { TenantService } from "@/services/tenant.service";
 import { useTenantContext } from "@/context/tenant-context";
 import {
@@ -68,14 +68,18 @@ interface PlatformConfig {
   gracePeriodHours: number;
   proMonthlyPrice: number;
   proAnnualPrice: number;
+  ultraProMonthlyPrice: number;
+  ultraProAnnualPrice: number;
   maxFreeInvoicesPerMonth: number;
 }
 
 const DEFAULT_CONFIG: PlatformConfig = {
   defaultTrialDays: 30,
   gracePeriodHours: 48,
-  proMonthlyPrice: 1499,
-  proAnnualPrice: 14990,
+  proMonthlyPrice: 999,
+  proAnnualPrice: 9999,
+  ultraProMonthlyPrice: 1899,
+  ultraProAnnualPrice: 18990,
   maxFreeInvoicesPerMonth: 5,
 };
 
@@ -293,7 +297,7 @@ function AdminConsoleContent() {
     }
   };
 
-  const handleUpgradeToPro = async (tenant: Tenant, plan: "pro_monthly" | "pro_annual" | "enterprise" | "pro_lifetime" = "pro_lifetime") => {
+  const handleUpgradeToPro = async (tenant: Tenant, plan: SubscriptionPlan = "pro_lifetime") => {
     try {
       await TenantService.updateSubscription(tenant.id, {
         plan,
@@ -1233,6 +1237,38 @@ function AdminConsoleContent() {
                   className="w-full h-11 px-3.5 rounded-xl bg-slate-950 border border-slate-700 text-sm font-bold text-white focus:outline-none focus:border-emerald-500"
                 />
                 <p className="text-[11px] text-slate-500">Discounted annual billing package.</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-300">
+                  Ultra Pro Monthly Fee (₹ / month)
+                </label>
+                <input
+                  type="number"
+                  min={100}
+                  value={platformConfig.ultraProMonthlyPrice}
+                  onChange={(e) =>
+                    setPlatformConfig({ ...platformConfig, ultraProMonthlyPrice: Number(e.target.value) })
+                  }
+                  className="w-full h-11 px-3.5 rounded-xl bg-slate-950 border border-slate-700 text-sm font-bold text-white focus:outline-none focus:border-purple-500"
+                />
+                <p className="text-[11px] text-slate-500">Full suite + Inventory & AI monthly charge.</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-300">
+                  Ultra Pro Annual Fee (₹ / year)
+                </label>
+                <input
+                  type="number"
+                  min={1000}
+                  value={platformConfig.ultraProAnnualPrice}
+                  onChange={(e) =>
+                    setPlatformConfig({ ...platformConfig, ultraProAnnualPrice: Number(e.target.value) })
+                  }
+                  className="w-full h-11 px-3.5 rounded-xl bg-slate-950 border border-slate-700 text-sm font-bold text-white focus:outline-none focus:border-purple-500"
+                />
+                <p className="text-[11px] text-slate-500">Full suite annual package (2 months free).</p>
               </div>
             </div>
 

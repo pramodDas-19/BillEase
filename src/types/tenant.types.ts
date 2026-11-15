@@ -36,7 +36,15 @@ export interface BusinessSettings {
   onboarding_checklist_dismissed_at?: string;
 }
 
-export type SubscriptionPlan = "trial" | "free" | "pro_monthly" | "pro_annual" | "enterprise" | "pro_lifetime";
+export type SubscriptionPlan =
+  | "trial"
+  | "free"
+  | "pro_monthly"
+  | "pro_annual"
+  | "ultra_pro_monthly"
+  | "ultra_pro_annual"
+  | "enterprise"
+  | "pro_lifetime";
 export type SubscriptionStatus = "trial_active" | "trial_expired" | "active" | "cancelled";
 
 export type TrialLifecycleState =

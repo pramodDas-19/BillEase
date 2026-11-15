@@ -25,7 +25,7 @@ import { SubscriptionPlan } from "@/types";
 export interface UpiCheckoutModalProps {
   isOpen: boolean;
   onClose: () => void;
-  plan: "pro_monthly" | "pro_annual" | "enterprise";
+  plan: "pro_monthly" | "pro_annual" | "ultra_pro_monthly" | "ultra_pro_annual" | "enterprise";
   onSuccess?: () => void;
 }
 
@@ -53,15 +53,26 @@ export function UpiCheckoutModal({
 
   const planName =
     plan === "pro_annual"
-      ? "Pro Business (Annual)"
-      : plan === "enterprise"
-      ? "Enterprise Plan"
-      : "Pro Business (Monthly)";
+      ? "Pro Plan (Annual)"
+      : plan === "ultra_pro_monthly"
+      ? "Ultra Pro Plan (Monthly)"
+      : plan === "ultra_pro_annual" || plan === "enterprise"
+      ? "Ultra Pro Plan (Annual)"
+      : "Pro Plan (Monthly)";
 
   const amount =
-    plan === "pro_annual" ? 14990 : plan === "enterprise" ? 29990 : 1499;
+    plan === "pro_annual"
+      ? 9999
+      : plan === "ultra_pro_monthly"
+      ? 1899
+      : plan === "ultra_pro_annual" || plan === "enterprise"
+      ? 18990
+      : 999;
 
-  const billingPeriodDays = plan === "pro_annual" ? 365 : 30;
+  const billingPeriodDays =
+    plan === "pro_annual" || plan === "ultra_pro_annual" || plan === "enterprise"
+      ? 365
+      : 30;
 
   // Dynamic standardized Bharat UPI Intent URI
   const upiIntentUrl = generateUpiIntentUrl({

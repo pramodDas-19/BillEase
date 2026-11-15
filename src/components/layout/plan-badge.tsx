@@ -29,7 +29,13 @@ export function PlanBadge({ className }: PlanBadgeProps) {
         )}
       >
         <Zap className="h-3 w-3 text-purple-600 fill-current" />
-        <span>{isLifetime ? "Pro Lifetime" : sub?.plan === "enterprise" ? "Enterprise" : "Pro plan"}</span>
+        <span>
+          {isLifetime
+            ? "Pro Lifetime"
+            : sub?.plan === "ultra_pro_monthly" || sub?.plan === "ultra_pro_annual" || sub?.plan === "enterprise"
+            ? "Ultra Pro"
+            : "Pro Plan"}
+        </span>
         <span className="text-purple-300">•</span>
         <span className="text-purple-700 font-black">{isLifetime ? "Perpetual" : "Active"}</span>
       </Link>

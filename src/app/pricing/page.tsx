@@ -31,10 +31,15 @@ export default function PricingPage() {
   const isPaid = sub?.status === "active";
   const isLifetime = isPaid && (sub?.isLifetime || sub?.plan === "pro_lifetime");
   const isTrial = !sub || sub.status === "trial_active";
-  const isEnterprise = isPaid && sub?.plan === "enterprise";
-  const [selectedPlanForCheckout, setSelectedPlanForCheckout] = useState<"pro_monthly" | "pro_annual" | "enterprise" | null>(null);
+  const isUltraPro = isPaid && (sub?.plan === "ultra_pro_monthly" || sub?.plan === "ultra_pro_annual" || sub?.plan === "enterprise");
+  const isPro = isPaid && (sub?.plan === "pro_monthly" || sub?.plan === "pro_annual" || isLifetime) && !isUltraPro;
+  const [selectedPlanForCheckout, setSelectedPlanForCheckout] = useState<
+    "pro_monthly" | "pro_annual" | "ultra_pro_monthly" | "ultra_pro_annual" | "enterprise" | null
+  >(null);
 
-  const handleInitiateUpgrade = (plan: "pro_monthly" | "pro_annual" | "enterprise") => {
+  const handleInitiateUpgrade = (
+    plan: "pro_monthly" | "pro_annual" | "ultra_pro_monthly" | "ultra_pro_annual" | "enterprise"
+  ) => {
     if (!currentTenant?.id) {
       window.location.href = `/signup?plan=${plan}`;
       return;
@@ -198,9 +203,9 @@ export default function PricingPage() {
             </div>
 
             <div>
-              <h3 className="text-xl font-black text-slate-900">1-Month Free Trial</h3>
+              <h3 className="text-xl font-black text-slate-900">30-Day Free Trial</h3>
               <p className="text-xs text-slate-500 mt-1 font-medium">
-                Experience all premium features for 30 days with zero commitment.
+                Evaluate all core features with zero commitment and no credit card required.
               </p>
             </div>
 
@@ -217,11 +222,19 @@ export default function PricingPage() {
             <div className="pt-4 border-t border-slate-100 space-y-2.5 text-xs text-slate-700">
               <div className="flex items-start gap-2">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                <span>Unlimited GST Invoices & Estimates</span>
+                <span className="font-semibold text-slate-900">Up to 15 Invoices & 15 Quotations</span>
               </div>
               <div className="flex items-start gap-2">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                <span>Dynamic UPI QR Code generation</span>
+                <span>10 Inventory items test preview</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                <span>1 User (Business Owner evaluation)</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                <span>Dynamic Bharat UPI QR code generation</span>
               </div>
               <div className="flex items-start gap-2">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
@@ -229,11 +242,15 @@ export default function PricingPage() {
               </div>
               <div className="flex items-start gap-2">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                <span>8 Global trade multi-currencies</span>
+                <span>Rule 46 GST state-detection</span>
               </div>
               <div className="flex items-start gap-2">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
                 <span>CSV sales register & client ledger export</span>
+              </div>
+              <div className="flex items-start gap-2 text-slate-500">
+                <CheckCircle2 className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
+                <span>Discreet BillEase Trial footer on PDFs</span>
               </div>
             </div>
           </div>
@@ -242,7 +259,7 @@ export default function PricingPage() {
             {isTrial && currentTenant?.id ? (
               <div className="w-full inline-flex items-center justify-center gap-2 h-11 px-4 rounded-xl bg-slate-100 text-slate-500 font-bold text-xs border border-slate-200">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                <span>Your Current Plan</span>
+                <span>Your Current Plan (Trial Active)</span>
               </div>
             ) : (
               <Link
@@ -256,7 +273,7 @@ export default function PricingPage() {
           </div>
         </div>
 
-        {/* Tier 2: Pro Business (Featured) */}
+        {/* Tier 2: Pro Plan (Featured) */}
         <div className="clay-card p-6 sm:p-8 bg-gradient-to-b from-emerald-50/60 via-white to-teal-50/40 border-2 border-emerald-500 shadow-xl flex flex-col justify-between relative transform md:-translate-y-2">
           {/* Most Popular Badge */}
           <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-emerald-600 text-white text-[11px] font-black uppercase tracking-wider shadow-md flex items-center gap-1.5">
@@ -267,24 +284,24 @@ export default function PricingPage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between pt-1">
               <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-800">
-                Unlimited SaaS
+                Services & Agencies
               </span>
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100/80 text-emerald-900 border border-emerald-300">
-                Flat Monthly Billing
+                Up to 3 Users
               </span>
             </div>
 
             <div>
-              <h3 className="text-xl font-black text-slate-900">Pro Business</h3>
+              <h3 className="text-xl font-black text-slate-900">Pro Plan</h3>
               <p className="text-xs text-slate-500 mt-1 font-medium">
-                Everything you need to automate billing and collect payments faster.
+                For freelancers, consultants, contractors & service businesses without inventory.
               </p>
             </div>
 
             <div className="pt-2 pb-1">
               <div className="flex items-baseline gap-1">
                 <span className="text-3xl sm:text-4xl font-black text-slate-900">
-                  {billingInterval === "monthly" ? "₹1,499" : "₹14,990"}
+                  {billingInterval === "monthly" ? "₹999" : "₹9,999"}
                 </span>
                 <span className="text-xs font-bold text-slate-400">
                   {billingInterval === "monthly" ? "/ month" : "/ year"}
@@ -293,22 +310,34 @@ export default function PricingPage() {
               <span className="text-[11px] font-semibold text-emerald-700 block mt-0.5">
                 {billingInterval === "monthly"
                   ? "Billed monthly • Cancel anytime"
-                  : "₹1,249/mo effective • 2 Months Free"}
+                  : "₹833/mo effective • 2 Months Free (Save 17%)"}
               </span>
             </div>
 
             <div className="pt-4 border-t border-emerald-100 space-y-2.5 text-xs text-slate-700">
               <div className="flex items-start gap-2">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                <span className="font-bold text-slate-900">Everything in Free Trial, plus:</span>
+                <span className="font-bold text-slate-900">Unlimited GST Invoices & Estimates</span>
               </div>
               <div className="flex items-start gap-2">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                <span>Unlimited invoices, quotations & receipts</span>
+                <span className="font-bold text-emerald-900">Up to 3 Users (Owner + 2 Sales / Billing staff)</span>
               </div>
               <div className="flex items-start gap-2">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                <span>Custom WhatsApp reminder templates</span>
+                <span>Role permissions: Admin & Sales Reps</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                <span>Official Payment Receipts Ledger (#PAY-XXXX)</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                <span>Advance & partial payment tracking</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                <span>Custom WhatsApp reminder message templates</span>
               </div>
               <div className="flex items-start gap-2">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
@@ -320,17 +349,13 @@ export default function PricingPage() {
               </div>
               <div className="flex items-start gap-2">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                <span>Unsaved changes data loss guard</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                <span>Priority email & WhatsApp customer support</span>
+                <span>Priority email & WhatsApp support</span>
               </div>
             </div>
           </div>
 
           <div className="pt-8">
-            {isPaid && !isEnterprise ? (
+            {isPro ? (
               <div className="w-full inline-flex items-center justify-center gap-2 h-11 px-4 rounded-xl bg-emerald-100 text-emerald-900 font-black text-xs border border-emerald-300">
                 <CheckCircle2 className="h-4 w-4 text-emerald-700" />
                 <span>{isLifetime ? "Your Current Plan (Lifetime Active)" : "Your Current Plan (Active)"}</span>
@@ -342,73 +367,95 @@ export default function PricingPage() {
                 className="clay-btn-emerald w-full inline-flex items-center justify-center gap-2 h-11 px-4 rounded-xl font-bold text-xs shadow-md cursor-pointer app-press active:scale-[0.99]"
               >
                 <Sparkles className="h-3.5 w-3.5" />
-                <span>Upgrade to Pro Business</span>
+                <span>Upgrade to Pro Plan</span>
                 <ArrowRight className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
         </div>
 
-        {/* Tier 3: Enterprise */}
+        {/* Tier 3: Ultra Pro Plan */}
         <div className="clay-card p-6 sm:p-8 bg-white flex flex-col justify-between border-slate-200/90 relative">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
-                High Volume
+              <span className="text-xs font-extrabold uppercase tracking-wider text-purple-700">
+                Goods, Retail & Teams
               </span>
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-50 text-purple-700 border border-purple-200">
                 <Building2 className="h-3 w-3" />
-                Multi-Branch
+                Up to 10 Users + AI
               </span>
             </div>
 
             <div>
-              <h3 className="text-xl font-black text-slate-900">Enterprise Agency</h3>
+              <h3 className="text-xl font-black text-slate-900">Ultra Pro Plan</h3>
               <p className="text-xs text-slate-500 mt-1 font-medium">
-                For agencies, printing presses, and businesses managing multiple entities.
+                For physical goods sellers, retail, trading SMBs, stock teams & multi-branch firms.
               </p>
             </div>
 
             <div className="pt-2 pb-1">
               <div className="flex items-baseline gap-1">
                 <span className="text-3xl sm:text-4xl font-black text-slate-900">
-                  {billingInterval === "monthly" ? "₹3,999" : "₹39,990"}
+                  {billingInterval === "monthly" ? "₹1,899" : "₹18,990"}
                 </span>
                 <span className="text-xs font-bold text-slate-400">
                   {billingInterval === "monthly" ? "/ month" : "/ year"}
                 </span>
               </div>
-              <span className="text-[11px] font-semibold text-slate-500 block mt-0.5">
-                Billed {billingInterval === "monthly" ? "monthly" : "annually"}
+              <span className="text-[11px] font-semibold text-purple-700 block mt-0.5">
+                {billingInterval === "monthly"
+                  ? "Billed monthly • Cancel anytime"
+                  : "₹1,582/mo effective • 2 Months Free (Save 17%)"}
               </span>
             </div>
 
             <div className="pt-4 border-t border-slate-100 space-y-2.5 text-xs text-slate-700">
               <div className="flex items-start gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                <span className="font-bold text-slate-900">Everything in Pro, plus:</span>
+                <CheckCircle2 className="h-4 w-4 text-purple-600 shrink-0 mt-0.5" />
+                <span className="font-bold text-slate-900">Everything in Pro Plan, plus:</span>
               </div>
               <div className="flex items-start gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                <CheckCircle2 className="h-4 w-4 text-purple-600 shrink-0 mt-0.5" />
+                <span className="font-bold text-purple-900">Complete Live Inventory Management System</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 text-purple-600 shrink-0 mt-0.5" />
+                <span>Auto stock deduction upon invoice generation & SKU tracking</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 text-purple-600 shrink-0 mt-0.5" />
+                <span>Automated low-stock & out-of-stock WhatsApp alerts</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 text-purple-600 shrink-0 mt-0.5" />
+                <span className="font-bold text-slate-900">Up to 10 Users with Role-Based Access (RBAC)</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 text-purple-600 shrink-0 mt-0.5" />
+                <span>4 Team Roles: Admin, Inventory Staff, Sales Reps, Accountant</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 text-purple-600 shrink-0 mt-0.5" />
+                <span>AI Bill / Invoice OCR Scanner & smart autofill</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 text-purple-600 shrink-0 mt-0.5" />
                 <span>Multi-branch & multi-GSTIN management</span>
               </div>
               <div className="flex items-start gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                <span>Custom PDF watermark & white-labeling</span>
+                <CheckCircle2 className="h-4 w-4 text-purple-600 shrink-0 mt-0.5" />
+                <span>Custom PDF watermark & full white-labeling</span>
               </div>
               <div className="flex items-start gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                <span>Multiple team logins with role access</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                <span>Dedicated account manager & phone support</span>
+                <CheckCircle2 className="h-4 w-4 text-purple-600 shrink-0 mt-0.5" />
+                <span>Dedicated account manager & direct phone support</span>
               </div>
             </div>
           </div>
 
           <div className="pt-8">
-            {isEnterprise ? (
+            {isUltraPro ? (
               <div className="w-full inline-flex items-center justify-center gap-2 h-11 px-4 rounded-xl bg-purple-100 text-purple-900 font-black text-xs border border-purple-300">
                 <CheckCircle2 className="h-4 w-4 text-purple-700" />
                 <span>Your Current Plan (Active)</span>
@@ -416,10 +463,11 @@ export default function PricingPage() {
             ) : (
               <button
                 type="button"
-                onClick={() => handleInitiateUpgrade("enterprise")}
-                className="w-full inline-flex items-center justify-center gap-2 h-11 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-all shadow-xs cursor-pointer active:scale-[0.99] app-press"
+                onClick={() => handleInitiateUpgrade(billingInterval === "yearly" ? "ultra_pro_annual" : "ultra_pro_monthly")}
+                className="w-full inline-flex items-center justify-center gap-2 h-11 px-4 rounded-xl bg-purple-900 hover:bg-purple-800 text-white font-bold text-xs transition-all shadow-md cursor-pointer active:scale-[0.99] app-press"
               >
-                <span>Upgrade to Enterprise</span>
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>Upgrade to Ultra Pro</span>
                 <ArrowRight className="h-3.5 w-3.5" />
               </button>
             )}

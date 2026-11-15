@@ -62,7 +62,7 @@ export function RoutePaywallBlocker({
           href="/pricing"
           className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-sm shadow-md transition-transform active:scale-98"
         >
-          <span>Choose a Plan (Starts at ₹1,499/mo)</span>
+          <span>Choose a Plan (Starts at ₹999/mo)</span>
           <ArrowRight className="h-4 w-4" />
         </Link>
 

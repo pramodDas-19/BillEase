@@ -113,7 +113,7 @@ export function PaywallModal({
           >
             <div className="flex items-center gap-2.5">
               <Zap className="h-4 w-4 text-emerald-200 fill-current" />
-              <span>Choose a Plan (Starts at ₹1,499/mo)</span>
+              <span>Choose a Plan (Starts at ₹999/mo)</span>
             </div>
             <ArrowRight className="h-4 w-4 text-emerald-200 group-hover:translate-x-1 transition-transform" />
           </Link>
