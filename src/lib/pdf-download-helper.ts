@@ -8,17 +8,26 @@ export interface PdfExportOptions {
 /**
  * Directly downloads an HTML element as a high-fidelity PDF file in the browser
  * without opening the browser's native print dialog.
+ * 
+ * Works flawlessly on both Mobile (iOS/Android) and Desktop by rendering in
+ * an isolated full-width off-screen sandbox to avoid mobile viewport squishing.
  */
 export async function downloadElementAsPdf(
   element: HTMLElement,
   filename: string,
   options?: PdfExportOptions
 ): Promise<boolean> {
+  let sandbox: HTMLElement | null = null;
   try {
     const orientation = options?.orientation || "portrait";
     const format = options?.format || "a4";
     const isThermal = format === "thermal";
-    const targetWidthPx = options?.targetWidthPx || (isThermal ? 380 : 800);
+    const isA5 = format === "a5";
+    const isLandscape = orientation === "landscape";
+
+    // Standard desktop pixel widths for pixel-perfect typography & tables
+    const targetWidthPx =
+      options?.targetWidthPx || (isThermal ? 380 : isA5 && !isLandscape ? 560 : isLandscape ? 1120 : 800);
 
     // Lazy load heavy PDF generation libraries on-demand
     const [html2canvasModule, jsPdfModule] = await Promise.all([
@@ -28,60 +37,79 @@ export async function downloadElementAsPdf(
     const html2canvas = html2canvasModule.default || html2canvasModule;
     const jsPDF = jsPdfModule.default || jsPdfModule;
 
-    // 1. Target the actual document root element (bypass outer flex/centering wrappers)
+    // 1. Target the actual document root element
     const targetEl =
       (element.querySelector(".document-print-root") as HTMLElement) ||
       (element.querySelector(".responsive-sheet-inner") as HTMLElement) ||
       element;
 
-    // Capture element canvas at 2x resolution for crisp text & borders
-    const canvas = await html2canvas(targetEl, {
+    // 2. Create an isolated off-screen staging sandbox in document.body
+    // This completely bypasses mobile viewport scaling (e.g. 375px screens with scale: 0.45)
+    sandbox = document.createElement("div");
+    sandbox.id = "billease-pdf-staging-sandbox";
+    sandbox.style.position = "fixed";
+    sandbox.style.left = "-99999px";
+    sandbox.style.top = "0";
+    sandbox.style.width = `${targetWidthPx}px`;
+    sandbox.style.minWidth = `${targetWidthPx}px`;
+    sandbox.style.maxWidth = `${targetWidthPx}px`;
+    sandbox.style.background = "#ffffff";
+    sandbox.style.zIndex = "-9999";
+    sandbox.style.overflow = "visible";
+    sandbox.style.boxSizing = "border-box";
+
+    // Clone target element into sandbox
+    const clone = targetEl.cloneNode(true) as HTMLElement;
+    clone.style.transform = "none";
+    clone.style.width = `${targetWidthPx}px`;
+    clone.style.minWidth = `${targetWidthPx}px`;
+    clone.style.maxWidth = `${targetWidthPx}px`;
+    clone.style.margin = "0 auto";
+    clone.style.padding = isThermal ? "8px" : "24px 28px";
+    clone.style.boxShadow = "none";
+    clone.style.border = "none";
+    clone.style.borderRadius = "0";
+    clone.style.background = "#ffffff";
+    clone.style.boxSizing = "border-box";
+
+    // Strip interactive controls from clone
+    const hideElements = clone.querySelectorAll<HTMLElement>(
+      ".responsive-sheet-controls, .print\\:hidden, button, [role='button']"
+    );
+    hideElements.forEach((el) => {
+      el.style.display = "none";
+    });
+
+    // Reset any nested sheet wrappers inside clone
+    const inners = clone.querySelectorAll<HTMLElement>(".responsive-sheet-inner, .responsive-sheet-outer");
+    inners.forEach((el) => {
+      el.style.transform = "none";
+      el.style.width = "100%";
+      el.style.height = "auto";
+      el.style.boxShadow = "none";
+      el.style.border = "none";
+    });
+
+    sandbox.appendChild(clone);
+    document.body.appendChild(sandbox);
+
+    // Give browser a micro-tick to compute styles
+    await new Promise((resolve) => setTimeout(resolve, 60));
+
+    // 3. Capture canvas at 2x resolution for crisp vector-like text & borders
+    const canvas = await html2canvas(clone, {
       scale: 2,
       useCORS: true,
+      allowTaint: true,
       logging: false,
       backgroundColor: "#ffffff",
+      width: targetWidthPx,
       windowWidth: targetWidthPx,
-      onclone: (_clonedDoc, clonedElement) => {
-        // Ensure scaled mobile previews are reset to native unscaled layout in PDF
-        const inners = clonedElement.querySelectorAll<HTMLElement>(".responsive-sheet-inner");
-        inners.forEach((el) => {
-          el.style.transform = "none";
-          el.style.width = `${targetWidthPx}px`;
-        });
-        const outers = clonedElement.querySelectorAll<HTMLElement>(".responsive-sheet-outer");
-        outers.forEach((el) => {
-          el.style.transform = "none";
-          el.style.width = `${targetWidthPx}px`;
-          el.style.height = "auto";
-        });
-        const roots = clonedElement.querySelectorAll<HTMLElement>(".document-print-root");
-        roots.forEach((el) => {
-          el.style.width = `${targetWidthPx}px`;
-          el.style.maxWidth = `${targetWidthPx}px`;
-          el.style.margin = "0 auto";
-          el.style.padding = isThermal ? "8px" : "24px 28px";
-          el.style.boxShadow = "none";
-          el.style.border = "none";
-        });
-        // If the clonedElement itself is the root
-        if (clonedElement.classList.contains("document-print-root")) {
-          clonedElement.style.width = `${targetWidthPx}px`;
-          clonedElement.style.maxWidth = `${targetWidthPx}px`;
-          clonedElement.style.margin = "0 auto";
-          clonedElement.style.padding = isThermal ? "8px" : "24px 28px";
-          clonedElement.style.boxShadow = "none";
-          clonedElement.style.border = "none";
-        }
-        const controls = clonedElement.querySelectorAll<HTMLElement>(".responsive-sheet-controls");
-        controls.forEach((el) => {
-          el.style.display = "none";
-        });
-      },
     });
 
     const imgData = canvas.toDataURL("image/jpeg", 0.95);
 
-    // 2. Initialize jsPDF
+    // 4. Initialize jsPDF
     if (isThermal) {
       // 80mm continuous thermal slip layout
       const imgWidth = 80;
@@ -95,14 +123,8 @@ export async function downloadElementAsPdf(
       });
 
       pdf.addImage(imgData, "JPEG", 0, 3, imgWidth, imgHeight);
-
-      const safeFilename = filename.endsWith(".pdf") ? filename : `${filename}.pdf`;
-      pdf.save(safeFilename);
-      return true;
+      return savePdfFile(pdf, filename);
     }
-
-    const isA5 = format === "a5";
-    const isLandscape = orientation === "landscape";
 
     const pdf = new jsPDF({
       orientation: isLandscape ? "landscape" : "portrait",
@@ -131,12 +153,60 @@ export async function downloadElementAsPdf(
       heightLeft -= pageHeight;
     }
 
-    // 3. Save directly to Downloads folder
-    const safeFilename = filename.endsWith(".pdf") ? filename : `${filename}.pdf`;
-    pdf.save(safeFilename);
-    return true;
+    return savePdfFile(pdf, filename);
   } catch (error) {
     console.error("Failed to generate direct PDF download:", error);
     return false;
+  } finally {
+    if (sandbox && sandbox.parentNode) {
+      sandbox.parentNode.removeChild(sandbox);
+    }
+  }
+}
+
+/**
+ * Universal Mobile (iOS / Android) & Desktop safe PDF save helper
+ */
+function savePdfFile(pdf: any, filename: string): boolean {
+  const safeFilename = filename.endsWith(".pdf") ? filename : `${filename}.pdf`;
+  const isIOS =
+    typeof navigator !== "undefined" &&
+    (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+
+  try {
+    const blob = pdf.output("blob");
+    const blobUrl = URL.createObjectURL(blob);
+
+    if (isIOS) {
+      // iOS Safari: open blob in native Safari PDF viewer for 1-click "Save to Files" / Share
+      const win = window.open(blobUrl, "_blank");
+      if (!win) {
+        const link = document.createElement("a");
+        link.href = blobUrl;
+        link.download = safeFilename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    } else {
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = safeFilename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    setTimeout(() => {
+      try {
+        URL.revokeObjectURL(blobUrl);
+      } catch {}
+    }, 20000);
+    return true;
+  } catch (saveErr) {
+    console.warn("Direct blob download fallback to pdf.save():", saveErr);
+    pdf.save(safeFilename);
+    return true;
   }
 }

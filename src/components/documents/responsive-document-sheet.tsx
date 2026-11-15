@@ -124,16 +124,22 @@ export function ResponsiveDocumentSheet({
       <style jsx global>{`
         @media print {
           .responsive-sheet-outer {
-            width: 100% !important;
+            width: auto !important;
+            min-width: 100% !important;
             height: auto !important;
             overflow: visible !important;
             margin: 0 !important;
             padding: 0 !important;
+            transform: none !important;
           }
           .responsive-sheet-inner {
             width: 100% !important;
+            min-width: 100% !important;
             transform: none !important;
             overflow: visible !important;
+            border: none !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
           }
           .responsive-sheet-controls {
             display: none !important;

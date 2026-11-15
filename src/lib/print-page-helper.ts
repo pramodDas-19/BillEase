@@ -10,26 +10,35 @@ export function triggerDocumentPrint(
   const meta = getTemplateById(templateId);
   const styleId = "dynamic-print-page-override";
 
-  // Determine exact @page size and margins
+  // Determine exact @page size, physical document width, and margins
   let pageSizeRule = "A4 portrait";
+  let docWidthRule = "210mm";
   let docPadding = "6mm 8mm 6mm 8mm";
 
   if (meta.category === "a5") {
     if (meta.orientation === "landscape") {
       pageSizeRule = "A5 landscape";
+      docWidthRule = "210mm";
       docPadding = "4mm 6mm 4mm 6mm";
     } else {
       pageSizeRule = "A5 portrait";
+      docWidthRule = "148mm";
       docPadding = "4mm 6mm 4mm 6mm";
     }
   } else if (meta.category === "thermal") {
     if (meta.paperWidthMm <= 58) {
       pageSizeRule = "58mm auto";
+      docWidthRule = "58mm";
       docPadding = "1mm 1mm 1mm 1mm";
     } else {
       pageSizeRule = "80mm auto";
+      docWidthRule = "80mm";
       docPadding = "2mm 2mm 2mm 2mm";
     }
+  } else if (meta.orientation === "landscape") {
+    pageSizeRule = "A4 landscape";
+    docWidthRule = "297mm";
+    docPadding = "6mm 8mm 6mm 8mm";
   }
 
   // Inject or update the dynamic print style tag
@@ -42,6 +51,9 @@ export function triggerDocumentPrint(
 
   // Note: !important is forbidden inside @page according to CSS Paged Media specs.
   // Using margin: 0 in @page suppresses default browser header (URL) and footer (page #).
+  // Critical for Mobile (iOS & Android):
+  // Mobile browsers use the mobile viewport (375px) unless we enforce explicit physical paper widths (210mm)
+  // on html, body, and all document containers.
   styleEl.textContent = `
     @page {
       size: ${pageSizeRule};
@@ -49,20 +61,37 @@ export function triggerDocumentPrint(
     }
     @media print {
       html, body {
-        margin: 0 !important;
+        width: ${docWidthRule} !important;
+        min-width: ${docWidthRule} !important;
+        margin: 0 auto !important;
         padding: 0 !important;
         background: #ffffff !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
         color-adjust: exact !important;
       }
+      .responsive-sheet-outer,
+      .responsive-sheet-inner,
       .document-print-root {
+        width: ${docWidthRule} !important;
+        min-width: ${docWidthRule} !important;
+        max-width: ${docWidthRule} !important;
+        transform: none !important;
         box-shadow: none !important;
         border: none !important;
+        border-radius: 0 !important;
         margin: 0 auto !important;
         padding: ${docPadding} !important;
-        max-width: 100% !important;
-        width: 100% !important;
+        overflow: visible !important;
+        background: #ffffff !important;
+      }
+      .responsive-sheet-controls,
+      .print\\:hidden,
+      nav,
+      aside,
+      header,
+      footer {
+        display: none !important;
       }
       * {
         -webkit-print-color-adjust: exact !important;
@@ -71,17 +100,32 @@ export function triggerDocumentPrint(
     }
   `;
 
+  // Mobile Viewport Switcher for AirPrint & Android Print:
+  // Temporarily switch viewport to desktop width (1024px) during print so mobile engines format desktop layout
+  const viewportMeta = document.querySelector('meta[name="viewport"]');
+  const originalViewport = viewportMeta?.getAttribute("content") || "width=device-width, initial-scale=1";
+
+  if (viewportMeta) {
+    viewportMeta.setAttribute("content", "width=1024, initial-scale=1");
+  }
+
   // Set document title for PDF saving
   const originalTitle = document.title;
   if (docNumber) {
     document.title = `BillEase_${docTypePrefix}_${docNumber.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
   }
 
-  window.print();
-
-  setTimeout(() => {
+  const cleanup = () => {
+    if (viewportMeta) {
+      viewportMeta.setAttribute("content", originalViewport);
+    }
     document.title = originalTitle;
-  }, 2000);
+  };
+
+  window.addEventListener("afterprint", cleanup, { once: true });
+  setTimeout(cleanup, 4000);
+
+  window.print();
 }
 
 /**
