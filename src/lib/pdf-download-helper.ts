@@ -43,13 +43,15 @@ export async function downloadElementAsPdf(
       (element.querySelector(".responsive-sheet-inner") as HTMLElement) ||
       element;
 
-    // 2. Create an isolated off-screen staging sandbox in document.body
-    // This completely bypasses mobile viewport scaling (e.g. 375px screens with scale: 0.45)
+    // 2. Create an isolated staging sandbox positioned at (0,0) with opacity 0
+    // Origin (0,0) prevents sub-pixel coordinate matrix distortion from large negative coordinates (-99999px)
     sandbox = document.createElement("div");
     sandbox.id = "billease-pdf-staging-sandbox";
     sandbox.style.position = "fixed";
-    sandbox.style.left = "-99999px";
+    sandbox.style.left = "0";
     sandbox.style.top = "0";
+    sandbox.style.opacity = "0";
+    sandbox.style.pointerEvents = "none";
     sandbox.style.width = `${targetWidthPx}px`;
     sandbox.style.minWidth = `${targetWidthPx}px`;
     sandbox.style.maxWidth = `${targetWidthPx}px`;
@@ -57,6 +59,41 @@ export async function downloadElementAsPdf(
     sandbox.style.zIndex = "-9999";
     sandbox.style.overflow = "visible";
     sandbox.style.boxSizing = "border-box";
+    sandbox.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+
+    // Inject canvas font alignment styles to correct Android/Chrome baseline shifting
+    const canvasStyle = document.createElement("style");
+    canvasStyle.textContent = `
+      #billease-pdf-staging-sandbox {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+        -webkit-font-smoothing: antialiased !important;
+      }
+      #billease-pdf-staging-sandbox * {
+        box-sizing: border-box !important;
+        letter-spacing: 0.01px !important;
+      }
+      #billease-pdf-staging-sandbox img {
+        display: inline-block !important;
+        vertical-align: middle !important;
+      }
+      #billease-pdf-staging-sandbox table {
+        border-collapse: collapse !important;
+      }
+      #billease-pdf-staging-sandbox table th,
+      #billease-pdf-staging-sandbox table td {
+        vertical-align: middle !important;
+        line-height: 1.35 !important;
+      }
+      #billease-pdf-staging-sandbox p,
+      #billease-pdf-staging-sandbox span,
+      #billease-pdf-staging-sandbox div,
+      #billease-pdf-staging-sandbox h1,
+      #billease-pdf-staging-sandbox h2,
+      #billease-pdf-staging-sandbox h3 {
+        line-height: 1.35 !important;
+      }
+    `;
+    sandbox.appendChild(canvasStyle);
 
     // Clone target element into sandbox
     const clone = targetEl.cloneNode(true) as HTMLElement;
@@ -95,8 +132,17 @@ export async function downloadElementAsPdf(
     sandbox.appendChild(clone);
     document.body.appendChild(sandbox);
 
-    // Give browser a micro-tick to compute styles
-    await new Promise((resolve) => setTimeout(resolve, 60));
+    // Ensure all font metrics and webfonts are completely loaded before rasterization
+    if (typeof document !== "undefined" && document.fonts && document.fonts.ready) {
+      try {
+        await document.fonts.ready;
+      } catch {
+        // Continue if FontFaceSet is unavailable
+      }
+    }
+
+    // Give browser sufficient ticks to compute font layout at 1:1 scale
+    await new Promise((resolve) => setTimeout(resolve, 120));
 
     // 3. Capture canvas at 2x resolution for crisp vector-like text & borders
     const canvas = await html2canvas(clone, {

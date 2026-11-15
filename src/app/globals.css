@@ -17,6 +17,10 @@
     --destructive-foreground: #ffffff;
     --radius: 1rem;
   }
+
+  img {
+    display: inline-block;
+  }
 }
 
 /* 50/50 Tactile Neo-Clay Utilities */

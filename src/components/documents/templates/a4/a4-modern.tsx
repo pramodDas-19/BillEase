@@ -58,14 +58,14 @@ export function A4ModernTemplate({ doc }: { doc: NormalizedDocument }) {
               {doc.tenant.businessName}
             </h1>
 
-            {doc.tenant.address && (
-              <p className="text-[11px] text-slate-600 leading-snug mt-0.5">
+            {doc.tenant.address && doc.tenant.address.trim().length > 1 && !/^[.,\-_/\\]+$/.test(doc.tenant.address.trim()) && (
+              <p className="text-[11px] text-slate-600 leading-normal mt-0.5">
                 {doc.tenant.address}
               </p>
             )}
 
             {contactParts.length > 0 && (
-              <p className="text-[11px] text-slate-600 mt-0.5 font-medium">
+              <p className="text-[11px] text-slate-600 mt-0.5 font-medium leading-normal">
                 {contactParts.join(" • ")}
               </p>
             )}
@@ -151,19 +151,19 @@ export function A4ModernTemplate({ doc }: { doc: NormalizedDocument }) {
       {/* 3. Items Table */}
       <table className="w-full border-collapse text-left text-xs mb-4 print:mb-3">
         <thead>
-          <tr className="border-t-2 border-b-2 border-slate-900 bg-slate-50">
-            <th className="py-2.5 px-2.5 font-black text-slate-900 w-10 text-center">#</th>
-            <th className="py-2.5 px-2.5 font-black text-slate-900">DESCRIPTION</th>
+          <tr className="border-t-2 border-b-2 border-slate-900 bg-slate-50 align-middle">
+            <th className="py-2.5 px-2.5 font-black text-slate-900 w-10 text-center leading-normal">#</th>
+            <th className="py-2.5 px-2.5 font-black text-slate-900 leading-normal">DESCRIPTION</th>
             {hasHsnSac && (
-              <th className="py-2.5 px-2.5 font-black text-slate-900 text-center w-20">HSN/SAC</th>
+              <th className="py-2.5 px-2.5 font-black text-slate-900 text-center w-20 leading-normal">HSN/SAC</th>
             )}
             {hasQtyOrRate && (
               <>
-                <th className="py-2.5 px-2.5 font-black text-slate-900 text-center w-20 whitespace-nowrap">QTY</th>
-                <th className="py-2.5 px-2.5 font-black text-slate-900 text-right w-28 whitespace-nowrap">RATE</th>
+                <th className="py-2.5 px-2.5 font-black text-slate-900 text-center w-20 whitespace-nowrap leading-normal">QTY</th>
+                <th className="py-2.5 px-2.5 font-black text-slate-900 text-right w-28 whitespace-nowrap leading-normal">RATE</th>
               </>
             )}
-            <th className="py-2.5 px-2.5 font-black text-slate-900 text-right w-28 whitespace-nowrap">AMOUNT</th>
+            <th className="py-2.5 px-2.5 font-black text-slate-900 text-right w-28 whitespace-nowrap leading-normal">AMOUNT</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-200 border-b-2 border-slate-900">
@@ -177,12 +177,12 @@ export function A4ModernTemplate({ doc }: { doc: NormalizedDocument }) {
                   : 0);
 
             return (
-              <tr key={item.id || idx} className="align-top">
-                <td className="py-2.5 px-2.5 text-center text-slate-500 font-bold font-mono text-[11px] whitespace-nowrap">
+              <tr key={item.id || idx} className="align-middle">
+                <td className="py-2.5 px-2.5 text-center text-slate-500 font-bold font-mono text-[11px] whitespace-nowrap leading-normal">
                   {String(idx + 1).padStart(2, "0")}
                 </td>
                 <td className="py-2.5 px-2.5">
-                  <p className="font-bold text-slate-900">
+                  <p className="font-bold text-slate-900 leading-normal">
                     {item.name || item.description}
                     {doc.isTaxEnabled && item.taxRate !== undefined && item.taxRate !== null && (
                       <span className="text-[10px] font-semibold text-slate-500 ml-1.5 font-sans">
@@ -192,48 +192,48 @@ export function A4ModernTemplate({ doc }: { doc: NormalizedDocument }) {
                   </p>
                   {Boolean(item.discountValue && item.discountValue > 0) && (
                     <div className="mt-0.5">
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 leading-normal">
                         🏷️ Includes {item.discountValue}{item.discountType === "fixed" ? " ₹" : "%"} discount
                         {itDiscAmt > 0 ? ` (-${formatCurrency(itDiscAmt)})` : ""}
                       </span>
                     </div>
                   )}
                   {item.description && item.name && item.description !== item.name && (
-                    <p className="mt-0.5 text-[10px] text-slate-600 whitespace-pre-line leading-tight">
+                    <p className="mt-0.5 text-[10px] text-slate-600 whitespace-pre-line leading-normal">
                       {item.description}
                     </p>
                   )}
                 </td>
                 {hasHsnSac && (
-                  <td className="py-2.5 px-2.5 text-center font-mono font-semibold text-[10px] text-slate-700 whitespace-nowrap">
+                  <td className="py-2.5 px-2.5 text-center font-mono font-semibold text-[10px] text-slate-700 whitespace-nowrap leading-normal">
                     {item.hsnSacCode || "—"}
                   </td>
                 )}
                 {hasQtyOrRate && (
                   <>
-                    <td className="py-2.5 px-2.5 text-center text-slate-700 font-medium whitespace-nowrap">
+                    <td className="py-2.5 px-2.5 text-center text-slate-700 font-medium whitespace-nowrap leading-normal">
                       {item.quantity !== undefined ? `${item.quantity} ${item.unit || ""}` : "—"}
                     </td>
-                    <td className="py-2.5 px-2.5 text-right text-slate-700 font-mono whitespace-nowrap font-medium">
+                    <td className="py-2.5 px-2.5 text-right text-slate-700 font-mono whitespace-nowrap font-medium leading-normal">
                       {item.rate !== undefined ? formatCurrency(item.rate) : "—"}
                     </td>
                   </>
                 )}
-                <td className="py-2.5 px-2.5 text-right font-mono whitespace-nowrap">
+                <td className="py-2.5 px-2.5 text-right font-mono whitespace-nowrap leading-normal">
                   {Boolean(item.discountValue && item.discountValue > 0 && itDiscAmt > 0) ? (
                     <div>
-                      <span className="text-[10px] text-slate-400 line-through block font-normal">
+                      <span className="text-[10px] text-slate-400 line-through block font-normal leading-normal">
                         {formatCurrency(item.amount + itDiscAmt)}
                       </span>
-                      <span className="font-bold text-slate-900 block">
+                      <span className="font-bold text-slate-900 block leading-normal">
                         {formatCurrency(item.amount)}
                       </span>
-                      <span className="text-[9px] font-bold text-emerald-700 font-sans block">
+                      <span className="text-[9px] font-bold text-emerald-700 font-sans block leading-normal">
                         (-{item.discountValue}{item.discountType === "fixed" ? "₹" : "%"} off)
                       </span>
                     </div>
                   ) : (
-                    <span className="font-bold text-slate-900">
+                    <span className="font-bold text-slate-900 leading-normal">
                       {formatCurrency(item.amount)}
                     </span>
                   )}
@@ -304,9 +304,9 @@ export function A4ModernTemplate({ doc }: { doc: NormalizedDocument }) {
             </>
           )}
 
-          <div className="border-t-2 border-b-2 border-slate-900 py-1.5 my-1 flex justify-between font-black text-sm text-slate-900">
-            <span>TOTAL</span>
-            <span className="font-mono text-base">{formatCurrency(doc.totalAmount)}</span>
+          <div className="border-t-2 border-b-2 border-slate-900 py-2 my-1 flex justify-between items-center font-black text-sm text-slate-900 leading-normal">
+            <span className="leading-normal">TOTAL</span>
+            <span className="font-mono text-base leading-normal">{formatCurrency(doc.totalAmount)}</span>
           </div>
 
           {/* Quotation Advance Required vs Balance on Delivery */}
@@ -470,7 +470,7 @@ export function A4ModernTemplate({ doc }: { doc: NormalizedDocument }) {
               )}
             </div>
             <div className="w-44 border-b-2 border-slate-800" />
-            <p className="text-[9px] font-extrabold text-slate-900 uppercase tracking-wider mt-1">
+            <p className="text-[9px] font-extrabold text-slate-900 uppercase tracking-wider mt-1.5 leading-normal">
               Authorized Signatory
             </p>
           </div>
