@@ -167,3 +167,4 @@ CREATE TABLE IF NOT EXISTS tenant_invitations (
 - [ ] Camera Barcode scanner integration for instant product selection.
 - [ ] Multi-user activity audit logs (shows who created invoice #1001 or updated stock).
 - [ ] CSV/Excel bulk inventory import/export.
+
