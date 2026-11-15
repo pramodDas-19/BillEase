@@ -7,6 +7,7 @@ export interface NormalizedItem {
   id: string;
   name: string;
   description?: string;
+  detailedNotes?: string;
   hsnSacCode?: string;
   quantity: number;
   unit: string;
@@ -24,6 +25,7 @@ export interface NormalizedDocument {
   documentType: "invoice" | "quotation";
   documentTitle: string;
   documentNumber: string;
+  quotationNumber?: string;
   date: string;
   dueDateOrValidUntil: {
     label: string;
@@ -76,6 +78,8 @@ export interface NormalizedDocument {
   totalTax: number;
   totalAmount: number;
   totalInWords: string;
+  roundOffAmount?: number;
+  isRoundOffEnabled?: boolean;
   receivedAmount: number;
   balanceDue: number;
   advanceAmount?: number;
@@ -156,10 +160,15 @@ export function normalizeDocument(
       dVal > 0 ? (dType === "fixed" ? dVal : (amount * dVal) / 100) : 0
     );
 
+    const itemTitle = (it.name as string) || (it.description as string) || "Item";
+    // Detailed notes is the scope/specifications; fallback to secondary description if it differs from the title
+    const rawDetails = (it.detailedNotes as string) || (it.name && it.description && it.name !== it.description ? (it.description as string) : "");
+
     return {
       id: (it.id as string) || String(idx + 1),
-      name: (it.name as string) || (it.description as string) || "Item",
-      description: (it.description as string) || "",
+      name: itemTitle,
+      description: rawDetails,
+      detailedNotes: (it.detailedNotes as string) || rawDetails,
       hsnSacCode: (it.hsnSacCode as string) || "",
       quantity: qty,
       unit: (it.unit as string) || "PCS",
@@ -207,6 +216,7 @@ export function normalizeDocument(
     documentType: type,
     documentTitle,
     documentNumber,
+    quotationNumber: inv?.quotationNumber || (docAny.quotationNumber as string) || undefined,
     date: dateStr,
     dueDateOrValidUntil: {
       label: dueOrValidLabel,
@@ -248,6 +258,8 @@ export function normalizeDocument(
     totalTax,
     totalAmount: doc.totalAmount || 0,
     totalInWords: numberToWords(doc.totalAmount || 0),
+    roundOffAmount: inv?.isRoundOffEnabled ? (inv?.roundOffAmount || 0) : undefined,
+    isRoundOffEnabled: Boolean(inv?.isRoundOffEnabled),
     receivedAmount,
     balanceDue,
     advanceAmount: quot?.advanceAmount,

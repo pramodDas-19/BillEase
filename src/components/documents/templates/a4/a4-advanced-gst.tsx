@@ -92,6 +92,7 @@ export function A4AdvancedGstTemplate({ doc }: { doc: NormalizedDocument }) {
               <div className="flex flex-wrap gap-x-2 text-[10px] text-slate-600 mt-1">
                 {doc.client.phone && <span>Ph: {doc.client.phone}</span>}
                 {doc.client.gstin && <span className="font-bold text-slate-900">GSTIN: {doc.client.gstin}</span>}
+                {doc.client.pan && <span className="font-bold text-slate-800">PAN: {doc.client.pan}</span>}
               </div>
             </div>
 
@@ -103,10 +104,11 @@ export function A4AdvancedGstTemplate({ doc }: { doc: NormalizedDocument }) {
                 <p className="text-[10px] text-slate-700 leading-tight">
                   {doc.shippingAddress}
                 </p>
-                {(doc.eWayBillNo || doc.vehicleNo) && (
-                  <div className="mt-1 pt-1 border-t border-slate-200 flex gap-3 text-[10px]">
+                {(doc.eWayBillNo || doc.vehicleNo || doc.poNumber) && (
+                  <div className="mt-1 pt-1 border-t border-slate-200 flex flex-wrap gap-3 text-[10px]">
                     {doc.eWayBillNo && <span>E-Way Bill: <strong className="font-mono">{doc.eWayBillNo}</strong></span>}
                     {doc.vehicleNo && <span>Vehicle No: <strong>{doc.vehicleNo}</strong></span>}
+                    {doc.poNumber && <span>PO No: <strong>{doc.poNumber}</strong></span>}
                   </div>
                 )}
               </div>
@@ -223,6 +225,12 @@ export function A4AdvancedGstTemplate({ doc }: { doc: NormalizedDocument }) {
                 <p className="text-[9px] text-slate-500 leading-tight mt-0.5 whitespace-pre-line">{doc.terms}</p>
               </div>
             )}
+            {doc.notes && (
+              <div className="mt-2 pt-2 border-t border-slate-200">
+                <span className="text-[9px] font-bold text-slate-600 uppercase">Notes / Instructions:</span>
+                <p className="text-[9px] text-slate-500 leading-tight mt-0.5 whitespace-pre-line">{doc.notes}</p>
+              </div>
+            )}
           </div>
 
           {/* Payment & Balance Totals (Right 5 Cols) */}
@@ -241,6 +249,14 @@ export function A4AdvancedGstTemplate({ doc }: { doc: NormalizedDocument }) {
               <div className="flex justify-between text-slate-600">
                 <span>Total Tax (GST):</span>
                 <span className="font-mono">+{formatCurrency(doc.totalTax)}</span>
+              </div>
+            )}
+            {doc.roundOffAmount !== undefined && doc.roundOffAmount !== 0 && (
+              <div className="flex justify-between text-slate-600">
+                <span>Round Off:</span>
+                <span className="font-mono">
+                  {doc.roundOffAmount > 0 ? `+${formatCurrency(doc.roundOffAmount)}` : formatCurrency(doc.roundOffAmount)}
+                </span>
               </div>
             )}
             <div className="flex justify-between font-black text-sm text-slate-900 pt-1 border-t-2 border-slate-900">

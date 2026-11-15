@@ -94,6 +94,16 @@ export function A4ModernTemplate({ doc }: { doc: NormalizedDocument }) {
               Place of Supply: <span className="font-bold text-slate-800">{doc.placeOfSupply}</span>
             </p>
           )}
+          {doc.poNumber && (
+            <p className="text-[11px] text-slate-600 font-medium">
+              PO Number: <span className="font-bold text-slate-800 font-mono">{doc.poNumber}</span>
+            </p>
+          )}
+          {doc.quotationNumber && (
+            <p className="text-[11px] text-slate-600 font-medium">
+              Quotation Ref: <span className="font-bold text-slate-800 font-mono">#{doc.quotationNumber}</span>
+            </p>
+          )}
         </div>
       </div>
 
@@ -183,7 +193,7 @@ export function A4ModernTemplate({ doc }: { doc: NormalizedDocument }) {
                 </td>
                 <td className="py-2.5 px-2.5">
                   <p className="font-bold text-slate-900 leading-normal">
-                    {item.name || item.description}
+                    {item.name}
                     {doc.isTaxEnabled && item.taxRate !== undefined && item.taxRate !== null && (
                       <span className="text-[10px] font-semibold text-slate-500 ml-1.5 font-sans">
                         (GST {item.taxRate}%)
@@ -198,9 +208,9 @@ export function A4ModernTemplate({ doc }: { doc: NormalizedDocument }) {
                       </span>
                     </div>
                   )}
-                  {item.description && item.name && item.description !== item.name && (
+                  {(item.detailedNotes || item.description) && (
                     <p className="mt-0.5 text-[10px] text-slate-600 whitespace-pre-line leading-normal">
-                      {item.description}
+                      {item.detailedNotes || item.description}
                     </p>
                   )}
                 </td>
@@ -302,6 +312,15 @@ export function A4ModernTemplate({ doc }: { doc: NormalizedDocument }) {
                 </div>
               ))}
             </>
+          )}
+
+          {doc.roundOffAmount !== undefined && doc.roundOffAmount !== 0 && (
+            <div className="flex justify-between text-slate-600 text-[11px]">
+              <span className="font-medium">Round Off</span>
+              <span className="font-mono">
+                {doc.roundOffAmount > 0 ? `+${formatCurrency(doc.roundOffAmount)}` : formatCurrency(doc.roundOffAmount)}
+              </span>
+            </div>
           )}
 
           <div className="border-t-2 border-b-2 border-slate-900 py-2 my-1 flex justify-between items-center font-black text-sm text-slate-900 leading-normal">
